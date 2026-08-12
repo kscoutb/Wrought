@@ -1,0 +1,20 @@
+# GATE-HJ1 Phase 2 — re-verify the eight named packages + baseline as installed NOW
+# command: dpkg-query -W -f='${Package} ${Version} ${Status}\n' <8 names>
+2026-08-12T00:13:21-04:00
+cloud-image-utils 0.33-1build1 install ok installed
+cpu-checker 0.7-1.4build1 install ok installed
+libvirt-clients 12.0.0-1ubuntu5.2 install ok installed
+libvirt-daemon-system 12.0.0-1ubuntu5.2 install ok installed
+ovmf 2025.11-3ubuntu7 install ok installed
+qemu-system-x86 1:10.2.1+ds-1ubuntu3.2 install ok installed
+qemu-utils 1:10.2.1+ds-1ubuntu3.2 install ok installed
+virtinst 1:5.1.0-1 install ok installed
+## systemd baseline
+libsystemd-shared 259.5-0ubuntu3.4
+libsystemd0 259.5-0ubuntu3.4
+systemd 259.5-0ubuntu3.4
+systemd-container 259.5-0ubuntu3.4
+udev 259.5-0ubuntu3.4
+## apt-mark showhold (expect empty)
+## dpkg entry count
+1872

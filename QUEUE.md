@@ -15,7 +15,7 @@ One row per gate, newest at the bottom. See `README.md` for the loop.
 
 | Gate | Status | Notes |
 |---|---|---|
-| `GATE-HJ1-HYGIENE` | `RUNNING` | v1.1 archived to `prompts/GATE-HJ1-HYGIENE-v1.1.md`. Consolidation session: ratify J0A substrate pins, create `docs/EXECUTOR-RAILS.md` + `docs/PHASE-J-STATE.md`, integrate the courier. J0B is held until this closes. |
+| `GATE-HJ1-HYGIENE` | `BUNDLED` | v1.1 archived to `prompts/GATE-HJ1-HYGIENE-v1.1.md`; bundle at `bundles/GATE-HJ1/` (16-entry `SHA256SUMS`, verifies 16/16, covers the whole directory bar itself). Pins ratified — the closure is pinned at **versions**, not just names. Byte freeze **held**. Two foundry commits, local (the foundry repo has no remote): `624f1b9`, `bc27359`. **Surfaced, not answered: the running kernel is `7.0.0-29-generic` against a pinned `7.0.0-28-generic`, so ST-1 now has two unsatisfied triggers.** J0B unblocks on adjudication. |
 
 *(HJ1 is the first gate through the courier. It was dispatched to the operator as a file and
 archived here verbatim before the box began work.)*

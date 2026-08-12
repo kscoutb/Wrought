@@ -1,0 +1,181 @@
+# GATE-HJ1 — FULL diff of pins.lock, from commit 624f1b9
+# command: git show 624f1b907572940d8e05783884c5e9fc2cbbd6fe -- pins.lock
+
+commit 624f1b907572940d8e05783884c5e9fc2cbbd6fe
+Author: Kalib <anthropic.spotlight807@passmail.net>
+Date:   Wed Aug 12 00:21:04 2026 -0400
+
+    pins: virtualization substrate ratified (GATE-J0A); goose selected pending J0B
+
+diff --git a/pins.lock b/pins.lock
+index eb24087..aeac63a 100644
+--- a/pins.lock
++++ b/pins.lock
+@@ -494,6 +494,167 @@ substrate:
+   kernel_cmdline_params: "amdgpu.runpm=0"
+   kernel_cmdline_full: "BOOT_IMAGE=/boot/vmlinuz-7.0.0-28-generic root=UUID=d05b8e41-3ced-4c77-83e0-b1fbf56589c6 ro amdgpu.runpm=0 quiet splash crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M"
+ 
++  # U-1 / GATE-J0A, operator-ratified 2026-08-11; folded in at GATE-HJ1 2026-08-12 (J-157).
++  # OPERATOR-AUTHORIZED KEY (not in pins.lock.template) — same provenance convention as
++  # kernel_cmdline_params above, recorded so it is auditable rather than looking invented.
++  #
++  # THE RULING: the OS substrate TRACKS resolute-security via unattended-upgrades, and drift is
++  # RECORDED PER GATE, NOT FOUGHT. J0A round 1 aborted because the box sat behind the archive
++  # (systemd 259.5-0ubuntu3 vs -3.4). The operator took the update rather than holding the stack,
++  # on the stated ground that a hold silently blocks security updates on the eleven most
++  # privileged packages on the box, indefinitely, and shows up nowhere but `apt-mark showhold`.
++  #
++  # MEASURED 2026-08-12 -> /var/lib/wrought/hj1/raw/04-u1-posture.txt:
++  #   systemctl is-enabled unattended-upgrades.service   -> enabled
++  #   apt-config dump | grep -i Package-Blacklist        -> no entries (blacklist empty)
++  #   apt-mark showhold                                  -> empty (Option A was not partially
++  #                                                         adopted by accident)
++  # THE COST IS NOT WAVED THROUGH: this posture is why apparmor/libapparmor1 jumped beta -> stable
++  # underneath the verification oracle's own bwrap (GATE-J0A round 2, SURPRISE S-1). ST-1 is the
++  # control for that class of move, and it is QUEUED, NOT SATISFIED.
++  os_update_policy:
++    tracks: resolute-security
++    mechanism: unattended-upgrades          # enabled; Package-Blacklist empty
++    holds: NONE                             # `apt-mark showhold` empty 2026-08-12
++    posture: RECORD-DRIFT-PER-GATE          # U-1, operator ruling 2026-08-11
++    # Observed drift against the pins ABOVE, recorded rather than silently corrected. A pin moves
++    # only in the gate that re-measures it; for a kernel bump that gate is ST-1. Editing
++    # substrate.kernel here instead would mark ST-1 satisfied by typing.
++    drift_observed:
++      - "2026-08-12 kernel: running 7.0.0-29-generic vs pinned 7.0.0-28-generic (`uname -r`, /var/lib/wrought/hj1/raw/05-drift-check.txt). ST-1 TRIGGER, UNSATISFIED. mesa unchanged at 26.0.3-1ubuntu1."
++      - "2026-08-11 apparmor + libapparmor1: 5.0.0~beta1-0ubuntu7 -> 5.0.2-0ubuntu1~26.04.1 (GATE-J0A round 2, SURPRISE S-1). Smoke-tested only: kernel.apparmor_restrict_unprivileged_userns = 1 and bwrap --unshare-all still builds a clean netns; the exit-code taxonomy of GATE-23/25 was NOT re-classified. ST-1 TRIGGER, UNSATISFIED."
++
++# GATE-J0A-SUBSTRATE ratification, folded in at GATE-HJ1 2026-08-12 (J-157).
++# OPERATOR-AUTHORIZED KEYS (not in pins.lock.template). The GATE-HJ1 prompt's Phase 2 reads
++# "operator has ruled; execute"; the ruling itself is build-evidence/j0a/ACCEPTANCE-2026-08-11.md
++# (J-155). Provenance is recorded per the substrate.kernel_cmdline_params precedent above.
++#
++#   proposal      build-evidence/j0a/round2/PROPOSED-PINS-DELTA.md
++#                 build-evidence/j0a/round2/PROPOSED-COTS-J0A.md
++#                 (ROUND 2 SUPERSEDES the v1.1 copies in build-evidence/j0a/: those versions were
++#                  `apt-cache policy` CANDIDATES from a set that was never installed. Round 2 is
++#                  dpkg-query output from an installed box. Where they differ, round 2 wins.)
++#   re-verified   at ratification rather than copied forward from the proposal (J-95):
++#                 dpkg-query -W -f='${Package} ${Version} ${Status}\n' <names>
++#                 -> /var/lib/wrought/hj1/raw/02-pins-reverify-dpkg.txt   (the 8 + baseline)
++#                 -> /var/lib/wrought/hj1/raw/03-closure-dpkg.txt         (the 43-package closure)
++#                 All 51 read `install ok installed`; all eight named packages are at exactly the
++#                 versions round 2 measured on 2026-08-10, i.e. nothing drifted between the
++#                 measurement and its ratification.
++#
++# SCOPE, STATED PLAINLY: this pins WHAT IS INSTALLED. It does not establish that the substrate is
++# safe to build on. GPU passthrough is UNTESTED and guest egress control is UNTESTED — round 2's
++# own capture shows generic egress from the libvirt guest SUCCEEDS (204 from
++# connectivity-check.ubuntu.com), so that is a live question, not a theoretical one. See
++# docs/PHASE-J-STATE.md.
++virtualization:
++  # THE BASELINE IS PART OF THE PIN, and this is the whole reason round 2 exists.
++  # libvirt-daemon-driver-qemu carries `Depends: systemd-container | sysvinit-core`, and
++  # systemd-container carries a STRICT EQUALITY on libsystemd-shared (= its own version). A pin of
++  # the eight that omits this baseline is not reproducible: on a box at 259.5-0ubuntu3 the same
++  # eight names produce a different — and aborting — transaction. The coupling is permanent; any
++  # future divergence between libsystemd-shared and systemd-container re-arms the same abort.
++  substrate_systemd_baseline: "259.5-0ubuntu3.4"   # systemd, libsystemd-shared, libsystemd0, udev,
++                                                   # systemd-container all read this (raw/02)
++
++  # The eight named packages. Provenance for all of them: the Ubuntu 26.04 (`resolute`) archive at
++  # us.archive.ubuntu.com — `main` except virtinst (universe). No PPA, no third-party repository,
++  # no vendored binary, no pip, no npm. Installed --no-install-recommends.
++  packages:
++    qemu_system_x86: "1:10.2.1+ds-1ubuntu3.2"      # resolute-updates/main — the hypervisor
++    qemu_utils: "1:10.2.1+ds-1ubuntu3.2"           # resolute-updates/main — qemu-img; the revert primitive
++    libvirt_daemon_system: "12.0.0-1ubuntu5.2"     # resolute-updates/main — system libvirtd + `default` net
++    libvirt_clients: "12.0.0-1ubuntu5.2"           # resolute-updates/main — virsh
++    virtinst: "1:5.1.0-1"                          # resolute/UNIVERSE — the only universe member of the set
++    ovmf: "2025.11-3ubuntu7"                       # resolute/main — UEFI firmware. NOT EXERCISED: both
++                                                   # J0A guests booted SeaBIOS/legacy, never UEFI
++    cloud_image_utils: "0.33-1build1"              # resolute/main — cloud-localds (built seed.img)
++    cpu_checker: "0.7-1.4build1"                   # resolute/main — kvm-ok
++
++  # The dependency closure: 43 automatic + the 8 above = 51, corroborated independently by the dpkg
++  # entry count moving 1821 -> 1872 (exactly +51) with 0 removals and 0 upgrades. Recorded as
++  # "<dpkg name> <version>" strings rather than as keys, deliberately: snake_case-ing names like
++  # gir1.2-libosinfo-1.0 would be lossy and would stop the list being greppable against dpkg-query.
++  closure_count: 51
++  closure_installed:
++    - "genisoimage 9:1.1.11-5"
++    - "gir1.2-libosinfo-1.0 1.12.0-3build1"
++    - "ipxe-qemu 1.21.1+git-20250829.969ce2c55+dfsg-3ubuntu2"
++    - "libaio1t64 0.3.113-8build1"
++    - "libcacard0 1:2.8.1-2"
++    - "libdaxctl1 81-1ubuntu1"
++    - "libfdt1 1.7.2-2ubuntu1"
++    - "libmpathcmd0 0.14.3-2ubuntu1"
++    - "libmpathpersist0 0.14.3-2ubuntu1"
++    - "libmultipath0 0.14.3-2ubuntu1"
++    - "libndctl6 81-1ubuntu1"
++    - "libpmem1 1.13.1-1.1ubuntu4"
++    - "librdmacm1t64 61.0-2ubuntu3"
++    - "libslirp0 4.9.1-1ubuntu1.1"
++    - "libusbredirparser1t64 0.15.0-1build1"
++    - "libvirt-common 12.0.0-1ubuntu5.2"
++    - "libvirt-daemon 12.0.0-1ubuntu5.2"
++    - "libvirt-daemon-common 12.0.0-1ubuntu5.2"
++    - "libvirt-daemon-config-network 12.0.0-1ubuntu5.2"
++    - "libvirt-daemon-config-nwfilter 12.0.0-1ubuntu5.2"
++    - "libvirt-daemon-driver-network 12.0.0-1ubuntu5.2"
++    - "libvirt-daemon-driver-nodedev 12.0.0-1ubuntu5.2"
++    - "libvirt-daemon-driver-nwfilter 12.0.0-1ubuntu5.2"
++    - "libvirt-daemon-driver-qemu 12.0.0-1ubuntu5.2"      # the strict-equality edge; see baseline above
++    - "libvirt-daemon-driver-secret 12.0.0-1ubuntu5.2"
++    - "libvirt-daemon-driver-storage 12.0.0-1ubuntu5.2"
++    - "libvirt-daemon-log 12.0.0-1ubuntu5.2"
++    - "libvirt0 12.0.0-1ubuntu5.2"
++    - "libxml2-utils 2.15.2+dfsg-0.1ubuntu0.1"
++    - "mdevctl 1.4.0-1ubuntu3"
++    - "msr-tools 1.3+git20220805.7d78c80-1build1"         # x86 MSR read/write tooling. Not required by any
++                                                          # J0A probe and arguably out of scope for a VM
++                                                          # substrate — flagged, not waved through
++    - "ovmf-amdsev 2025.11-3ubuntu7"
++    - "ovmf-generic 2025.11-3ubuntu7"
++    - "ovmf-inteltdx 2025.11-3ubuntu7"
++    - "python3-libvirt 12.0.0-1build1"
++    - "python3-libxml2 2.15.2+dfsg-0.1ubuntu0.1"
++    - "qemu-system-common 1:10.2.1+ds-1ubuntu3.2"
++    - "qemu-system-data 1:10.2.1+ds-1ubuntu3.2"
++    - "seabios 1.17.0-1ubuntu1"
++    - "systemd-container 259.5-0ubuntu3.4"                # benign ONLY because the stack matches its
++                                                          # strict-equality dependency
++    - "ubuntu-helper-virt-hwe 1:10.2.1+ds-1ubuntu4.3"     # note: 1ubuntu4.3, NOT the 1ubuntu3.2 the rest of
++                                                          # the qemu source revisions carry. Measured, not
++                                                          # normalized
++    - "ubuntu-virt 1:10.2.1+ds-1ubuntu3.2"
++    - "virt-install 1:5.1.0-1"
++
++  # The disposable-guest base image. MEASURED, VERIFIED, and EXERCISED: the hash was re-verified
++  # before overlay creation, after the discard-and-revert cycle, and after the libvirt guest
++  # (round 2 raw/30, raw/34, raw/65) and was identical every time. Three guest boots wrote through
++  # qcow2 overlays and the backing file's sha256 never moved — so the immutability the
++  # disposable-guest model ASSUMES is MEASURED, not asserted. The guest is deliberately 24.04 while
++  # the host is 26.04; a guest need not match its host.
++  guest_base_image:
++    file: noble-server-cloudimg-amd64.img
++    url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
++    sha256: 0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe   # verify on EVERY pull
++    size_bytes: 624239616
++    release: "Ubuntu 24.04 LTS (noble) cloud image"
++    upstream_last_modified: "2026-08-01T13:17:55Z"   # quoted: an unquoted timestamp resolves to a
++                                                     # datetime and stops comparing equal as text
++    format: "qcow2 v3, 3758096384 bytes virtual"
++    path: /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
++    # OPERATOR RULING 2026-08-11: the detached signature (cloudimg-SHA256SUMS.gpg) was downloaded
++    # but NOT verified, because importing the Ubuntu cloud-image signing key is a supply-chain
++    # decision (which key, from where, pinned how). The operator ruled: HASH PIN ACCEPTED,
++    # SIGNATURE WAIVED. Recorded as a key rather than a comment so the project's own supply-chain
++    # rule ("sha256 + Sigstore/signature WHERE PUBLISHED") shows a DECISION at this point instead
++    # of a silent omission — the same idiom as litestream.sigstore_attestation above.
++    # RESIDUAL RISK, stated: the pin binds the artifact to a hash served over TLS at one moment,
++    # not to a publisher identity. sha256 gives INTEGRITY, not AUTHENTICITY.
++    gpg_signature: WAIVED-OPERATOR-RULING-2026-08-11
++    # `current/` is a MOVING POINTER: the same URL serves a different image after each respin,
++    # which is exactly what makes pinning the hash load-bearing.
++    url_stability: MOVING-POINTER-UPSTREAM
++
+ models:
+   primary:
+     id: qwen3.6-27b-mtp

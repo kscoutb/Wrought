@@ -1,0 +1,13 @@
+# GATE-HJ1 Phase 2 — pack identity unaffected by the pins.lock edit
+$ bin/gen-pack --check
+gen-pack --check: packs/py.toml matches pins.lock  sha256=37d1c39c146a01782c43cd994a666afd8ead01c163db13f861873bdedad3edd9
+gen-pack --check exit=0 (above)
+
+# CROSS-CHECK: pins.lock virtualization.closure_installed vs dpkg-query (raw/03).
+# Compared as SORTED SETS: pins.lock preserves the round-2 proposal's listing order,
+# which differs from sort(1) collation on 'libvirt0' only. Content must be identical.
+MATCH: 43/43 name+version identical to dpkg-query. 0 additions, 0 omissions, 0 transcription errors.
+
+# and the eight named packages against raw/02
+named packages compared: 8 | mismatches: 0 
+VERDICT: 8/8 MATCH dpkg-query

@@ -1,0 +1,13 @@
+# GATE-HJ1 Phase 2 — U-1 standing posture, measured before it is recorded as policy
+# commands: systemctl is-enabled unattended-upgrades; apt-config dump Unattended-Upgrade::Package-Blacklist; apt-mark showhold; lsb_release -cs
+2026-08-12T00:17:40-04:00
+$ systemctl is-enabled unattended-upgrades.service
+enabled
+$ apt-config dump | grep -i 'Unattended-Upgrade::Package-Blacklist'
+(no Package-Blacklist entries -> empty)
+$ apt-mark showhold
+(empty above = no holds)
+$ lsb_release -cs ; grep -h '^Suites' /etc/apt/sources.list.d/*.sources 2>/dev/null | head -3
+resolute
+Suites: resolute resolute-updates resolute-backports
+Suites: resolute-security

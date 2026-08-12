@@ -1,0 +1,30 @@
+# GATE-HJ1 — FULL diff of CLAUDE.md, from commit bc27359 (3 insertions, 1 deletion)
+# command: git show bc273598ddc89ba335dcd91327b3328fb700bfed -- CLAUDE.md
+
+commit bc273598ddc89ba335dcd91327b3328fb700bfed
+Author: Kalib <anthropic.spotlight807@passmail.net>
+Date:   Wed Aug 12 00:25:58 2026 -0400
+
+    docs: executor rails + phase-j state, journal J-157 (GATE-HJ1)
+
+diff --git a/CLAUDE.md b/CLAUDE.md
+index a546127..95d1d36 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -54,6 +54,8 @@ Single-node, local-first LLM software-manufacturing pipeline. Qwen3.6-27B (Q4; M
+ | `reports/` | Session reports older than the three most recent, which stay at the repo root because build scripts read them by path |
+ | `products/` | Manufactured tools that an oracle graded to a terminal PASS — one directory per task, each with a `MANIFEST.json`. Admission rule in `products/README.md` |
+ | `ORGANIZATION-MAP.md` | The repository's top-level layout, and for each load-bearing path the one-line reason it cannot move |
++| `docs/EXECUTOR-RAILS.md` | The invariant session rails — **read before running any advisor-prompted session** |
++| `docs/PHASE-J-STATE.md` | **The live rail position for Phase J** — the first doc a fresh session reads |
+ 
+ ## Conventions
+ 
+@@ -64,6 +66,6 @@ Single-node, local-first LLM software-manufacturing pipeline. Qwen3.6-27B (Q4; M
+ 
+ ## Where to start
+ 
+-**Read `BUILD-JOURNAL.md` first for the live rail position.** As of v3.5.2: Phase A is closed except four physical-presence gates DEFERRED to the next on-site visit per **D17** — GATE-01 (console attest), GATE-03A/03B (input firewall), GATE-04 (BIOS UMA carve). Do NOT attempt those remotely (the input chain makes the tailnet the sole path; the console is unattested). Resume on the remote-safe rail at **GATE-05** and run forward in order, surfacing (never guessing) if a gate unexpectedly needs the console. When a gate produces a measured value (device name, cold-load median, acceptance rate, VRAM readout), write it to `pins.lock` and reference it from config — never hard-code it in two places.
++**Read `BUILD-JOURNAL.md` first for the live rail position** — and for Phase J read **`docs/PHASE-J-STATE.md`**, which is that position in one page. Before running any advisor-prompted session, read **`docs/EXECUTOR-RAILS.md`**. **Every session ends by appending a `BUILD-JOURNAL.md` entry, updating `docs/PHASE-J-STATE.md`, and returning its bundle through the courier** (`/home/kalib/courier/Wrought/README.md`). As of v3.5.2: Phase A is closed except four physical-presence gates DEFERRED to the next on-site visit per **D17** — GATE-01 (console attest), GATE-03A/03B (input firewall), GATE-04 (BIOS UMA carve). Do NOT attempt those remotely (the input chain makes the tailnet the sole path; the console is unattested). Resume on the remote-safe rail at **GATE-05** and run forward in order, surfacing (never guessing) if a gate unexpectedly needs the console. When a gate produces a measured value (device name, cold-load median, acceptance rate, VRAM readout), write it to `pins.lock` and reference it from config — never hard-code it in two places.
+ 
+ **Where the session reports live** (reorganized 2026-08-09, session 21 — see `ORGANIZATION-MAP.md`): the **three most recent** stay at this root, because `bin/make-session-19-bundle` and `bin/make-review-bundle-19/20` read them by path under `set -euo pipefail`. **Everything older is in `reports/`.** A new session's report is written at the root and moves to `reports/` once nothing reads it. Manufactured products live in `products/` (one directory per task, each with a `MANIFEST.json`); superseded spec zips and spent drafts are under `archive/`.

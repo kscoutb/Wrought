@@ -1,0 +1,8 @@
+# GATE-HJ1 — the idle peer session, measured rather than asserted (advisor-side note)
+# command: ps -o pid,lstart,etime,cmd -p 4756,46628
+2026-08-12T00:24:31-04:00
+    PID                  STARTED     ELAPSED CMD
+   4756 Mon Aug 10 21:35:23 2026  1-02:49:07 claude --dangerously-skip-permissions
+  46628 Tue Aug 11 20:42:19 2026    03:42:11 claude --dangerously-skip-permissions
+
+# 46628 is THIS session (parent of the executor shell); 4756 is the idle peer.

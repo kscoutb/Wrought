@@ -1,0 +1,46 @@
+# GATE-HJ1 Phase 2 — the 43-package dependency closure at INSTALLED versions
+# command: dpkg-query -W -f='${Package} ${Version} ${Status}\n' <43 closure names from build-evidence/j0a/round2/PROPOSED-COTS-J0A.md>
+2026-08-12T00:16:39-04:00
+genisoimage 9:1.1.11-5 install ok installed
+gir1.2-libosinfo-1.0 1.12.0-3build1 install ok installed
+ipxe-qemu 1.21.1+git-20250829.969ce2c55+dfsg-3ubuntu2 install ok installed
+libaio1t64 0.3.113-8build1 install ok installed
+libcacard0 1:2.8.1-2 install ok installed
+libdaxctl1 81-1ubuntu1 install ok installed
+libfdt1 1.7.2-2ubuntu1 install ok installed
+libmpathcmd0 0.14.3-2ubuntu1 install ok installed
+libmpathpersist0 0.14.3-2ubuntu1 install ok installed
+libmultipath0 0.14.3-2ubuntu1 install ok installed
+libndctl6 81-1ubuntu1 install ok installed
+libpmem1 1.13.1-1.1ubuntu4 install ok installed
+librdmacm1t64 61.0-2ubuntu3 install ok installed
+libslirp0 4.9.1-1ubuntu1.1 install ok installed
+libusbredirparser1t64 0.15.0-1build1 install ok installed
+libvirt-common 12.0.0-1ubuntu5.2 install ok installed
+libvirt-daemon 12.0.0-1ubuntu5.2 install ok installed
+libvirt-daemon-common 12.0.0-1ubuntu5.2 install ok installed
+libvirt-daemon-config-network 12.0.0-1ubuntu5.2 install ok installed
+libvirt-daemon-config-nwfilter 12.0.0-1ubuntu5.2 install ok installed
+libvirt-daemon-driver-network 12.0.0-1ubuntu5.2 install ok installed
+libvirt-daemon-driver-nodedev 12.0.0-1ubuntu5.2 install ok installed
+libvirt-daemon-driver-nwfilter 12.0.0-1ubuntu5.2 install ok installed
+libvirt-daemon-driver-qemu 12.0.0-1ubuntu5.2 install ok installed
+libvirt-daemon-driver-secret 12.0.0-1ubuntu5.2 install ok installed
+libvirt-daemon-driver-storage 12.0.0-1ubuntu5.2 install ok installed
+libvirt-daemon-log 12.0.0-1ubuntu5.2 install ok installed
+libvirt0 12.0.0-1ubuntu5.2 install ok installed
+libxml2-utils 2.15.2+dfsg-0.1ubuntu0.1 install ok installed
+mdevctl 1.4.0-1ubuntu3 install ok installed
+msr-tools 1.3+git20220805.7d78c80-1build1 install ok installed
+ovmf-amdsev 2025.11-3ubuntu7 install ok installed
+ovmf-generic 2025.11-3ubuntu7 install ok installed
+ovmf-inteltdx 2025.11-3ubuntu7 install ok installed
+python3-libvirt 12.0.0-1build1 install ok installed
+python3-libxml2 2.15.2+dfsg-0.1ubuntu0.1 install ok installed
+qemu-system-common 1:10.2.1+ds-1ubuntu3.2 install ok installed
+qemu-system-data 1:10.2.1+ds-1ubuntu3.2 install ok installed
+seabios 1.17.0-1ubuntu1 install ok installed
+systemd-container 259.5-0ubuntu3.4 install ok installed
+ubuntu-helper-virt-hwe 1:10.2.1+ds-1ubuntu4.3 install ok installed
+ubuntu-virt 1:10.2.1+ds-1ubuntu3.2 install ok installed
+virt-install 1:5.1.0-1 install ok installed

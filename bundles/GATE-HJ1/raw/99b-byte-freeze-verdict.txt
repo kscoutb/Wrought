@@ -1,0 +1,8 @@
+# GATE-HJ1 — byte-freeze MECHANICAL DIFF, raw/00 vs raw/99
+# command: diff <(grep -v '^2026-' raw/00-byte-freeze-baseline.txt) <(grep -v '^2026-' raw/99-byte-freeze-reassert.txt)
+# (the capture-timestamp line is excluded; it is expected to differ. Everything else must not.)
+2026-08-12T00:26:23-04:00
+
+diff exit=0  (0 = no differences)
+
+VERDICT: BYTE FREEZE HELD. orchestrator.db, -wal and -shm are identical in sha256, size and mtime across the whole session.

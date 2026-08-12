@@ -1,0 +1,9 @@
+# GATE-HJ1 Phase 1 health (prompt block 1, verbatim)
+2026-08-12T00:12:00-04:00
+$ systemctl is-active wrought-inference.service
+active
+$ curl -s -o /dev/null -w '%{http_code}\n' --max-time 5 http://127.0.0.1:8080/health
+200
+$ for c in /sys/class/drm/card*/device; do ... 0x744c ... done
+dGPU=/sys/class/drm/card0/device vram_used=19619987456
+(exit of last: 1)

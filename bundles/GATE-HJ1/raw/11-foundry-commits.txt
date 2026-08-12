@@ -1,0 +1,21 @@
+# GATE-HJ1 — the two foundry commits (no remote: foundry never leaves the box)
+# command: git -C /home/kalib/foundry log -2 --stat --format='%H%n%an <%ae>%n%ai%n%s'
+
+bc273598ddc89ba335dcd91327b3328fb700bfed
+Kalib <anthropic.spotlight807@passmail.net>
+2026-08-12 00:25:58 -0400
+docs: executor rails + phase-j state, journal J-157 (GATE-HJ1)
+
+ BUILD-JOURNAL.md       |  91 +++++++++++++++++++++++++++++++++++++++++
+ CLAUDE.md              |   4 +-
+ docs/EXECUTOR-RAILS.md | 109 +++++++++++++++++++++++++++++++++++++++++++++++++
+ docs/PHASE-J-STATE.md  | 100 +++++++++++++++++++++++++++++++++++++++++++++
+ 4 files changed, 303 insertions(+), 1 deletion(-)
+624f1b907572940d8e05783884c5e9fc2cbbd6fe
+Kalib <anthropic.spotlight807@passmail.net>
+2026-08-12 00:21:04 -0400
+pins: virtualization substrate ratified (GATE-J0A); goose selected pending J0B
+
+ docs/10-cots-bom.md |  11 ++++
+ pins.lock           | 161 ++++++++++++++++++++++++++++++++++++++++++++++++++++
+ 2 files changed, 172 insertions(+)

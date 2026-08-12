@@ -1,0 +1,13 @@
+PARSE OK — top-level keys: 29
+  OK   virtualization.substrate_systemd_baseline: '259.5-0ubuntu3.4' (type str)
+  OK   packages.qemu_system_x86 (epoch version stays a string): '1:10.2.1+ds-1ubuntu3.2' (type str)
+  OK   packages.virtinst: '1:5.1.0-1' (type str)
+  OK   guest_base_image.sha256: '0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe' (type str)
+  OK   guest_base_image.upstream_last_modified (NOT a datetime): '2026-08-01T13:17:55Z' (type str)
+  OK   guest_base_image.gpg_signature: 'WAIVED-OPERATOR-RULING-2026-08-11' (type str)
+  OK   substrate.os_update_policy.holds: 'NONE' (type str)
+  OK   substrate.kernel UNCHANGED (pin not moved by typing): '7.0.0-28-generic' (type str)
+closure_count pin: 51 | closure_installed entries: 43
+named packages: 8
+8 + 43 == closure_count: True
+drift_observed entries: 2

@@ -1,0 +1,35 @@
+# GATE-HJ1 — FULL diff of docs/10-cots-bom.md, from commit 624f1b9
+# command: git show 624f1b907572940d8e05783884c5e9fc2cbbd6fe -- docs/10-cots-bom.md
+
+commit 624f1b907572940d8e05783884c5e9fc2cbbd6fe
+Author: Kalib <anthropic.spotlight807@passmail.net>
+Date:   Wed Aug 12 00:21:04 2026 -0400
+
+    pins: virtualization substrate ratified (GATE-J0A); goose selected pending J0B
+
+diff --git a/docs/10-cots-bom.md b/docs/10-cots-bom.md
+index e308c40..3468f82 100644
+--- a/docs/10-cots-bom.md
++++ b/docs/10-cots-bom.md
+@@ -19,6 +19,7 @@ Rule of thumb this BOM enforces: **buy (adopt COTS) where the problem is undiffe
+ | Cloudflare R2 (service) | account + bucket policy | Off-box replica target | commercial ToS | egress-free S3-compatible |
+ | vmtouch | distro pin | Page-cache pre-warm (optional) | BSD | none |
+ | check-jsonschema (or ajv) | wheel hash | CI validation of llama-swap config vs pinned schema | MIT/Apache | none |
++| **KVM/QEMU/libvirt** (virtualization substrate) | 8 named packages + their 43-package closure at **installed** versions, **plus the systemd baseline they were installed against** — all in `pins.lock` `virtualization:` (GATE-J0A, ratified GATE-HJ1). Not restated here | Disposable-guest substrate for the Phase J agent surface: boot, and revert by discarding a qcow2 overlay | GPL-2/LGPL-2.1, Ubuntu `resolute` **`main`** — except `virtinst`, which is **`universe`** | **Guest egress is UNTESTED and known-open.** J0A measured generic egress *from* the libvirt guest **succeeding** (204). Host seam is QEMU user-net (guest reaches host loopback at `10.0.2.2`); the NAT-bridge alternative was refused on bind scope. `libvirtd-tcp.socket`/`-tls.socket` deliberately left **disabled** |
+ 
+ ### 18.2 Adopted — verification & security pack (all offline-capable; §10)
+ 
+@@ -99,3 +100,13 @@ Rule of thumb this BOM enforces: **buy (adopt COTS) where the problem is undiffe
+ **GAP2 — Dashboard read discipline.** Whatever renders §13.8's dashboard must obey §12.4's structural rule (short autocommitting reads) — Grafana pointed at SQLite with a long-lived connection would recreate the WAL cliff. Prefer rendering from Prometheus metrics + periodic SQLite snapshots, not live SQLite queries.
+ 
+ **GAP3 — Alert *receiver* is undecided** (operator's phone via ntfy? email over tailnet?). Trivial to change; GATE-31 just requires that one exists and fires end-to-end.
++
++### 18.7 Selected — not yet adopted (added GATE-HJ1; a status §18 had no row for)
++
++Deliberately **not** filed under §18.3, which would overstate it: 18.3's entries are *adopted* and waiting on a trigger to fire. This one is **chosen and not yet evidenced** — a name in a plan, not a dependency of the build.
++
++| Tool | Status | Role | What moves it to adopted |
++|---|---|---|---|
++| **Goose** | **SELECTED 2026-08-11 (operator ruling); NOT ADOPTED.** Nothing installed, no version pinned, no `pins.lock` entry, and its licence is a **pin-time question** rather than something this row asserts | The Phase J **agent surface** — the harness that drives a task inside the disposable guest | **GATE-J0B evidence.** Then the usual discipline applies with no exemptions: pinned release + binary sha256 in `pins.lock`, offline-capable operation, and an egress posture that survives §14.1. The last is **live, not theoretical** — J0A measured guest egress succeeding, so an agent surface inside that guest currently has a path out |
++
++Two ratified substrate policies from the same gate live in `pins.lock`, not here, because that is where the versions they govern live — pointers only: **(a)** the OS substrate **tracks `resolute-security`** via `unattended-upgrades` and drift is *recorded per gate, not fought* (`substrate.os_update_policy`, U-1); **(b)** cloud-image **GPG signature verification is waived** in favour of the hash pin (`virtualization.guest_base_image.gpg_signature`). Both carry their measurement commands and their residual risk at that location.
