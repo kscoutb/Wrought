@@ -1,0 +1,9 @@
+# The courier carries text only. Bundles are committed unzipped; nothing binary,
+# and no credential, ever enters this repo. See README.md, hard rule 2.
+*.zip
+*.gguf
+*.qcow2
+*.img
+*_key
+id_*
+.git-credentials
