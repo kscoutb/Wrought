@@ -15,6 +15,7 @@ One row per gate, newest at the bottom. See `README.md` for the loop.
 
 | Gate | Status | Notes |
 |---|---|---|
+| `GATE-HJ1-HYGIENE` | `RUNNING` | v1.1 archived to `prompts/GATE-HJ1-HYGIENE-v1.1.md`. Consolidation session: ratify J0A substrate pins, create `docs/EXECUTOR-RAILS.md` + `docs/PHASE-J-STATE.md`, integrate the courier. J0B is held until this closes. |
 
-*(No gates dispatched yet. The courier was bootstrapped empty; the advisor queues the first
-gate, HJ1.)*
+*(HJ1 is the first gate through the courier. It was dispatched to the operator as a file and
+archived here verbatim before the box began work.)*
