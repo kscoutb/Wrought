@@ -1,0 +1,72 @@
+# cmd: none — these are asynchronous platform notices that arrived in the executor's session
+#   AFTER the GATE-RUNNER bundle was pushed, reporting the fate of the SendMessage calls made
+#   during the steering probes recorded in raw/16.
+# date: 2026-08-21 (received post-bundle, same session)
+# STATUS: CORRECTION TO raw/16. raw/16 is NOT edited or withdrawn — EXECUTOR-RAILS S4 forbids
+#   overwriting evidence, and a correction is ADDED, not substituted. raw/16's OBSERVATIONS all
+#   stand; its explanation of WHY no content reached the children is superseded by this file.
+
+=== THE NOTICES, VERBATIM ===
+
+  [Cross-session delivery notice] Your message to another session was held for the recipient
+  user's approval (recipient: uds:/run/user/1000/cc-socks/311757.sock). Not delivered to that
+  session's Claude yet; its user must approve first. Do not wait for a reply; continue, or
+  choose another approach.
+
+  [Cross-session delivery notice] Your message to another session was not approved before expiry
+  (recipient: uds:/run/user/1000/cc-socks/311757.sock). Not delivered to that session's Claude.
+  Do not wait for a reply; continue, or choose another approach.
+
+  ... and the identical held-then-expired pair for
+  uds:/run/user/1000/cc-socks/314984.sock
+  uds:/run/user/1000/cc-socks/315397.sock
+
+Three held/expired pairs arrived, against the three SendMessage calls this session made (one of
+which the tool had already rejected for an ambiguous name and which was re-sent with its ref).
+No attempt is made here to map notices to individual sends one-to-one — the child PIDs are gone
+and that mapping is not recoverable. What is recoverable, and what matters, is that EVERY notice
+received says HELD FOR APPROVAL, then NOT APPROVED BEFORE EXPIRY, then NOT DELIVERED.
+
+=== WHAT THIS CORRECTS ===
+
+raw/16 concluded: "on THIS build, a `-p` child does not appear to drain an inbox, so messages
+sent to it were not delivered." That inference was reasonable from what was visible at the time
+and IT IS WRONG ABOUT THE MECHANISM. The messages were not ignored by the child. They never
+reached the child at all, because the delivery path interposes an explicit APPROVAL GATE held by
+the RECIPIENT'S USER, and a headless `claude -p` gate child has no human sitting at it to approve
+anything. The messages were held, went unapproved, and expired.
+
+A second, smaller correction: raw/16 and REPORT-RUNNER S7.1 both say `SendMessage` "reports
+delivery success". IT DOES NOT. It reported that the SEND WAS ACCEPTED — `{"success":true,
+"msg_id":...}` — which is not the same claim, and the distinction is exactly the one this whole
+gate keeps re-learning: an interface's optimistic acknowledgement is not evidence that the thing
+happened. The delivery notices are the evidence, and they arrived minutes later.
+
+=== WHAT IS NOW ESTABLISHED, AND WHAT STILL IS NOT ===
+
+ESTABLISHED, and it is a STRONGER safety property than raw/16 credited: cross-session delivery to
+a gate child is gated on a human approval that a headless child cannot give. In three attempts,
+zero messages were delivered. The failure mode is fail-closed BY CONSTRUCTION of the delivery
+path, not by luck and not by the child ignoring its inbox.
+
+STILL NOT ESTABLISHED, and the GATE-RUNNER Phase-3 requirement is STILL NOT SATISFIED:
+  - The approval gate is a PLATFORM behaviour, not something this gate configured. The prompt
+    asked to "config the box so the runner's `claude` invocations can't be steered". No such
+    configuration was found or applied. What protects the children is someone else's design
+    decision, which is a fine thing to benefit from and a bad thing to depend on silently.
+  - It is unpinned and unversioned in this project's terms. It could change in any CLI update,
+    with no signal, exactly like every other version-dependent behaviour this gate measured.
+    `claude_code_version = 2.1.238` is pinned in PROPOSED-PINS-DELTA for precisely this reason.
+  - A gate child REMAINS DISCOVERABLE AND ADDRESSABLE. Nothing here changes raw/16's finding that
+    neither env scrubbing nor a private XDG_RUNTIME_DIR removes it from ListAgents.
+  - WHAT HAPPENS IF A HUMAN APPROVES was never tested, and is the case that actually matters: the
+    operator is the one person on this box who could approve such a message, and the runner is
+    designed to run while the operator is away. Whether an approved message would then reach and
+    steer a `-p` child IS UNKNOWN.
+
+=== DISPOSITION ===
+
+The residual risk is unchanged in kind and smaller in degree than raw/16 stated. It is recorded,
+not closed. The honest one-line version for the operator: the gate children cannot be steered by
+a peer session without a human approving it, that approval gate is not ours and is not pinned by
+us, and nobody has tested what an approved message does.

@@ -327,8 +327,25 @@ course-check.** This is a separate stdlib-only path with its own spend log outsi
    (`~/.claude/daemon/roster.json`), and a private `$HOME` is unavailable because the Claude Code
    credentials live there. **No message content was ever observed to reach a `-p` child** — the
    clean probe ran 7 tool rounds, was explicitly asked to report any out-of-band instruction, and
-   answered `NONE`. But that is an *observed property of `-p` mode on this build*, not an enforced
-   boundary. **The Phase-3 breaker as written is NOT satisfied.** (`raw/16`)
+   answered `NONE`. **The Phase-3 breaker as written is NOT satisfied.** (`raw/16`)
+
+   > **CORRECTION, `raw/18`, received after this bundle was first pushed.** Asynchronous platform
+   > notices arrived reporting the fate of all three probe messages: each was **held for the
+   > recipient user's approval** and then **not approved before expiry — not delivered.** Two
+   > things follow, one better than stated above and one worse.
+   > **Better:** the messages were not ignored by the children, they never reached them. Delivery
+   > is gated on a human approval that a headless `claude -p` child cannot give, so the path is
+   > fail-closed *by construction* rather than by the child happening not to read an inbox. My
+   > explanation above — "an observed property of `-p` mode" — was a reasonable inference from
+   > what was visible at the time and is **wrong about the mechanism**.
+   > **Worse:** `SendMessage` did not "report delivery success", as I wrote; it reported that the
+   > **send was accepted**. That is not the same claim, and it is the same trap this gate keeps
+   > finding — an interface's optimistic acknowledgement is not evidence the thing happened.
+   > **The requirement is still not satisfied**: that approval gate is a platform behaviour this
+   > gate neither configured nor pinned, it could change in any CLI update, the children remain
+   > discoverable, and **what an *approved* message does was never tested** — which is the case
+   > that actually matters, since the operator is the one person who could approve one and the
+   > runner is designed to run while they are away.
 2. **The full gate prompt is visible in `ps` output** — it is passed as an argv element. Gate
    prompts are public courier documents so nothing is disclosed, but it is a second, independent
    reason a gate prompt must never carry a secret.
@@ -368,7 +385,10 @@ course-check.** This is a separate stdlib-only path with its own spend log outsi
 - **`MemoryMax` against `claude` itself.** The memory cap was proven on synthetic processes. Only
   `RuntimeMaxSec` was proven against a real `claude` child.
 - **The steering breaker is not satisfied**, per §7.1. What is measured is weaker than what was
-  asked for, and is written up as such rather than dressed up.
+  asked for, and is written up as such rather than dressed up. Specifically **untested, and it is
+  the case that matters: what happens if a human APPROVES a cross-session message to a running
+  gate child** (`raw/18`). All three probe messages expired unapproved, so the approved path has
+  never been exercised.
 - **Linger under an actual last-session-exit** was not tested; there are eight live sessions.
 - **No gate ever legitimately wrote auto-memory.** The fence's changed-path was proven
   functionally (`raw/27`), not by observing a real gate trip it.
@@ -403,8 +423,9 @@ design.
 
 ## 10. Adversarial audit
 
-Run against this report before it shipped. **12 claims challenged; 5 changed the text; 0 claims
-survived that the evidence does not support.**
+Run against this report before it shipped. **13 claims challenged; 6 changed the text; 0 claims
+survived that the evidence does not support.** Challenge 13 arrived after the bundle was first
+pushed and is the reason this report has a second revision.
 
 | # | Challenge | Outcome |
 |---|---|---|
@@ -419,6 +440,7 @@ survived that the evidence does not support.**
 | 9 | Is "0 spend on the escalation credential" verifiable? | Held: the spend log does not exist; `wrought-course-post` was only ever exec'd with `pin()` reads and empty stdin |
 | 10 | Are the config thresholds invented, against CLAUDE.md's first hard rule? | Held: every one is marked `PROPOSED-UNRATIFIED` in the config's own `_README` and listed in `PROPOSED-PINS-DELTA.md` |
 | 11 | Does the report claim the Phase-3 steering breaker works? | Held: §7.1 and §8 both say plainly that it does **not** |
+| 13 | Why exactly did no probe message reach a child? | **CHANGED, post-push.** Platform notices (`raw/18`) show all three were held for recipient-user approval and expired undelivered — not ignored by the child. §7.1 carries the correction, including that `SendMessage` reported an accepted *send*, not a delivery |
 | 12 | Is the evidence itself free of secrets, given the courier is public? | **CHANGED.** It was not — `raw/03` carried a live messaging token. Caught by the staged-diff scan pre-commit, redacted with the redaction annotated in place, and written up as §7.8 rather than silently fixed |
 
 **The claim this report is least able to support** is that the runner is safe to leave unattended

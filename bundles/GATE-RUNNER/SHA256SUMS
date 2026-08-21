@@ -17,6 +17,7 @@ bc8c02c328a7505e4443d41d61a5f2909b7dfc245e51838e5cac1f4ac4f6ef39  raw/09-logind-
 1b0f417e904d3835e78e33d522b30da855e5c199f390759f2431d818ad1c3de1  raw/15-course-check-failclosed.txt
 2f1117cc5a741be1a785a52cbf147c6dbbd499166bd65b34a7ebfa33284c6bbd  raw/16-cross-session-steering.txt
 9159aafb528b288277c9f46c94de3a41b443dca6fb194e043ab965c727d35f1b  raw/17-course-check-response-space.txt
+2e057e25a582b588df78c38006d0e5304f6142637cc94bb1dc09688ab788c710  raw/18-steering-delivery-mechanism.txt
 1f81792259cd9d91e7960ef8670c83c47d505ef4828f6b8c0880ed07d083cb54  raw/20-dryrun-1-happy-path.txt
 c351455d8143cc07cb8246b902378d33c2506384a2df938cf013a8622d293b5e  raw/21-dryrun-2-adddir-fix.txt
 c4edf5ab5b4b3c37caf96c63471b1451f11ea3099e03f9049947658e07f7ce0a  raw/22-dryrun-3-byte-freeze-tripwire.txt
@@ -32,7 +33,7 @@ c13a50af47bf1b8f9a2a3fd93da6a14c4ebefeaedbede0c29d2c1ff5e7d60fc0  raw/30-etc-wro
 fdd9d173b87d46cf321361874d9d8c149f36a180ee61339678773c87c147ee22  raw/32-teardown.txt
 f642f53e316c02224ea46711d5bbae0696d5e224a8a8cb405176cf3cd093d9f6  raw/99b-byte-freeze-verdict.txt
 014ab4aa9528dd7e08a23fcf7007b48b38550fac00af932c2fbce9560f949b0c  raw/99-byte-freeze-reassert.txt
-8a40be9a8ffa605feb22af044d6adb6bd1b79bee62b86e0f742dfbe45deabc55  REPORT-RUNNER.md
+2bdcaa6963e547fec4f8a407545f74e2c46ea7613c7a6b00f1d72b9c91b7e84b  REPORT-RUNNER.md
 0077c57731595f6fe1c9b6b7c14d3a91a99899ae457c68912ba7929cbb2fc405  src/wrought-course-check.py.txt
 677d84a77f054fa3197f28ce8ded859e1ce214733a652be96d448841f994bf6a  src/wrought-course-post.py.txt
 b557d4814f0c505d12a2105a376cd74b0d2125c002dadca143ff9af7083bac9e  src/wrought-runner-hook.py.txt
