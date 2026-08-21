@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-21T00:10:02Z
+updated:  2026-08-21T00:12:01Z
 gate:     GATE-J0B-SURFACE
-state:    RUNNING P1
-last:     Phase 0 done — premise matches PHASE-J-STATE; byte-freeze baseline taken; V-1 CLOSED (native /dev/kvm O_RDWR, no sudo/-g); health OK (VRAM 19.62 GB, runpm 0); both enumerated deletes executed (seed.img copy hash-verified 700f6398...); base image = 0533b065... = pin.
-next:     Phase 1 — write and prove the authenticating loopback proxy on 127.0.0.1:8081.
+state:    RUNNING P2
+last:     Phase 1 PASS — authproxy on 127.0.0.1:8081 (loopback-only, pid 298991). Direct :8080 = 401, via :8081 = 200; client-supplied bogus Authorization is replaced not passed through; keep-alive 3-on-1-connection all authorized and all logged; POST /v1/chat/completions = 200. Key never in argv/env/file/log.
+next:     Phase 2 — fresh overlay on the pinned base, egress-open boot, fetch + install Goose in the guest.
 usage:    n/a
