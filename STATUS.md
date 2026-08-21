@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-21T00:04:07Z
+updated:  2026-08-21T00:04:42Z
 gate:     GATE-J0B-SURFACE
-state:    RECEIVED
-last:     Prompt v1.2 read. NOTE: GATE-HJ2 was never run — STATUS.md did not exist; bootstrapped here from HJ2 v1.0's verbatim schema.
-next:     Transport integrity check (expect 12 indented blocks), then courier archive + RUNNING.
+state:    TRANSPORT-OK
+last:     Transport check PASS — exactly 12 four-space blocks, none empty/garbled, no fenced code.
+next:     Archive prompt verbatim to prompts/, set J0B RUNNING, then Phase 0 (orient, byte-freeze, deletes).
 usage:    n/a
