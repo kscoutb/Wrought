@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-21T02:13:19Z
+updated:  2026-08-21T02:26:48Z
 gate:     GATE-RUNNER
-state:    RUNNING P2
-last:     Phase 2/3 written: bin/wrought-runner (python3 stdlib, ~700 lines), bin/wrought-runner-hook (PreToolUse, deny-or-defer, never widens), bin/wrought-course-check + bin/wrought-course-post (sealed key on STDIN ONLY, deliberately NOT bin/escalate-once — that path writes the ledger inside the byte-frozen orchestrator.db and would trip our own tripwire). Config /etc/wrought/runner.conf + runner-hooks.json, both strict-JSON, all thresholds PROPOSED-UNRATIFIED. Containment is kernel-first per the Phase-1 evidence; hooks are defence-in-depth with pre-launch JSON validation. Env is an ALLOWLIST, which is also the cross-session-steering breaker.
-next:     Phase 4 — dry run against a LOCAL bare-repo courier and a SCRATCH db trio; six proofs.
+state:    RUNNING P4
+last:     Dry runs 1-2 done against a LOCAL bare-repo courier and a SCRATCH db trio. Happy path PASSES end to end (fresh context, contained scope, bundle pushed, manifest verified mechanically, byte freeze held, 45s pacing exact). THREE DEFECTS FOUND AND FIXED, each by measurement not inspection: (1) MemoryMax alone does NOT cap memory here — 1 GiB under a 256M cap succeeded via the 8 GiB swap file; MemorySwapMax=0 makes it an rc=137 kill. (2) A Bash call targeting a path OUTSIDE the session cwd is DENIED under dontAsk even when explicitly allowlisted — isolated with a 2x2 against the hook; fixed with minimal --add-dir. (3) My own breaker latched on gate-cap/wall-clock, which would have poisoned the next morning's start; now only real faults latch.
+next:     remaining Phase 4 scenarios — tripwire, consecutive-failure breaker, stubbed course-check HALT, a real-claude scope kill, and the cross-session steering question.
 usage:    n/a
