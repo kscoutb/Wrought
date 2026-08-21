@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-21T00:15:35Z
+updated:  2026-08-21T00:22:05Z
 gate:     GATE-J0B-SURFACE
-state:    RUNNING P3
-last:     Phase 2 PASS — Goose v1.46.0 (aaif-goose/goose) installed in guest. Asset goose-x86_64-unknown-linux-gnu.tar.bz2, sha256 a1cf4856a765d07d6b95689a53c7bca21fcc6e6d65c0dfd064fc704052b85a7b; binary sha256 29b3340e...; runs on noble glibc 2.39. SURPRISE S-J0B-1: noble cloud image ships NO bzip2 (used python3 stdlib bz2). Boot-to-ssh 14 s. Guest powered off; base image hash unchanged.
-next:     Phase 3 — reboot the same overlay with restrict=on + guestfwd pinhole; three-way egress measurement.
+state:    RUNNING P4
+last:     Phase 3 PASS, after one real failure and fix. AIR-GAP PROVEN: external FAIL (curl 6 by name, curl 7 by IP literal, raw SYN Network-unreachable), 10.0.2.2:8080 FAIL (refused), pinhole 10.0.2.100:8081 = 200 and is genuinely primary-qwen27b. Host-surface sweep: the pinhole is the ONLY reachable endpoint. Guest holds no key; wrong key still 200. FINDING: QEMU guestfwd is a SINGLE startup chardev, not a per-connection forwarder — proxy rewritten (authproxy2.py) to per-request upstream; socat absent so the prompt's fallback block could not be run.
+next:     Phase 4 — point Goose at the pinhole and build the C5 exposure map.
 usage:    n/a
