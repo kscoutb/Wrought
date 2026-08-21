@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-21T01:48:30Z
+updated:  2026-08-21T02:03:25Z
 gate:     GATE-RUNNER
-state:    TRANSPORT-OK
-last:     Transport check PASS — exactly 3 indented blocks, none empty or garbled (raw/01). Prompt archived to prompts/GATE-RUNNER-v1.0.md. Byte-freeze baseline taken (raw/00). THREE ITEMS SURFACED FOR THE OPERATOR, none guessed at: (1) this prompt arrived as CHAT TEXT not a file — rails S7 medium deviation; (2) the PRIOR-ADJUDICATION block names GATE-HJ2 but carries NO verdict text, and HJ2 is NOT RUN, so there is nothing to record — not inventing one; (3) J0B is still RUNNING with no bundle and PHASE-J-STATE unupdated.
-next:     Phase 1 — RT0 on-box verifications (a)-(d) against claude 2.1.238.
+state:    RUNNING P1
+last:     Phase 1 RT0 verifications COMPLETE on claude 2.1.238 (raw/02-09). (a) HOLDS — fresh -p runs share no memory; corollary: per-project AUTO-MEMORY is a live cross-invocation channel. (b) HOLDS with a correction — there is NO mode named default-deny; dontAsk and manual are default-deny-with-allowlist, while acceptEdits and auto SILENTLY RAN an un-allowlisted Bash call. Every case exited rc=0 incl. every denial. (c) REFUTES RT0 pass-2 — PreToolUse hooks DO fire under -p and their deny is enforced; but a MALFORMED settings file is SILENTLY ignored under -p (rc=0, empty stderr, hook layer gone). (d) HOLDS — output cap and bash timeout both take effect, but the bash timeout BACKGROUNDS rather than kills, and --max-budget-usd overshot its cap 4.6x.
+next:     Phase 2 — design and write bin/wrought-runner + /etc/wrought/runner.conf, containment kernel-first.
 usage:    n/a
