@@ -1,0 +1,53 @@
+# cmd: two independent 'claude -p' invocations, same cwd, NO -c/--continue and NO -r/--resume,
+#   with this session's CLAUDE_CODE_* env scrubbed:
+#     env -u CLAUDE_CODE_CHILD_SESSION -u CLAUDE_CODE_SESSION_ID -u CLAUDE_PID -u CLAUDE_EFFORT \
+#       -u CLAUDE_CODE_MESSAGING_SOCKET -u CLAUDE_CODE_BRIDGE_SESSION_ID -u CLAUDECODE \
+#       -u CLAUDE_CODE_ENTRYPOINT -u CLAUDE_CODE_MESSAGING_TOKEN \
+#       claude -p --setting-sources '' --tools "" --output-format json <prompt>
+#   inv1 prompt: 'Remember this token for later: PHOENIX-7734. Reply with exactly: OK'
+#   inv2 prompt: 'What token did I ask you to remember earlier in this conversation? If you
+#                 have no record of any earlier message from me, reply with exactly: NONE'
+# date: 2026-08-21T01:54:46Z
+# TEST (a): does a fresh non-interactive run clear context?   rc1=0 rc2=0
+
+=== INVOCATION 1 ===
+  session_id       = '9c9367e9-5a06-4dfe-8e1f-0f2a8acabe8e'
+  result           = 'OK'
+  is_error         = False
+  subtype          = 'success'
+  stop_reason      = 'end_turn'
+  terminal_reason  = 'completed'
+  num_turns        = 1
+  total_cost_usd   = 0.004605000000000001
+
+=== INVOCATION 2 ===
+  session_id       = '6a99b282-daea-4b3d-a47d-65260ef87668'
+  result           = 'NONE'
+  is_error         = False
+  subtype          = 'success'
+  stop_reason      = 'end_turn'
+  terminal_reason  = 'completed'
+  num_turns        = 1
+  total_cost_usd   = 0.0100915
+
+=== VERDICT INPUTS ===
+  session_ids distinct?       YES
+  'PHOENIX' anywhere in inv2 output? NO -> CONTEXT NOT SHARED
+  inv2 result verbatim:       'NONE'
+
+VERDICT (a): fresh `claude -p` invocations share NO conversational memory.
+
+=== corroborating: on-disk session persistence for these two runs ===
+# cmd: ls -la ~/.claude/projects/-var-lib-wrought-runner-t1/
+total 60
+drwxrwxr-x 3 kalib kalib 4096 Aug 20 21:54 .
+drwx------ 5 kalib kalib 4096 Aug 20 21:53 ..
+-rw------- 1 kalib kalib 2796 Aug 20 21:54 0085e8cf-5142-4599-88fc-1cc7412c592f.jsonl
+-rw------- 1 kalib kalib 2815 Aug 20 21:53 2ffeef67-66da-4adc-9894-96ff4a4a7e86.jsonl
+-rw------- 1 kalib kalib 2797 Aug 20 21:54 62c5c331-984a-43d2-9b6c-a70a257d19ee.jsonl
+-rw------- 1 kalib kalib 6074 Aug 20 21:54 6a99b282-daea-4b3d-a47d-65260ef87668.jsonl
+-rw------- 1 kalib kalib 4862 Aug 20 21:54 9c9367e9-5a06-4dfe-8e1f-0f2a8acabe8e.jsonl
+-rw------- 1 kalib kalib 2782 Aug 20 21:54 c2dfef1a-3930-4322-af3b-9cc43a03ae44.jsonl
+-rw------- 1 kalib kalib 5981 Aug 20 21:53 c42031dc-3262-4d53-b54a-6f3465e895eb.jsonl
+-rw------- 1 kalib kalib 5092 Aug 20 21:53 dc6cb51b-c288-4078-bb80-52c47c620d4d.jsonl
+drwxrwxr-x 2 kalib kalib 4096 Aug 20 21:53 memory

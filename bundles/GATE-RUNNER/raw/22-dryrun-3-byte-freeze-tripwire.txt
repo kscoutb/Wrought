@@ -1,0 +1,15 @@
+# cmd: bash /var/lib/wrought/runner/dry/dirtier.sh &   then   /home/kalib/foundry/bin/wrought-runner --config /var/lib/wrought/runner/dry/conf-tripwire.json
+# date: 2026-08-21T02:27:01Z
+# SCENARIO: byte-freeze tripwire. The dirtier waits for the runner's own freeze-before.json
+#   to appear, then appends one line to the SCRATCH db (NOT the real one, which is frozen
+#   for the whole session and untouched — see raw/00 and raw/99).
+# scratch db before: 5a312bc9a94875d42e65b22cdfc2734f01683586b9668d179dfb279cdc23859c  /var/lib/wrought/runner/dry/db/orchestrator.db
+
+[2026-08-21T02:27:01Z] GATE-DRYRUN-C: launching. tools='Bash(git *) Bash(mkdir:*) Bash(sha256sum:*) Bash(ls:*) Read Write Edit' add_dirs=['/var/lib/wrought/runner/dry'] budget=$2.0 mode=dontAsk MemoryMax=4G RuntimeMaxSec=900
+DIRTIER: appended to /var/lib/wrought/runner/dry/db/orchestrator.db at 2026-08-21T02:27:02Z
+65e1293c80332751e3038c77c136aeed2e2e63cd1e58a5c70a9af8737fa19bd9  /var/lib/wrought/runner/dry/db/orchestrator.db
+[2026-08-21T02:27:07Z] HALT [byte-freeze]: GATE-DRYRUN-C: BYTE-FREEZE TRIPWIRE — /var/lib/wrought/runner/dry/db/orchestrator.db: 5a312bc9a94875d42e65b22cdfc2734f01683586b9668d179dfb279cdc23859c -> 65e1293c80332751e3038c77c136aeed2e2e63cd1e58a5c70a9af8737fa19bd9
+
+wrought-runner: 0 gate(s); STOPPED [byte-freeze] GATE-DRYRUN-C: BYTE-FREEZE TRIPWIRE — /var/lib/wrought/runner/dry/db/orchestrator.db: 5a312bc9a94875d42e65b22cdfc2734f01683586b9668d179dfb279cdc23859c -> 65e1293c80332751e3038c77c136aeed2e2e63cd1e58a5c70a9af8737fa19bd9  — BREAKER LATCHED, operator must --reset-breaker
+evidence: /var/lib/wrought/runner/dry/state-tripwire/runs/20260821T022701Z
+RUNNER-EXIT=2

@@ -1,0 +1,49 @@
+# cmd: each case below, run directly against the two course-check scripts.
+# date: 2026-08-21T02:27:24Z
+# SCENARIO: the course-check's FAIL-CLOSED edges. The ENABLED path (sudo +
+#   LoadCredentialEncrypted + a real POST to the pinned endpoint) is NOT exercised this
+#   session — no key was read and no request left the box. See WHAT THIS DID NOT ESTABLISH.
+
+=== P1: wrought-course-post reads the pinned endpoint out of pins.lock correctly ===
+# cmd: python3 -c "import runpy; ..." — call pin() directly, print nothing secret
+Traceback (most recent call last):
+  File "<string>", line 4, in <module>
+    m={} ; exec(compile(src,'p','exec'),m)
+           ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "p", line 28, in <module>
+NameError: name '__file__' is not defined. Did you mean: '__name__'?
+
+=== P2: wrought-course-post with NO stdin (no credential) ===
+# cmd: printf '' | wrought-course-post /dev/null
+   rc=2  output: wrought-course-post: no credential on stdin|HALT|COST_USD=0.0|
+
+=== P3: wrought-course-post with the WRONG number of arguments ===
+# cmd: printf 'fake' | wrought-course-post   (no summary file)
+   rc=2  output: usage: wrought-course-post <summary-file>  (key on stdin)|HALT|COST_USD=0.0|
+
+=== P4: wrought-course-check with credential_name/path NOT configured ===
+# cmd: printf 'summary' | WROUGHT_RUNNER_CONFIG=/var/lib/wrought/runner/t8/nocred.conf wrought-course-check
+   rc=1  output: HALT|wrought-course-check: course_check.credential_name / credential_path are not configured|
+
+=== P5: wrought-course-check with the SPEND CAP already reached ===
+# cmd: (spend log already holds $1.50 against a $1.00 cap)
+   rc=1  output: HALT|wrought-course-check: course-check spend cap reached: $1.5000 >= $1.00|
+
+=== P6: wrought-course-check with an EMPTY summary on stdin ===
+   rc=1  output: HALT|wrought-course-check: empty summary on stdin|
+
+=== FINDING ===
+   Every failure path above prints the token HALT and exits non-zero. wrought-runner
+   halts on anything that is not an exact 'OK', so all of these stop the batch.
+   NO CREDENTIAL WAS READ AND NO NETWORK REQUEST WAS MADE in any of these cases.
+
+=== P1 (RE-RUN — the first attempt failed in the TEST HARNESS, not the script:
+    exec() without __file__ in globals. The script itself was never at fault.) ===
+# cmd: python3 -c "<exec wrought-course-post with __file__ set, then call pin()>"
+   escalation.api_base           = https://openrouter.ai/api/v1
+   escalation.endpoint           = /chat/completions
+   escalation.model_id_sent      = anthropic/claude-opus-5-20260723
+   escalation.provider_only      = anthropic
+   escalation.credential_name    = openrouter-api-key
+   -> the POST target it would use: https://openrouter.ai/api/v1/chat/completions
+   (READ ONLY. No request was made and no credential was touched.)

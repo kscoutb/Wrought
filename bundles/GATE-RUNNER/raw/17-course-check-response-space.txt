@@ -1,0 +1,18 @@
+# cmd: call wrought-runner's own course_check() against each stub reviewer. Same function
+#   the end-to-end HALT run used (dryrun-5), exercised across the response space.
+# date: 2026-08-21T02:30:48Z
+# NO KEY, NO NETWORK, NO SPEND.
+
+  STUB PRINTS            continue?  detail
+  --------------------------------------------------------------------------------------
+  OK                     True       OK
+  HALT                   False      course-check returned 'HALT' (only an exact 'OK' continues)
+  a sentence, not a token False      course-check returned 'well, maybe, it depends' (only an exa
+  nothing, exits 7       False      course-check exited 7: 
+  (disabled)             True       disabled
+  (command missing)      False      course-check transport error: [Errno 2] No such file or dire
+
+=== FINDING ===
+  Only an EXACT 'OK' continues. HALT, an unparseable sentence, a non-zero exit, and a
+  missing command all STOP the runner. The check is one-way: it can halt, never authorise.
+  When disabled it returns continue=True with detail 'disabled' and spends nothing.

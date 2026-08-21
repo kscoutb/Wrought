@@ -1,0 +1,21 @@
+# cmd: /home/kalib/foundry/bin/wrought-runner --config /var/lib/wrought/runner/dry/conf-cc-halt.json
+#   conf-cc-halt.json: course_check.enabled=true, command=[/var/lib/wrought/runner/dry/stub-HALT].
+#   The stub reads the summary on stdin, discards it, and prints HALT.
+#   NO KEY, NO NETWORK, NO SPEND — wrought-course-check/-post are not invoked at all.
+#   GATE-DRYRUN-I is a gate that PASSES, so the stop can only come from the course-check.
+# date: 2026-08-21T02:28:31Z
+
+[2026-08-21T02:28:31Z] GATE-DRYRUN-I: launching. tools='Bash(git *) Bash(mkdir *) Bash(sha256sum *) Bash(ls *) Read Write Edit' add_dirs=['/var/lib/wrought/runner/dry'] budget=$2.0 mode=dontAsk MemoryMax=4G RuntimeMaxSec=900
+[2026-08-21T02:30:14Z] GATE-DRYRUN-I: PASS — bundle present, manifest verifies, byte freeze held
+[2026-08-21T02:30:14Z] HALT [course-check]: course-check said stop: course-check returned 'HALT' (only an exact 'OK' continues)
+
+wrought-runner: 1 gate(s); STOPPED [course-check] course-check said stop: course-check returned 'HALT' (only an exact 'OK' continues)  — BREAKER LATCHED, operator must --reset-breaker
+evidence: /var/lib/wrought/runner/dry/state-cc-halt/runs/20260821T022831Z
+RUNNER-EXIT=2
+--- the summary the runner compiled and sent to the reviewer:
+gate=GATE-DRYRUN-I
+verdict=PASS
+queue_status=BUNDLED
+byte_freeze=HOLD — no change to any frozen path
+next_queued=(none)
+gates_this_run=1/6

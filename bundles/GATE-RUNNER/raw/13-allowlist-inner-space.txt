@@ -1,0 +1,13 @@
+# cmd: same shape as raw/12, but varying HOW THE MULTI-SPEC ALLOWLIST IS SPELLED.
+# date: 2026-08-21T02:21:18Z
+# The dry-run gates were given ONE argv element containing several specs, one of which
+#   (Bash(git *)) contains a SPACE inside its parentheses, while --allowedTools is
+#   documented as 'comma or space-separated'. Hypothesis: the space inside the parens
+#   splits the list and corrupts the specs after it.
+
+  A/ full dry-run string (contains 'Bash(git *)' with an inner space):
+  full-with-git    target=True  denials=0  result='DONE'
+  B/ same list MINUS the spec containing an inner space:
+  no-inner-space   target=True  denials=0  result='DONE'
+  C/ comma-separated, still containing 'Bash(git *)':
+  comma-sep        target=True  denials=0  result='DONE'

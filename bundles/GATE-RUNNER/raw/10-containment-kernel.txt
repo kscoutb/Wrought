@@ -1,0 +1,24 @@
+# cmd: see each case. All use the SAME systemd-run shape the runner uses for a gate child.
+# date: 2026-08-21T02:14:18Z
+# PHASE 4 / containment: does the kernel layer actually cap memory and time, and WHAT
+#   DOES A KILL LOOK LIKE to the runner's classifier? (SYNTHETIC processes, not claude —
+#   see WHAT THIS DID NOT ESTABLISH in the report.)
+
+=== E1: MemoryMax=256M vs a python process that allocates ~1 GiB ===
+# systemd-run --user --scope --quiet --unit=wr-e1.scope -p MemoryMax=256M -p RuntimeMaxSec=60 \
+#   python3 -c "b=bytearray(); [b.extend(bytes(10*1024*1024)) for _ in range(100)]; print(\"ALLOCATED-1GiB\")"
+   ALLOCATED-1GiB
+   rc=0  wall=1s
+   VERDICT: MemoryMax DID NOT BIND
+
+=== E2: RuntimeMaxSec=8 vs a process that would run 120s ===
+# systemd-run --user --scope --quiet --unit=wr-e2.scope -p MemoryMax=256M -p RuntimeMaxSec=8 \
+#   python3 -c "import time; time.sleep(120); print(\"SLEPT-120\")"
+   rc=143  wall=8s
+   VERDICT: RuntimeMaxSec ENFORCED — killed at the deadline, not after 120s
+
+=== E3: what the runner's classifier sees when a scope is killed mid-write ===
+#   the child writes a PARTIAL json and is then killed -> classify() must say SUBSTRATE
+Terminated                 systemd-run --user --scope --quiet --unit=wr-e3.scope -p RuntimeMaxSec=5 /bin/sh -c 'printf "{\"is_error\":fal"; sleep 30' > "$W/e3-partial.json" 2> /dev/null
+   rc=143   bytes captured: 15   content: {"is_error":fal
+   classify() -> ('SUBSTRATE', 'child produced no parseable result JSON (rc=143, 15 bytes) — scope kill, OOM, or crash')

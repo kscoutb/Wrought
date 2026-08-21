@@ -1,0 +1,22 @@
+# cmd: see below. FOLLOW-UP to E1, which showed MemoryMax=256M NOT binding.
+# date: 2026-08-21T02:14:53Z
+
+=== swap present? (a MemoryMax breach can be paid for in swap instead of a kill) ===
+# cmd: swapon --show; free -g
+NAME      TYPE SIZE USED PRIO
+/swap.img file   8G   0B   -1
+                  total        used        free      shared  buff/cache   available
+   Mem:              87           6          53           0          28          81
+   Swap:              7           0           7
+
+=== E1b: was memory.max even applied to the scope? read it from inside the cgroup ===
+# systemd-run --user --scope --quiet -p MemoryMax=256M /bin/sh -c 'cat /proc/self/cgroup; cat /sys/fs/cgroup/$(...)/memory.max ...'
+   cgroup: /user.slice/user-1000.slice/user@1000.service/app.slice/wr-e1b.scope
+   memory.max      = 268435456
+   memory.swap.max = max
+
+=== E1c: same allocation, but with MemorySwapMax=0 as well ===
+# systemd-run --user --scope --quiet --unit=wr-e1c.scope -p MemoryMax=256M -p MemorySwapMax=0 -p RuntimeMaxSec=60 \
+#   python3 -c "<allocate 1 GiB in 10 MiB chunks, printing progress>"
+   rc=137  wall=0s
+   VERDICT: with MemorySwapMax=0, MemoryMax ENFORCED (killed)

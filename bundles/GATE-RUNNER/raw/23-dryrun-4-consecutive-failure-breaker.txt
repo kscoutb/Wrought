@@ -1,0 +1,29 @@
+# cmd: /home/kalib/foundry/bin/wrought-runner --config /var/lib/wrought/runner/dry/conf-breaker.json
+#   conf-breaker.json: max_consecutive_failures=2, own state_dir (state-breaker),
+#   inter_gate_sleep_sec=10. GATE-DRYRUN-G and -H are prompts that deliberately
+#   produce NO bundle, so the MECHANICAL post-conditions must fail for both.
+# date: 2026-08-21T02:27:47Z
+# SCENARIO: consecutive-failure breaker. Proves it COUNTS (does not trip on the first)
+#   and then LATCHES on the second, requiring an explicit operator reset.
+
+[2026-08-21T02:27:47Z] GATE-DRYRUN-G: launching. tools='Bash(ls:*) Read' add_dirs=['/var/lib/wrought/runner/dry'] budget=$1.0 mode=dontAsk MemoryMax=4G RuntimeMaxSec=900
+[2026-08-21T02:27:50Z] GATE-DRYRUN-G: FAIL — child=COMPLETED (terminal_reason='completed'); postconditions: ["QUEUE row for GATE-DRYRUN-G is 'RUNNING', not BUNDLED", '/var/lib/wrought/runner/dry/courier/bundles/GATE-DRYRUN-G does not exist']
+[2026-08-21T02:27:50Z] pacing: sleeping 10s before the next gate
+[2026-08-21T02:28:00Z] GATE-DRYRUN-H: launching. tools='Bash(ls:*) Read' add_dirs=['/var/lib/wrought/runner/dry'] budget=$1.0 mode=dontAsk MemoryMax=4G RuntimeMaxSec=900
+[2026-08-21T02:28:02Z] GATE-DRYRUN-H: FAIL — child=COMPLETED (terminal_reason='completed'); postconditions: ["QUEUE row for GATE-DRYRUN-H is 'RUNNING', not BUNDLED", '/var/lib/wrought/runner/dry/courier/bundles/GATE-DRYRUN-H does not exist']
+[2026-08-21T02:28:02Z] HALT [consecutive-failures]: 2 consecutive non-PASS gates (cap 2)
+
+wrought-runner: 2 gate(s); STOPPED [consecutive-failures] 2 consecutive non-PASS gates (cap 2)  — BREAKER LATCHED, operator must --reset-breaker
+evidence: /var/lib/wrought/runner/dry/state-breaker/runs/20260821T022747Z
+RUNNER-EXIT=2
+--- breaker state after:
+{
+  "at": "2026-08-21T02:28:02Z",
+  "consecutive_failures": 2,
+  "halted": true,
+  "latched": true,
+  "reason": "[consecutive-failures] 2 consecutive non-PASS gates (cap 2)"
+}
+--- a SECOND start must now REFUSE:
+[2026-08-21T02:28:02Z] BREAKER IS LATCHED ('[consecutive-failures] 2 consecutive non-PASS gates (cap 2)' at 2026-08-21T02:28:02Z). Operator must run --reset-breaker.
+SECOND-START-EXIT=3

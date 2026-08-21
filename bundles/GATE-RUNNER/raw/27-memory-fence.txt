@@ -1,0 +1,18 @@
+# cmd: exercise wrought-runner's memory_snapshot()/memory_restore() directly against a
+#   scratch auto-memory directory. Every dry-run gate reported 'unchanged', so the
+#   CHANGED branch was never taken by a real gate — this takes it deliberately.
+# date: 2026-08-21T02:32:00Z
+# SCENARIO: the auto-memory fence (raw/05 established the channel is live).
+
+  1. baseline taken:             ['MEMORY.md']
+  2. after a gate wrote memory:  ['MEMORY.md', 'b.md']
+  3. changed?                    True
+  4. after restore:              ['MEMORY.md']
+  5. restored == baseline?       True
+  6. delta PRESERVED as evidence at memory-after/: ['MEMORY.md', 'b.md']
+
+  FINDING: the fence is FAIL-SOFT BY DESIGN. A gate that writes auto-memory does not halt
+  the batch — the delta is copied aside as evidence, the pre-gate state is restored, and
+  the next gate still starts from a clean context. Halting on a benign memory note would
+  be a false positive; silently letting it persist would make 'fresh context per gate'
+  false. This is the compromise, stated rather than assumed.

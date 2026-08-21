@@ -1,0 +1,8 @@
+# cmd: diff <(grep -E '^[0-9a-f]{64}' raw/00-byte-freeze-baseline.txt) <(grep -E '^[0-9a-f]{64}' raw/99-byte-freeze-reassert.txt)
+# date: 2026-08-21T02:35:51Z
+# purpose: the MECHANICAL diff. 'I did not touch it' is a measurement here, not a claim.
+
+VERDICT: BYTE FREEZE HELD — all three hashes identical across the whole session.
+
+# also compared: size and mtime
+  size+mtime identical too.

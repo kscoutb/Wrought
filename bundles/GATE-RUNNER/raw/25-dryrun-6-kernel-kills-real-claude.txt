@@ -1,0 +1,32 @@
+# cmd: /home/kalib/foundry/bin/wrought-runner --config /var/lib/wrought/runner/dry/conf-kill.json
+#   conf-kill.json: limits.runtime_max_sec = 30 (everything else as the dry config).
+#   GATE-DRYRUN-J is a 12-tool-call gate that cannot finish in 30s.
+# date: 2026-08-21T02:30:58Z
+# SCENARIO: does the kernel scope kill a REAL claude child (not a synthetic process),
+#   and does classify() reach SUBSTRATE through the runner end to end?
+
+[2026-08-21T02:30:58Z] GATE-DRYRUN-J: launching. tools='Bash(ls *) Bash(find *) Read' add_dirs=['/var/lib/wrought/runner/dry'] budget=$3.0 mode=dontAsk MemoryMax=4G RuntimeMaxSec=30
+[2026-08-21T02:31:28Z] GATE-DRYRUN-J: FAIL — child=SUBSTRATE (child produced no parseable result JSON (rc=143: SIGTERM — RuntimeMaxSec deadline, 0 bytes captured)); postconditions: ["QUEUE row for GATE-DRYRUN-J is 'RUNNING', not BUNDLED", '/var/lib/wrought/runner/dry/courier/bundles/GATE-DRYRUN-J does not exist']
+[2026-08-21T02:31:28Z] pacing: sleeping 5s before the next gate
+[2026-08-21T02:31:33Z] no APPROVED gates left to run — exiting cleanly
+
+wrought-runner: 1 gate(s); clean exit
+evidence: /var/lib/wrought/runner/dry/state-kill/runs/20260821T023058Z
+RUNNER-EXIT=0
+--- verdict.json for J:
+{
+  "child_disposition": "SUBSTRATE",
+  "cost_usd": null,
+  "detail": "child produced no parseable result JSON (rc=143: SIGTERM \u2014 RuntimeMaxSec deadline, 0 bytes captured)",
+  "gate": "GATE-DRYRUN-J",
+  "memory_fence": "unchanged",
+  "postcondition_failures": [
+    "QUEUE row for GATE-DRYRUN-J is 'RUNNING', not BUNDLED",
+    "/var/lib/wrought/runner/dry/courier/bundles/GATE-DRYRUN-J does not exist"
+  ],
+  "rc": 143,
+  "verdict": "FAIL",
+  "wall_sec": 30.3
+}
+--- bytes the child managed to write before the kill:
+0 /var/lib/wrought/runner/dry/state-kill/runs/20260821T023058Z/GATE-DRYRUN-J/child.stdout.json

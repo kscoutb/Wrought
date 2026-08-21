@@ -1,0 +1,4 @@
+# cmd: systemd-analyze cat-config systemd/logind.conf | grep -iE 'KillUserProcesses|^\[' ; loginctl show-user kalib -p Linger
+# date: 2026-08-21T02:03:10Z
+#KillUserProcesses=no
+Linger=no

@@ -1,0 +1,112 @@
+# cmd: cat the verdict.json / freeze-verdict.txt the runner wrote for each dry-run gate
+# date: 2026-08-21T02:31:13Z
+# These are the RUNNER'S OWN mechanical outputs, not a narration of them.
+
+=== /var/lib/wrought/runner/dry/state-breaker/runs/20260821T022747Z/GATE-DRYRUN-G/verdict.json ===
+{
+  "child_disposition": "COMPLETED",
+  "cost_usd": 0.0427035,
+  "detail": "terminal_reason='completed'",
+  "gate": "GATE-DRYRUN-G",
+  "memory_fence": "unchanged",
+  "postcondition_failures": [
+    "QUEUE row for GATE-DRYRUN-G is 'RUNNING', not BUNDLED",
+    "/var/lib/wrought/runner/dry/courier/bundles/GATE-DRYRUN-G does not exist"
+  ],
+  "rc": 0,
+  "verdict": "FAIL",
+  "wall_sec": 2.3
+}
+
+=== /var/lib/wrought/runner/dry/state-breaker/runs/20260821T022747Z/GATE-DRYRUN-H/verdict.json ===
+{
+  "child_disposition": "COMPLETED",
+  "cost_usd": 0.043442499999999995,
+  "detail": "terminal_reason='completed'",
+  "gate": "GATE-DRYRUN-H",
+  "memory_fence": "unchanged",
+  "postcondition_failures": [
+    "QUEUE row for GATE-DRYRUN-H is 'RUNNING', not BUNDLED",
+    "/var/lib/wrought/runner/dry/courier/bundles/GATE-DRYRUN-H does not exist"
+  ],
+  "rc": 0,
+  "verdict": "FAIL",
+  "wall_sec": 2.6
+}
+
+=== /var/lib/wrought/runner/dry/state-cc-halt/runs/20260821T022831Z/GATE-DRYRUN-I/verdict.json ===
+{
+  "child_disposition": "COMPLETED",
+  "cost_usd": 0.5437815,
+  "detail": "terminal_reason='completed'",
+  "gate": "GATE-DRYRUN-I",
+  "memory_fence": "unchanged",
+  "postcondition_failures": [],
+  "rc": 0,
+  "verdict": "PASS",
+  "wall_sec": 103.0
+}
+
+=== /var/lib/wrought/runner/dry/state/runs/20260821T021355Z/GATE-DRYRUN-A/verdict.json ===
+{
+  "child_disposition": "COMPLETED",
+  "cost_usd": 0.6081629999999999,
+  "detail": "terminal_reason='completed'",
+  "gate": "GATE-DRYRUN-A",
+  "memory_fence": "unchanged",
+  "postcondition_failures": [],
+  "rc": 0,
+  "verdict": "PASS",
+  "wall_sec": 110.4
+}
+
+=== /var/lib/wrought/runner/dry/state/runs/20260821T021355Z/GATE-DRYRUN-B/verdict.json ===
+{
+  "child_disposition": "COMPLETED",
+  "cost_usd": 0.18006450000000002,
+  "detail": "terminal_reason='completed'",
+  "gate": "GATE-DRYRUN-B",
+  "memory_fence": "unchanged",
+  "postcondition_failures": [
+    "QUEUE row for GATE-DRYRUN-B is 'RUNNING', not BUNDLED",
+    "/var/lib/wrought/runner/dry/courier/bundles/GATE-DRYRUN-B/SHA256SUMS is missing"
+  ],
+  "rc": 0,
+  "verdict": "FAIL",
+  "wall_sec": 34.1
+}
+
+=== /var/lib/wrought/runner/dry/state/runs/20260821T022308Z/GATE-DRYRUN-B/verdict.json ===
+{
+  "child_disposition": "COMPLETED",
+  "cost_usd": 0.3215024999999999,
+  "detail": "terminal_reason='completed'",
+  "gate": "GATE-DRYRUN-B",
+  "memory_fence": "unchanged",
+  "postcondition_failures": [],
+  "rc": 0,
+  "verdict": "PASS",
+  "wall_sec": 40.8
+}
+
+=== /var/lib/wrought/runner/dry/state-breaker/runs/20260821T022747Z/GATE-DRYRUN-G/freeze-verdict.txt ===
+HOLD — no change to any frozen path
+
+=== /var/lib/wrought/runner/dry/state-breaker/runs/20260821T022747Z/GATE-DRYRUN-H/freeze-verdict.txt ===
+HOLD — no change to any frozen path
+
+=== /var/lib/wrought/runner/dry/state-cc-halt/runs/20260821T022831Z/GATE-DRYRUN-I/freeze-verdict.txt ===
+HOLD — no change to any frozen path
+
+=== /var/lib/wrought/runner/dry/state/runs/20260821T021355Z/GATE-DRYRUN-A/freeze-verdict.txt ===
+HOLD — no change to any frozen path
+
+=== /var/lib/wrought/runner/dry/state/runs/20260821T021355Z/GATE-DRYRUN-B/freeze-verdict.txt ===
+HOLD — no change to any frozen path
+
+=== /var/lib/wrought/runner/dry/state/runs/20260821T022308Z/GATE-DRYRUN-B/freeze-verdict.txt ===
+HOLD — no change to any frozen path
+
+=== /var/lib/wrought/runner/dry/state-tripwire/runs/20260821T022701Z/GATE-DRYRUN-C/freeze-verdict.txt ===
+TRIPWIRE — frozen paths changed:
+/var/lib/wrought/runner/dry/db/orchestrator.db: 5a312bc9a94875d42e65b22cdfc2734f01683586b9668d179dfb279cdc23859c -> 65e1293c80332751e3038c77c136aeed2e2e63cd1e58a5c70a9af8737fa19bd9

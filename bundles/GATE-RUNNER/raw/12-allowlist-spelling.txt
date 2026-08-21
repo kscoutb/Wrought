@@ -1,0 +1,16 @@
+# cmd: for each row: claude -p '<run: mkdir -p $T5/<label>>' --setting-sources '' \
+#        --permission-mode dontAsk --allowedTools '<tools>' --output-format json </dev/null
+#   GROUND TRUTH = does the target directory exist afterwards.
+# date: 2026-08-21T02:19:04Z
+# WHY: GATE-DRYRUN-B failed in dry run 1 reporting 'Bash is fully blocked', with an
+#   allowlist that included Bash(mkdir:*). Both dry-run gates logged denials for plain
+#   'mkdir -p ...'. This settles which allowlist SPELLING actually permits a command.
+
+  colon-form                   tools=Bash(mkdir:*)          -> target=PRESENT  denials=0
+  space-form                   tools=Bash(mkdir *)          -> target=PRESENT  denials=0
+  bare-Bash                    tools=Bash                   -> target=PRESENT  denials=0
+
+=== FINDING ===
+  colon-form   target_created=True  denials=0  result='DONE'
+  space-form   target_created=True  denials=0  result='DONE'
+  bare-Bash    target_created=True  denials=0  result='DONE'

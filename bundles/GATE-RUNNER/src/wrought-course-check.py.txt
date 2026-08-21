@@ -1,0 +1,128 @@
+#!/usr/bin/env python3
+"""wrought-course-check — the halt-only cloud course-correction. ONE-WAY SAFETY VALVE.
+
+Reads a COMPACT run summary on stdin, asks a cloud reviewer exactly one question, and prints
+exactly one token on stdout: `OK` or `HALT`.
+
+  **`OK` IS NOT APPROVAL TO PROCEED.** It means only "no alarm raised". Forward progress is
+  already gated by the APPROVED state the advisor and operator set at the daily ferry. This
+  check can only ever STOP the runner; it can never authorise anything. Anything that is not an
+  exact `OK` — `HALT`, an unparseable answer, an empty answer, a transport error, an exhausted
+  budget — is treated by wrought-runner as a stop.
+
+DISABLED BY DEFAULT. `course_check.enabled` is false in the shipped config. Using the sealed
+escalation credential for this purpose is NEW and is flagged for operator ratification: see
+build-evidence/runner/PROPOSED-PINS-DELTA.md.
+
+SECRET HANDLING (EXECUTOR-RAILS S5 + docs/06 S14.4). The key never touches this process. This
+wrapper writes the (non-secret) summary to a 0600 file and hands the sealed-credential work to
+systemd, which materialises the key in $CREDENTIALS_DIRECTORY; a one-line shell `cat` pipes it
+into `wrought-course-post` ON STDIN. The key is therefore never in argv, never in an environment
+variable, never in a config file, and never in this repo.
+
+DELIBERATELY NOT `bin/escalate-once`. That path calls wrought_escalation.escalate(), which writes
+the escalation ledger — and the ledger lives inside orchestrator.db, the very file the runner
+byte-freezes for the whole batch. Reusing it would make the runner trip its own tripwire on the
+first enabled course-check. This is a separate stdlib-only path with its own spend log.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import sys
+import tempfile
+from datetime import datetime, timezone
+from pathlib import Path
+
+CONFIG = os.environ.get("WROUGHT_RUNNER_CONFIG", "/etc/wrought/runner.conf")
+POST = os.environ.get("WROUGHT_COURSE_POST",
+                      str(Path(__file__).resolve().parent / "wrought-course-post"))
+
+
+def fail(msg: str) -> int:
+    """Any failure prints a non-OK token. The caller halts on anything that is not `OK`."""
+    print("HALT", flush=True)
+    print(f"wrought-course-check: {msg}", file=sys.stderr)
+    return 1
+
+
+def main() -> int:
+    summary = sys.stdin.read()
+    if not summary.strip():
+        return fail("empty summary on stdin")
+
+    try:
+        cfg = json.loads(Path(CONFIG).read_text())
+    except Exception as e:
+        return fail(f"config {CONFIG} unreadable: {e}")
+    cc = cfg.get("course_check", {})
+    cred = cc.get("credential_name")
+    cred_path = cc.get("credential_path")
+    if not cred or not cred_path:
+        return fail("course_check.credential_name / credential_path are not configured")
+
+    # Spend backstop, checked BEFORE the call leaves the box (the same shape as docs/05 S13.5).
+    spend_log = Path(cfg["state_dir"]) / "course-check-spend.jsonl"
+    spent = 0.0
+    if spend_log.is_file():
+        for line in spend_log.read_text().splitlines():
+            try:
+                spent += float(json.loads(line).get("cost_usd") or 0.0)
+            except Exception:
+                pass
+    cap = float(cc.get("spend_cap_usd", 0.0))
+    if cap and spent >= cap:
+        return fail(f"course-check spend cap reached: ${spent:.4f} >= ${cap:.2f}")
+
+    with tempfile.NamedTemporaryFile("w", delete=False, prefix="course-summary-",
+                                     suffix=".txt") as fh:
+        os.chmod(fh.name, 0o600)
+        fh.write(summary)
+        summary_path = fh.name
+
+    # systemd materialises the sealed key in $CREDENTIALS_DIRECTORY; `cat` puts it on the
+    # poster's STDIN and nowhere else. The summary travels as a file path (it is not a secret).
+    inner = f'cat "$CREDENTIALS_DIRECTORY/{cred}" | {POST} {summary_path}'
+    cmd = ["sudo", "-n", "systemd-run", "--wait", "--collect", "--quiet", "--pipe",
+           "-p", f"User={os.environ.get('USER', 'kalib')}",
+           "-p", f"LoadCredentialEncrypted={cred}:{cred_path}",
+           "/bin/sh", "-c", inner]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True,
+                           timeout=int(cc.get("timeout_sec", 120)), check=False)
+    except Exception as e:
+        os.unlink(summary_path)
+        return fail(f"sealed-credential invocation failed: {e}")
+    finally:
+        if os.path.exists(summary_path):
+            os.unlink(summary_path)
+
+    if r.returncode != 0:
+        return fail(f"poster exited {r.returncode}: {r.stderr.strip()[-400:]}")
+
+    out = r.stdout.strip().splitlines()
+    token = out[0].strip() if out else ""
+    cost = 0.0
+    for line in out[1:]:
+        if line.startswith("COST_USD="):
+            try:
+                cost = float(line.split("=", 1)[1])
+            except ValueError:
+                pass
+    spend_log.parent.mkdir(parents=True, exist_ok=True)
+    with spend_log.open("a") as fh:
+        fh.write(json.dumps({
+            "at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "cost_usd": cost, "token": token[:32],
+            "cumulative_usd": round(spent + cost, 6)}) + "\n")
+
+    if token not in ("OK", "HALT"):
+        return fail(f"reviewer returned an unparseable token {token[:120]!r}")
+    print(token, flush=True)
+    return 0 if token == "OK" else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

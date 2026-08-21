@@ -1,0 +1,27 @@
+# cmd: sha256sum <the four scripts and two config files this gate created>
+# date: 2026-08-21T02:35:40Z
+# The runner's identity, so the bundle's claims are bound to exact bytes.
+
+f794882bfb3a9aedf463a3d4e7e1efbcf0fbb86cf598e1d242b3fd3f808f05f9  /home/kalib/foundry/bin/wrought-runner
+b557d4814f0c505d12a2105a376cd74b0d2125c002dadca143ff9af7083bac9e  /home/kalib/foundry/bin/wrought-runner-hook
+0077c57731595f6fe1c9b6b7c14d3a91a99899ae457c68912ba7929cbb2fc405  /home/kalib/foundry/bin/wrought-course-check
+677d84a77f054fa3197f28ce8ded859e1ce214733a652be96d448841f994bf6a  /home/kalib/foundry/bin/wrought-course-post
+c13a50af47bf1b8f9a2a3fd93da6a14c4ebefeaedbede0c29d2c1ff5e7d60fc0  /etc/wrought/runner.conf
+60bbea27bdcebffe8087fb397f1b700bcf16a51d8fd4dd76b28fb821be7af680  /etc/wrought/runner-hooks.json
+
+# cmd: wc -l on the same
+  853 /home/kalib/foundry/bin/wrought-runner
+  111 /home/kalib/foundry/bin/wrought-runner-hook
+  128 /home/kalib/foundry/bin/wrought-course-check
+  127 /home/kalib/foundry/bin/wrought-course-post
+ 1219 total
+
+# cmd: python3 -m py_compile on each (syntax gate)
+  OK   /home/kalib/foundry/bin/wrought-runner
+  OK   /home/kalib/foundry/bin/wrought-runner-hook
+  OK   /home/kalib/foundry/bin/wrought-course-check
+  OK   /home/kalib/foundry/bin/wrought-course-post
+
+# cmd: python3 -c 'json.load' on each config (the runner's own refusal precondition)
+  parses OK   /etc/wrought/runner.conf
+  parses OK   /etc/wrought/runner-hooks.json

@@ -1,0 +1,38 @@
+# cmd: /home/kalib/foundry/bin/wrought-runner --config /var/lib/wrought/runner/dry/conf-deadman.json
+#   deadman_no_progress_sec=60, runtime_max_sec=900. The kernel deadline is 15x the
+#   dead-man's, so any kill inside ~60s can ONLY have come from the dead-man.
+# date: 2026-08-21T02:32:15Z
+# NOTE ON THE CONFIG UNDER TEST: in production the dead-man MUST exceed runtime_max_sec,
+#   or it pre-empts the kernel deadline on every long gate. It is inverted here purely to
+#   make the mechanism observable. This is a MECHANISM test, not a recommended setting.
+
+[2026-08-21T02:32:15Z] GATE-DRYRUN-K: launching. tools='Bash(ls *) Bash(find *) Read' add_dirs=['/var/lib/wrought/runner/dry'] budget=$3.0 mode=dontAsk MemoryMax=4G RuntimeMaxSec=900
+[2026-08-21T02:33:03Z] GATE-DRYRUN-K: FAIL — child=COMPLETED (terminal_reason='completed'); postconditions: ["QUEUE row for GATE-DRYRUN-K is 'RUNNING', not BUNDLED", '/var/lib/wrought/runner/dry/courier/bundles/GATE-DRYRUN-K does not exist']
+[2026-08-21T02:33:03Z] pacing: sleeping 45s before the next gate
+[2026-08-21T02:33:48Z] no APPROVED gates left to run — exiting cleanly
+
+wrought-runner: 1 gate(s); clean exit
+evidence: /var/lib/wrought/runner/dry/state-deadman/runs/20260821T023215Z
+RUNNER-EXIT=0
+
+############################################################
+
+# cmd: /home/kalib/foundry/bin/wrought-runner --config /var/lib/wrought/runner/dry/conf-deadman2.json
+#   deadman_no_progress_sec=20, runtime_max_sec=900. The kernel deadline is 45x the
+#   dead-man's, so a kill inside ~35s can ONLY have come from the dead-man.
+# date: 2026-08-21T02:34:50Z
+# FIRST ATTEMPT (dryrun-7, deadman=60) DID NOT FIRE — the gate finished in 48s, inside
+#   its own timeout. That run proves nothing about this breaker and is recorded as such.
+# NOTE: in production the dead-man MUST exceed runtime_max_sec or it pre-empts the kernel
+#   deadline on every long gate. Inverted here purely to make the mechanism observable.
+
+[2026-08-21T02:34:50Z] GATE-DRYRUN-K: launching. tools='Bash(ls *) Bash(find *) Read' add_dirs=['/var/lib/wrought/runner/dry'] budget=$3.0 mode=dontAsk MemoryMax=4G RuntimeMaxSec=900
+[2026-08-21T02:35:21Z] HALT [deadman]: dead-man: no progress for 29s (> 20s)
+
+wrought-runner: 0 gate(s); STOPPED [deadman] dead-man: no progress for 29s (> 20s)  — BREAKER LATCHED, operator must --reset-breaker
+evidence: /var/lib/wrought/runner/dry/state-deadman2/runs/20260821T023450Z
+RUNNER-EXIT=2
+--- run.jsonl deadman records:
+{"at": "2026-08-21T02:35:20Z", "idle_sec": 29, "kind": "deadman-trip"}
+{"at": "2026-08-21T02:35:21Z", "kind": "note", "msg": "HALT [deadman]: dead-man: no progress for 29s (> 20s)"}
+{"at": "2026-08-21T02:35:21Z", "breaker": "deadman", "gates_run": 0, "halted": true, "kind": "run-end", "reason": "dead-man: no progress for 29s (> 20s)", "wall_sec": 30.2}

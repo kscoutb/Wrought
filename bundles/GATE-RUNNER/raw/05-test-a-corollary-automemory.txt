@@ -1,0 +1,23 @@
+# cmd: ls -laR ~/.claude/projects/-var-lib-wrought-runner-t1/memory/ ; cat any files
+# date: 2026-08-21T01:54:58Z
+# TEST (a) COROLLARY: 'fresh context' is not absolute — an AUTO-MEMORY directory is created
+#   per project dir and IS loaded into every later invocation in that cwd.
+
+/home/kalib/.claude/projects/-var-lib-wrought-runner-t1/memory/:
+total 8
+drwxrwxr-x 2 kalib kalib 4096 Aug 20 21:53 .
+drwxrwxr-x 3 kalib kalib 4096 Aug 20 21:54 ..
+
+(memory dir is EMPTY — nothing was written by these two probes)
+
+=== the operator's OTHER project memory, which DOES have content (proof the channel is live) ===
+# cmd: ls ~/.claude/projects/-home-kalib-foundry/memory/ && head -5 .../MEMORY.md
+MEMORY.md
+courier-dispatch-protocol.md
+- [Courier dispatch protocol](courier-dispatch-protocol.md) — gate prompts and review bundles move through the public repo at /home/kalib/courier/Wrought, not through foundry.
+
+=== does --bare suppress it? (help text says --bare skips auto-memory) ===
+  --bare                                Minimal mode: skip hooks, LSP, plugin
+                                        sync, attribution, auto-memory,
+                                        background prefetches, keychain reads,
+                                        and CLAUDE.md auto-discovery. Sets

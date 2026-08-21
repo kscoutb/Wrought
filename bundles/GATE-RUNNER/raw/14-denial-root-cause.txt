@@ -1,0 +1,11 @@
+# cmd: cwd = /var/lib/wrought/runner/t7 for every row. Matrix over TWO confounds that both differ between the
+#   isolated tests (which passed) and the dry-run gates (whose mkdir was denied):
+#     - the PreToolUse hook (--settings /etc/wrought/runner-hooks.json) present or not
+#     - the mkdir target INSIDE the cwd, or OUTSIDE it
+#   allowlist held constant: Bash(git *) Bash(mkdir:*) Bash(sha256sum:*) Bash(ls:*) Read Write Edit
+# date: 2026-08-21T02:21:55Z
+
+  nohook-inside          target=True  denials= 0  result='DONE'
+  nohook-outside         target=False denials= 1  result='The Bash call was denied — this session is in "don\'t ask" mo'
+  hook-inside            target=True  denials= 0  result='DONE'
+  hook-outside           target=False denials= 1  result='The `mkdir` was denied — Bash is blocked in the current perm'

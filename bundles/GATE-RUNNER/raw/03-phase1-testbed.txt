@@ -1,0 +1,41 @@
+# cmd: (see inline) — Phase 1 test-bed provenance
+# date: 2026-08-21T01:53:15Z
+# scratch cwd: /var/lib/wrought/runner/t1  (deliberately no .claude/, no CLAUDE.md — foundry's
+#   .claude/settings.local.json allows Bash(python3 *) and would contaminate test (b))
+
+=== ls -a $T ===
+.
+..
+
+=== CLAUDE-relevant env in THIS session (a confound the runner will not have) ===
+CLAUDE_CODE_CHILD_SESSION=1
+CLAUDE_CODE_SESSION_ID=4f12430a-7321-4da2-84a6-5af1ceeeed0f
+CLAUDE_PID=306235
+CLAUDE_EFFORT=xhigh
+CLAUDE_CODE_MESSAGING_SOCKET=/run/user/1000/cc-socks/306235.sock
+CLAUDE_CODE_BRIDGE_SESSION_ID=session_01Xfgo7jkxkpjmSXfy9WsLjX
+CLAUDECODE=1
+CLAUDE_CODE_ENTRYPOINT=cli
+CLAUDE_CODE_EXECPATH=/home/kalib/.local/share/claude/versions/2.1.228
+CLAUDE_CODE_MESSAGING_TOKEN=<REDACTED-BEFORE-COMMIT>
+
+# REDACTION APPLIED 2026-08-21, recorded rather than hidden: this capture originally contained
+#   the literal value of CLAUDE_CODE_MESSAGING_TOKEN for THIS supervising session. That is a live
+#   capability token for the local cross-session messaging socket, and the courier is a PUBLIC
+#   repository. It was caught by /opt/wrought/bin/gitleaks on the STAGED diff, before any commit.
+#   My own inline redaction in the capture command matched only /KEY/ and missed /TOKEN/ — the
+#   scan is what caught it, which is the whole reason ST-7 requires the scan.
+#   The value never left the box: no commit was made and nothing was pushed while it was present.
+
+=== operator user settings (~/.claude/settings.json) ===
+{
+  "effortLevel": "xhigh",
+  "advisorModel": "fable",
+  "tui": "fullscreen",
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "dark"
+}
+
+=== --setting-sources acceptance probe ===
+-- with --setting-sources '' :
+{"is_error":false,"duration_api_ms":2396,"num_turns":1,"stop_reason":"end_turn","session_id":"2ffeef67-66da-4adc-9894-96ff4a4a7e86","total_cost_usd":0.035368,"usage":{"input_tokens":2,"cache_creation_input_tokens":3426,"cache_read_input_tokens":0,"output_tokens":6,"output_tokens_details":{"thinking_tokens":0},"server_tool_use":{"web_search_requests":0,"web_fetch_requests":0},"service_tier":"standard","cache_creation":{"ephemeral_1h_input_tokens":3426,"ephemeral_5m_input_tokens":0},"inference_geo":"not_available","iterations":[{"input_tokens":2,"output_tokens":6,"cache_read_input_tokens":0,"cac

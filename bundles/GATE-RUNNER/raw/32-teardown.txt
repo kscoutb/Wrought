@@ -1,0 +1,96 @@
+# cmd: sha256sum of every dry-run log BEFORE deletion, then an enumerated rm, path by path.
+# date: 2026-08-21T02:36:26Z
+# EXECUTOR-RAILS S3: deletes are enumerated, never globbed. Each path below is written out
+#   with its reason. Nothing is deleted whose content this bundle relies on — every log was
+#   copied into raw/ first, and these hashes let the copies be checked against the originals.
+
+=== hashes of the originals, before anything is removed ===
+1f81792259cd9d91e7960ef8670c83c47d505ef4828f6b8c0880ed07d083cb54  /var/lib/wrought/runner/dry/dryrun-1.log
+c351455d8143cc07cb8246b902378d33c2506384a2df938cf013a8622d293b5e  /var/lib/wrought/runner/dry/dryrun-2.log
+c4edf5ab5b4b3c37caf96c63471b1451f11ea3099e03f9049947658e07f7ce0a  /var/lib/wrought/runner/dry/dryrun-3-tripwire.log
+4be495af67fcc73b03a0f14d44c67087cd61dfd7adad4f2aa31aa4dd6fb289da  /var/lib/wrought/runner/dry/dryrun-4-breaker.log
+e1ec5c99853307101c0970d465f1fadbf0d490b1967ab71de8e00ba71b3d0bea  /var/lib/wrought/runner/dry/dryrun-5-coursecheck.log
+40f35fd49b66e761f18400017928ccf9d1e0a4f6c97230f9025aaa8e77dbdde1  /var/lib/wrought/runner/dry/dryrun-6-kill.log
+29b0d486af8873be0db9f1f0a5b3152ffe98bbc04bfbd13acb92d5c36f480b6a  /var/lib/wrought/runner/dry/dryrun-7-deadman.log
+5e57d470a7ff74632b18b54a23051a3cda2ab0e57b358416c440846d940dbdf6  /var/lib/wrought/runner/dry/dryrun-8-deadman.log
+
+=== the same files as copied into raw/ (must match, modulo the two concatenated deadman logs) ===
+1f81792259cd9d91e7960ef8670c83c47d505ef4828f6b8c0880ed07d083cb54  /var/lib/wrought/runner/raw/20-dryrun-1-happy-path.txt
+c351455d8143cc07cb8246b902378d33c2506384a2df938cf013a8622d293b5e  /var/lib/wrought/runner/raw/21-dryrun-2-adddir-fix.txt
+c4edf5ab5b4b3c37caf96c63471b1451f11ea3099e03f9049947658e07f7ce0a  /var/lib/wrought/runner/raw/22-dryrun-3-byte-freeze-tripwire.txt
+4be495af67fcc73b03a0f14d44c67087cd61dfd7adad4f2aa31aa4dd6fb289da  /var/lib/wrought/runner/raw/23-dryrun-4-consecutive-failure-breaker.txt
+e1ec5c99853307101c0970d465f1fadbf0d490b1967ab71de8e00ba71b3d0bea  /var/lib/wrought/runner/raw/24-dryrun-5-coursecheck-halt.txt
+40f35fd49b66e761f18400017928ccf9d1e0a4f6c97230f9025aaa8e77dbdde1  /var/lib/wrought/runner/raw/25-dryrun-6-kernel-kills-real-claude.txt
+b95afbfb3afc9fa2f9e569dd3ece7a976b71e782a06e9a7846113eeee7d33037  /var/lib/wrought/runner/raw/28-dryrun-7-8-deadman.txt
+
+=== the throwaway test gates being torn down (Phase 4 requires this enumerated) ===
+  /var/lib/wrought/runner/dry/courier/prompts/GATE-DRYRUN-A.md  — throwaway no-op test gate authored for the dry run only
+  /var/lib/wrought/runner/dry/courier/prompts/GATE-DRYRUN-B.md  — throwaway no-op test gate authored for the dry run only
+  /var/lib/wrought/runner/dry/courier/prompts/GATE-DRYRUN-C.md  — throwaway no-op test gate authored for the dry run only
+  /var/lib/wrought/runner/dry/courier/prompts/GATE-DRYRUN-E.md  — throwaway no-op test gate authored for the dry run only
+  /var/lib/wrought/runner/dry/courier/prompts/GATE-DRYRUN-F.md  — throwaway no-op test gate authored for the dry run only
+  /var/lib/wrought/runner/dry/courier/prompts/GATE-DRYRUN-G.md  — throwaway no-op test gate authored for the dry run only
+  /var/lib/wrought/runner/dry/courier/prompts/GATE-DRYRUN-H.md  — throwaway no-op test gate authored for the dry run only
+  /var/lib/wrought/runner/dry/courier/prompts/GATE-DRYRUN-I.md  — throwaway no-op test gate authored for the dry run only
+  /var/lib/wrought/runner/dry/courier/prompts/GATE-DRYRUN-J.md  — throwaway no-op test gate authored for the dry run only
+  /var/lib/wrought/runner/dry/courier/prompts/GATE-DRYRUN-K.md  — throwaway no-op test gate authored for the dry run only
+
+=== enumerated deletes ===
+  /var/lib/wrought/runner/dry/courier                  the throwaway courier clone (prompts, bundles, QUEUE) — logs already copied to raw/
+  /var/lib/wrought/runner/dry/origin.git               the local bare repo that stood in for the public courier
+  /var/lib/wrought/runner/dry/db                       the SCRATCH orchestrator.db trio — never the real one (raw/00, raw/99)
+  /var/lib/wrought/runner/dry/marker                   markers written by the no-op test gates
+  /var/lib/wrought/runner/dry/gate-cwd                 the scratch cwd the test gates ran in
+  /var/lib/wrought/runner/dry/state                    runner state for dry runs 1-2 — verdicts already copied to raw/26
+  /var/lib/wrought/runner/dry/state-tripwire           runner state for the tripwire scenario — log copied to raw/22
+  /var/lib/wrought/runner/dry/state-breaker            runner state for the breaker scenario — log copied to raw/23
+  /var/lib/wrought/runner/dry/state-cc-halt            runner state for the course-check scenario — log copied to raw/24
+  /var/lib/wrought/runner/dry/state-kill               runner state for the kernel-kill scenario — log copied to raw/25
+  /var/lib/wrought/runner/dry/state-deadman            runner state for the dead-man attempt that did not fire — log copied to raw/28
+  /var/lib/wrought/runner/dry/state-deadman2           runner state for the dead-man attempt that fired — log copied to raw/28
+  /var/lib/wrought/runner/dry/conf-breaker.json        dry-run scenario file
+  /var/lib/wrought/runner/dry/conf-cc-error.json       dry-run scenario file
+  /var/lib/wrought/runner/dry/conf-cc-garbage.json     dry-run scenario file
+  /var/lib/wrought/runner/dry/conf-cc-halt.json        dry-run scenario file
+  /var/lib/wrought/runner/dry/conf-cc-ok.json          dry-run scenario file
+  /var/lib/wrought/runner/dry/conf-deadman2.json       dry-run scenario file
+  /var/lib/wrought/runner/dry/conf-deadman.json        dry-run scenario file
+  /var/lib/wrought/runner/dry/conf-kill.json           dry-run scenario file
+  /var/lib/wrought/runner/dry/conf-tripwire.json       dry-run scenario file
+  /var/lib/wrought/runner/dry/stub-ERROR               dry-run scenario file
+  /var/lib/wrought/runner/dry/stub-GARBAGE             dry-run scenario file
+  /var/lib/wrought/runner/dry/stub-HALT                dry-run scenario file
+  /var/lib/wrought/runner/dry/stub-OK                  dry-run scenario file
+  /var/lib/wrought/runner/dry/runner.conf              dry-run scenario file
+  /var/lib/wrought/runner/dry/bad.conf                 dry-run scenario file
+  /var/lib/wrought/runner/dry/mode.conf                dry-run scenario file
+  /var/lib/wrought/runner/dry/dirtier.sh               dry-run scenario file
+  /var/lib/wrought/runner/dry/dryrun-1.log             dry-run scenario file
+  /var/lib/wrought/runner/dry/dryrun-2.log             dry-run scenario file
+  /var/lib/wrought/runner/dry/dryrun-3-tripwire.log    dry-run scenario file
+  /var/lib/wrought/runner/dry/dryrun-4-breaker.log     dry-run scenario file
+  /var/lib/wrought/runner/dry/dryrun-5-coursecheck.log dry-run scenario file
+  /var/lib/wrought/runner/dry/dryrun-6-kill.log        dry-run scenario file
+  /var/lib/wrought/runner/dry/dryrun-7-deadman.log     dry-run scenario file
+  /var/lib/wrought/runner/dry/dryrun-8-deadman.log     dry-run scenario file
+  /var/lib/wrought/runner/dry                          the now-empty dry-run root
+  /var/lib/wrought/runner/t1                           Phase-1/root-cause probe workdir — findings already in raw/
+  /var/lib/wrought/runner/t2                           Phase-1/root-cause probe workdir — findings already in raw/
+  /var/lib/wrought/runner/t3                           Phase-1/root-cause probe workdir — findings already in raw/
+  /var/lib/wrought/runner/t4                           Phase-1/root-cause probe workdir — findings already in raw/
+  /var/lib/wrought/runner/t5                           Phase-1/root-cause probe workdir — findings already in raw/
+  /var/lib/wrought/runner/t6                           Phase-1/root-cause probe workdir — findings already in raw/
+  /var/lib/wrought/runner/t7                           Phase-1/root-cause probe workdir — findings already in raw/
+  /var/lib/wrought/runner/t7-outside                   Phase-1/root-cause probe workdir — findings already in raw/
+  /var/lib/wrought/runner/t8                           Phase-1/root-cause probe workdir — findings already in raw/
+  /var/lib/wrought/runner/t9                           Phase-1/root-cause probe workdir — findings already in raw/
+  /var/lib/wrought/runner/t10                          Phase-1/root-cause probe workdir — findings already in raw/
+  /var/lib/wrought/runner/t11                          Phase-1/root-cause probe workdir — findings already in raw/
+
+=== what remains under /var/lib/wrought/runner ===
+total 44
+drwxr-xr-x  3 kalib kalib  4096 Aug 20 22:36 .
+drwxr-xr-x 45 root  root   4096 Aug 20 21:47 ..
+-rw-rw-r--  1 kalib kalib 28422 Aug 20 22:36 REPORT-RUNNER.md
+-rw-rw-r--  1 kalib kalib    15 Aug 20 22:14 e3-partial.json
+drwxr-xr-x  2 kalib kalib  4096 Aug 20 22:36 raw

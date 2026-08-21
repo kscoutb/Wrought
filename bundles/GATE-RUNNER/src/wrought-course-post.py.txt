@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""wrought-course-post — the one HTTP POST behind wrought-course-check. Key on STDIN ONLY.
+
+  usage:  cat "$CREDENTIALS_DIRECTORY/<cred>" | wrought-course-post <summary-file>
+
+Started by systemd (via wrought-course-check) so the sealed key arrives through
+$CREDENTIALS_DIRECTORY and reaches this process on stdin. The key is never an argument, never an
+environment variable, never written anywhere, and never printed — not even in an error path.
+
+stdout, exactly:
+    <TOKEN>            # OK or HALT
+    COST_USD=<float>   # 0.0 when the provider returns no usage accounting
+
+Every value below is read from `pins.lock`. Nothing here is invented — CLAUDE.md's first hard
+rule. `max_tokens` is always sent (docs/05 S13.5); `allow_fallbacks` is false and `provider.only`
+is pinned so this call cannot silently be served by anyone but the pinned provider.
+"""
+
+from __future__ import annotations
+
+import json
+import re
+import sys
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+PINS = Path(__file__).resolve().parent.parent / "pins.lock"
+
+SYSTEM = (
+    "You are a skeptical reviewer watching an automated build runner between steps. "
+    "You are asked exactly one question and you answer with exactly one word. "
+    "You have no authority to approve anything: answering OK does not authorise the runner to "
+    "proceed, it only records that you raised no alarm. Answer HALT if anything in the summary "
+    "looks like it warrants a human looking before more automated work happens — a failure, an "
+    "unexpected state change, a tripwire, an inconsistency, or anything you cannot account for. "
+    "When in doubt, answer HALT. Reply with exactly one word: HALT or OK."
+)
+QUESTION = "Does anything here warrant halting for human review? Answer HALT or OK.\n\n"
+
+
+def pin(key: str, default: str | None = None) -> str:
+    """Read one scalar out of pins.lock's `escalation:` block. Deliberately minimal: this script
+    is stdlib-only by rule (pins.lock's own note: no YAML dependency in the escalation path)."""
+    inside = False
+    for line in PINS.read_text().splitlines():
+        if re.match(r"^escalation:\s*$", line):
+            inside = True
+            continue
+        if inside and re.match(r"^[a-z_]+:\s*$", line):
+            break
+        if inside:
+            m = re.match(rf"^\s{{2}}{re.escape(key)}:\s*(.+?)\s*(?:#.*)?$", line)
+            if m:
+                return m.group(1).strip().strip('"')
+    if default is not None:
+        return default
+    raise SystemExit(f"wrought-course-post: pins.lock has no escalation.{key}")
+
+
+def main() -> int:
+    if len(sys.argv) != 2:
+        print("HALT")
+        print("COST_USD=0.0")
+        print("usage: wrought-course-post <summary-file>  (key on stdin)", file=sys.stderr)
+        return 2
+
+    api_key = sys.stdin.read().strip()
+    if not api_key:
+        print("HALT")
+        print("COST_USD=0.0")
+        print("wrought-course-post: no credential on stdin", file=sys.stderr)
+        return 2
+
+    summary = Path(sys.argv[1]).read_text()
+    url = pin("api_base").rstrip("/") + pin("endpoint")
+    body = json.dumps({
+        "model": pin("model_id_sent"),
+        "provider": {"only": [pin("provider_only")], "allow_fallbacks": False},
+        "max_tokens": 8,
+        "temperature": 0,
+        "messages": [
+            {"role": "system", "content": SYSTEM},
+            {"role": "user", "content": QUESTION + summary},
+        ],
+    }).encode()
+
+    req = urllib.request.Request(url, data=body, method="POST", headers={
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            doc = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        print("HALT")
+        print("COST_USD=0.0")
+        # Never echo the request: the Authorization header is in it.
+        print(f"wrought-course-post: HTTP {e.code}", file=sys.stderr)
+        return 1
+    except Exception as e:
+        print("HALT")
+        print("COST_USD=0.0")
+        print(f"wrought-course-post: transport error: {type(e).__name__}", file=sys.stderr)
+        return 1
+
+    try:
+        text = doc["choices"][0]["message"]["content"].strip().upper()
+    except Exception:
+        print("HALT")
+        print("COST_USD=0.0")
+        print("wrought-course-post: no message content in response", file=sys.stderr)
+        return 1
+
+    token = "OK" if text == "OK" else "HALT"     # anything that is not exactly OK halts
+    cost = 0.0
+    try:
+        cost = float(doc.get("usage", {}).get("cost") or 0.0)
+    except Exception:
+        pass
+    print(token)
+    print(f"COST_USD={cost}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

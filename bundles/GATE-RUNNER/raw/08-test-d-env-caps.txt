@@ -1,0 +1,46 @@
+# cmd: cwd /var/lib/wrought/runner/t4, env scrubbed as in raw/04, all with --setting-sources '' --output-format json </dev/null
+#  d1  : CLAUDE_CODE_MAX_OUTPUT_TOKENS=64 claude -p 'Write a 900-word essay ... Do not stop early.' --tools ""
+#  d1c : (control) same prompt, no cap
+#  d2  : BASH_DEFAULT_TIMEOUT_MS=4000 claude -p '<run: sleep 45>' --permission-mode dontAsk --allowedTools "Bash(sleep:*)"
+#  d2b : BASH_DEFAULT_TIMEOUT_MS=4000 claude -p '<run: python3 -c "import time; time.sleep(45); print(...)">'
+#          --permission-mode dontAsk --allowedTools "Bash(python3:*)"   (+ a no-cap control)
+#  d3  : claude -p '<5-step multi-turn task>' --permission-mode dontAsk --allowedTools "Bash(ls:*) Bash(find:*)" --max-budget-usd 0.01
+# date: 2026-08-21T02:03:10Z
+# TEST (d): do the token/output caps + bash-timeout env vars take effect?
+
+CASE  CONTROL SET                      OBSERVED
+d1    CLAUDE_CODE_MAX_OUTPUT_TOKENS=64 rc=1  is_error=True  terminal_reason='api_error'  output_tokens=256
+                                       result = "API Error: Claude's response exceeded the 64 output token
+                                       maximum. To configure this behavior, set the CLAUDE_CODE_MAX_OUTPUT_TOKENS
+                                       environment variable."
+d1c   (no cap)                         rc=0  is_error=False terminal_reason='completed'  output_tokens=2712
+d2    BASH_DEFAULT_TIMEOUT_MS=4000     VOID AS A TIMEOUT TEST — the harness refuses foreground `sleep`
+                                       outright ("Blocked: sleep 45 ..."), so nothing ever ran to time out.
+d2b   BASH_DEFAULT_TIMEOUT_MS=4000     wall=19s. Tool returned: "Command did not complete within its 4s
+                                       timeout and was moved to the background (ID: bl3pc79zr)."
+d2b   (no cap), same 45s command       wall=52s, ran to completion, model reports the documented 120000 ms
+                                       default and no timeout of any kind.
+d3    --max-budget-usd 0.01            rc=1  is_error=True  subtype='error_max_budget_usd'
+                                       terminal_reason='budget_exhausted'  result=None
+                                       BUT total_cost_usd=0.0460925 — 4.6x the cap.
+
+=== FINDINGS (d) ===
+1. CLAUDE_CODE_MAX_OUTPUT_TOKENS TAKES EFFECT, and fails LOUDLY and machine-readably: rc=1,
+   is_error=true, terminal_reason='api_error', and a result string that names the variable.
+   Note output_tokens read 256 against a cap of 64 — the accounting is not the cap; treat the
+   number as unreliable and the ERROR as the signal.
+2. BASH_DEFAULT_TIMEOUT_MS TAKES EFFECT (4s observed vs the 120000 ms default), BUT IT DOES NOT
+   KILL ANYTHING. It *backgrounds* the overrunning command, which keeps running with output
+   redirected to a task file. As a containment control it bounds only how long the model WAITS.
+   => a runaway child process can only be stopped by the kernel layer (the systemd scope's
+      RuntimeMaxSec, which kills the whole cgroup). This is precisely why containment cannot be
+      left at the harness level, independent of the hooks question.
+3. --max-budget-usd TAKES EFFECT and is the cleanest failure signature of the three:
+   subtype='error_max_budget_usd', terminal_reason='budget_exhausted', rc=1.
+   IT IS A SOFT CEILING: the observed spend OVERSHOT the cap by 4.6x, because the check happens
+   between turns and a turn already in flight is paid for. Any STOP-4 accounting must therefore
+   set the per-gate cap well BELOW the amount it can afford to lose, and must reconcile against
+   total_cost_usd after the fact rather than trusting the cap to hold the line.
+4. CROSS-CUTTING, and the single most important classification fact from Phase 1:
+   `subtype` was 'success' even on the d1 hard failure. `is_error` and `terminal_reason` are the
+   reliable discriminators; `subtype` is not, and the exit integer alone is not (test (b)).

@@ -1,0 +1,15 @@
+# cmd: /home/kalib/foundry/bin/wrought-runner --config /var/lib/wrought/runner/dry/runner.conf
+# date: 2026-08-21T02:13:55Z
+# DRY RUN 1 — happy path, two no-op gates, local bare-repo courier, scratch db trio
+
+[2026-08-21T02:13:55Z] GATE-DRYRUN-A: launching. tools='Bash(git *) Bash(mkdir:*) Bash(sha256sum:*) Bash(printf:*) Bash(date:*) Bash(ls:*) Bash(cat:*) Read Write Edit' budget=$2.0 mode=dontAsk MemoryMax=4G RuntimeMaxSec=900
+[2026-08-21T02:15:45Z] GATE-DRYRUN-A: PASS — bundle present, manifest verifies, byte freeze held
+[2026-08-21T02:15:46Z] pacing: sleeping 45s before the next gate
+[2026-08-21T02:16:31Z] GATE-DRYRUN-B: launching. tools='Bash(git *) Bash(mkdir:*) Bash(sha256sum:*) Bash(printf:*) Bash(date:*) Bash(ls:*) Bash(cat:*) Read Write Edit' budget=$2.0 mode=dontAsk MemoryMax=4G RuntimeMaxSec=900
+[2026-08-21T02:17:05Z] GATE-DRYRUN-B: FAIL — child=COMPLETED (terminal_reason='completed'); postconditions: ["QUEUE row for GATE-DRYRUN-B is 'RUNNING', not BUNDLED", '/var/lib/wrought/runner/dry/courier/bundles/GATE-DRYRUN-B/SHA256SUMS is missing']
+[2026-08-21T02:17:05Z] pacing: sleeping 45s before the next gate
+[2026-08-21T02:17:50Z] no APPROVED gates left to run — exiting cleanly
+
+wrought-runner: 2 gate(s); clean exit
+evidence: /var/lib/wrought/runner/dry/state/runs/20260821T021355Z
+RUNNER-EXIT=0

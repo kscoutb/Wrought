@@ -1,0 +1,20 @@
+# cmd: awk '<block counter>' /home/kalib/courier/Wrought/prompts/GATE-RUNNER-v1.0.md
+# block := a maximal run of lines beginning with 4 spaces (blank lines do not break a block)
+# date: 2026-08-21T01:47:51Z
+
+=== BLOCK 1 (starts line 38) ===
+  |    # (a) does a fresh non-interactive run clear context? prove two invocations share no memory
+  |    # (b) does --permission-mode default-deny actually block an un-allowlisted Bash call?
+  |    # (c) do PreToolUse hooks fire under `claude -p`?  (RT0 pass-2 claims they do NOT)
+  |    # (d) do the token/output caps + bash-timeout env vars take effect?
+  |    claude --version; claude --help | grep -iE 'permission-mode|allowedTools|print|session'
+=== BLOCK 2 (starts line 53) ===
+  |    systemd-run --user --scope -p MemoryMax=<cap> -p RuntimeMaxSec=<per-gate-timeout> \
+  |      env CLAUDE_CODE_MAX_OUTPUT_TOKENS=<cap> BASH_DEFAULT_TIMEOUT_MS=600000 \
+  |      claude -p "$(cat prompts/<gate>.md)" --permission-mode <default-deny-mode> \
+  |      --allowedTools "<the minimal set the gate declares>"
+=== BLOCK 3 (starts line 83) ===
+  |    printf '%s' "$SUMMARY" | run-course-check   # reads sealed key on stdin, POSTs to the pinned
+  |                                                 # escalation endpoint, prints exactly one token
+
+TOTAL INDENTED BLOCKS: 3

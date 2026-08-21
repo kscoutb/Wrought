@@ -1,0 +1,12 @@
+# cmd: /home/kalib/foundry/bin/wrought-runner --config /var/lib/wrought/runner/dry/runner.conf
+# date: 2026-08-21T02:23:08Z
+# DRY RUN 2 — GATE-DRYRUN-B re-run, now WITH --add-dir per the raw/14 finding
+
+[2026-08-21T02:23:08Z] GATE-DRYRUN-B: launching. tools='Bash(git *) Bash(mkdir:*) Bash(sha256sum:*) Bash(printf:*) Bash(date:*) Bash(ls:*) Bash(cat:*) Read Write Edit' add_dirs=['/var/lib/wrought/runner/dry'] budget=$2.0 mode=dontAsk MemoryMax=4G RuntimeMaxSec=900
+[2026-08-21T02:23:49Z] GATE-DRYRUN-B: PASS — bundle present, manifest verifies, byte freeze held
+[2026-08-21T02:23:49Z] pacing: sleeping 45s before the next gate
+[2026-08-21T02:24:34Z] no APPROVED gates left to run — exiting cleanly
+
+wrought-runner: 1 gate(s); clean exit
+evidence: /var/lib/wrought/runner/dry/state/runs/20260821T022308Z
+RUNNER-EXIT=0

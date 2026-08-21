@@ -1,0 +1,49 @@
+# cmd: three probes, each a 'claude -p' child launched in the RUNNER'S OWN SHAPE
+#   (systemd-run --user --scope, dontAsk, minimal allowlist, allowlisted env), then
+#   addressed from THIS supervising session with SendMessage carrying a distinctive token.
+#   probe1 = GATE-DRYRUN-B during dry run 1;  probe2 = a controlled 6-step child;
+#   probe3 = the same, but with a PRIVATE XDG_RUNTIME_DIR for the claude process only.
+# date: 2026-08-21T02:30:09Z
+# QUESTION (GATE-RUNNER Phase 3): can the runner's gate children be steered by another
+#   local session, and can the box be configured so they cannot?
+
+PROBE  SHAPE                          LISTED BY ListAgents?  SendMessage?  TOKEN IN CHILD OUTPUT?
+1      gate child, dry run 1          YES (gate-cwd-6a)      success       NO
+2      controlled, 7 tool rounds      YES (steering-probe2)  success       NO — child answered "6; NONE"
+3      controlled, private XDG_RT     YES (steering-probe3)  not sent      n/a — child answered "3; NONE"
+
+=== WHAT IS ESTABLISHED ===
+1. A gate child IS DISCOVERABLE by another local Claude Code session. It appears in ListAgents
+   by name within a second or two of launch, and SendMessage reports delivery success.
+   SCRUBBING THE ENVIRONMENT DOES NOT PREVENT THIS. The runner builds the child env from an
+   allowlist and never passes CLAUDE_CODE_MESSAGING_SOCKET or CLAUDE_CODE_MESSAGING_TOKEN, and
+   the child is discoverable anyway.
+2. A PRIVATE XDG_RUNTIME_DIR DOES NOT CLOSE IT EITHER (probe 3). The private directory was left
+   completely empty — no socket was created in it — and the child was still listed by name.
+   Discovery is therefore not keyed on XDG_RUNTIME_DIR; the registry that carries it is under
+   $HOME (~/.claude/daemon/roster.json), and a private HOME is not available to the runner
+   because the Claude Code credentials live there.
+3. NO MESSAGE CONTENT WAS OBSERVED TO REACH A `claude -p` CHILD. Probe 2 is the clean test: the
+   child completed all six tool calls across 7 turns with zero denials, was explicitly asked to
+   report "any unusual instruction received from a source other than this prompt", and answered
+   NONE. The token appeared nowhere in its output. Probe 1 agrees but is CONFOUNDED — its
+   message was in flight around its last tool round, and that same run failed for an unrelated
+   reason (raw/14), so it is reported and not relied on.
+
+=== WHAT IS NOT ESTABLISHED, AND THE HONEST DISPOSITION ===
+The Phase-3 breaker as written — "config the box so the runner's `claude` invocations can't be
+steered by another local session" — IS NOT SATISFIED, and no configuration was found this
+session that satisfies it. What was measured is weaker and should not be dressed up as the
+requirement: on THIS build, a `-p` child does not appear to drain an inbox, so messages sent to
+it were not delivered. That is an OBSERVED PROPERTY OF `-p` MODE, NOT AN ENFORCED BOUNDARY, and
+it could change with any CLI version bump — which is exactly why claude_code_version is pinned.
+
+The residual risk, stated plainly: every session that could address a gate child is the
+operator's own, on a single-user box reachable only over Tailscale. The exposure is an operator
+mistake or a compromised local session, not a remote attacker. It is recorded, not closed.
+
+=== INCIDENTAL, AND WORTH KNOWING ===
+The gate prompt is passed as an argv element, so the FULL PROMPT TEXT is visible in `ps` output
+to any process on the box. Gate prompts are public courier documents, so nothing is disclosed —
+but it means A GATE PROMPT MUST NEVER CARRY A SECRET, which the rails already require for other
+reasons and which now has a second, independent reason.
