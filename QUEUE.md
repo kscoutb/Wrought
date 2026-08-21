@@ -16,6 +16,8 @@ One row per gate, newest at the bottom. See `README.md` for the loop.
 | Gate | Status | Notes |
 |---|---|---|
 | `GATE-HJ1-HYGIENE` | `BUNDLED` | v1.1 archived to `prompts/GATE-HJ1-HYGIENE-v1.1.md`; bundle at `bundles/GATE-HJ1/` (16-entry `SHA256SUMS`, verifies 16/16, covers the whole directory bar itself). Pins ratified — the closure is pinned at **versions**, not just names. Byte freeze **held**. Two foundry commits, local (the foundry repo has no remote): `624f1b9`, `bc27359`. **Surfaced, not answered: the running kernel is `7.0.0-29-generic` against a pinned `7.0.0-28-generic`, so ST-1 now has two unsatisfied triggers.** J0B unblocks on adjudication. |
+| `GATE-HJ2-HEARTBEAT` | `NOT RUN` | Dispatched as a file alongside J0B and archived here verbatim (`prompts/GATE-HJ2-HEARTBEAT-v1.0.md`), but **never executed** — at J0B start `STATUS.md` did not exist and `docs/EXECUTOR-RAILS.md` carried no HEARTBEAT section. J0B's heartbeat header still had to be honoured, so this session **bootstrapped `STATUS.md` alone** from HJ2's verbatim schema. HJ2's remaining steps (rails/README rule text, the HJ1 `ADJUDICATION.md` write, journal J-158) are **still outstanding** — out of J0B's authorized scope, which forbids foundry commits. |
+| `GATE-J0B-SURFACE` | `RUNNING` | v1.2 archived to `prompts/GATE-J0B-SURFACE-v1.2.md` (**deviation:** the prompt's prose says archive as `-v1.1.md`; the file dispatched is v1.2, and the courier archive is "exactly what was sent", so the version in the name matches the version in the file). Transport check **PASS** — exactly 12 four-space blocks. |
 
 *(HJ1 is the first gate through the courier. It was dispatched to the operator as a file and
 archived here verbatim before the box began work.)*
