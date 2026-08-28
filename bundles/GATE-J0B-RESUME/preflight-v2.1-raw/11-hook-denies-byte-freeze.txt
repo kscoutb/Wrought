@@ -1,0 +1,39 @@
+###############################################################################
+# GATE-J0B-RESUME v2.1 ATTENDED PRE-FLIGHT — the PreToolUse hook DENIES the gate child's own
+# byte-freeze command. Found on an advisor pass over this pre-flight; MEASURED here.
+# host=forge-mini  utc=2026-08-28T21:40:26Z  user=kalib
+###############################################################################
+
+# MECHANISM: bin/wrought-runner-hook decide() serialises the WHOLE tool_input
+#   blob = json.dumps(payload.get("tool_input", {}))
+# and denies on DENY[0] = re.compile(r"orchestrator\.db"), with matcher "*" in
+# /etc/wrought/runner-hooks.json. So ANY Bash command whose text names the orchestrator store is
+# denied — including a READ-ONLY sha256sum of it.
+#
+# WHY IT MATTERS FOR THIS GATE: v2.1 says "Byte freeze on state/" (rails §2: hash all three at
+# session start) and Phase 7 says "Byte-freeze re-assert + diff". Those are the child's FIRST and
+# LAST evidence steps, and both are denied. A fail-loud child may read that as a rail it cannot
+# satisfy and stall — on a control that is working exactly as designed.
+
+## MEASURED — the child's rails §2 baseline command, fed to the hook as the CLI would
+$ echo '{"tool_name":"Bash","tool_input":{"command":"sha256sum /var/lib/wrought/state/orchestrator.db{,-wal,-shm}",...}}' | python3 bin/wrought-runner-hook
+{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny", "permissionDecisionReason": "wrought-runner-hook: the orchestrator store is byte-frozen for the whole batch (EXECUTOR-RAILS S2)"}}
+  => DENIED.
+
+## CONTROL — an ordinary Phase-A command through the same hook
+$ echo '{"tool_name":"Bash","tool_input":{"command":"cloud-localds /var/lib/wrought/j0b/seed.img /var/lib/wrought/j0a/user-data",...}}' | python3 bin/wrought-runner-hook
+{"hookSpecificOutput": {"hookEventName": "PreToolUse"}}
+  => DEFER (not denied). The denial is specific to the orchestrator store, not general.
+
+=== VERDICT: NOT A DEFECT — A DOCUMENTATION GAP, and it is on the box's side ===
+The runner OWNS the byte freeze during a batch: _run_one_gate_core() hashes the frozen paths
+before and after the child and writes freeze-before.json, freeze-after.json and freeze-verdict.txt
+into the run dir, and ANY drift halts the whole runner. The child neither can nor should take that
+measurement itself — that is precisely why the hook denies it. But nothing tells the child so, and
+rails §2 reads as an unconditional duty on "a session".
+
+FIXED BY ADDITION in docs/PHASE-J-STATE.md (the box's own state doc, which the child reads first
+and which its own header says must win against a stale premise). The prompt cannot be edited and a
+`claude -p` child cannot be spoken to mid-run, so the state doc is the ONLY channel.
+NOT changed: EXECUTOR-RAILS §2 itself, the hook, and runner-hooks.json — narrowing or re-wording a
+ratified safety control on launch night is not a box decision.
