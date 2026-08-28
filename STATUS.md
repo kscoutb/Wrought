@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-28T18:58:13Z
-gate:     GATE-RUNNER-ARM
-state:    HALTED
-last:     Phase 5(ii) PASS — the hardened runner drove a REAL claude child through the complete armed path on a scratch courier + scratch state: private HOME + private runtime dir, kernel scope (MemoryMax=8G/MemorySwapMax=0/RuntimeMaxSec=5400), dontAsk, validated hooks, mechanical verdict PASS, byte freeze HOLD, orphan sweep CLEAN, ephemeral HOME torn down with no credentials left, and the gate PUSHED its own bundle. session_id feee78d7-7ea4-4e97-b23a-7650f79a6ae1, 5 turns, 0 denials, 0 stderr, $0.178, 27.1s. Derived config proven mechanically: 8 of 103 leaves changed, all path redirections, every threshold byte-identical. Clean-exit path also proven, rc=0.
-next:     WAITING ON THE OPERATOR — one ruling. Phase 5(i) found the runner CANNOT parse the real QUEUE.md (raw/24): parse_queue rejects the ratified terminal statuses 'RESET' and 'FOLDED INTO <gate>', so every start against the real courier latches a queue-parse breaker. The fix is additive (add RESET to the set + a prefix match for FOLDED INTO; RUNNABLE_STATUS untouched, so nothing new becomes runnable) but the queue parser is OUTSIDE this prompt's authorized change set. Apply it in this gate so the installed-config start can actually be proven, or hold it for the next prompt? Advisor endorses applying, conditional on the operator's ack.
-usage:    n/a
+updated:  2026-08-28T19:15:51Z
+gate:     NONE
+state:    IDLE
+last:     wrought-runner finished cleanly after 0 gate(s)
+next:     operator review at the next daily ferry
+usage:    n/a (wrought-runner)
