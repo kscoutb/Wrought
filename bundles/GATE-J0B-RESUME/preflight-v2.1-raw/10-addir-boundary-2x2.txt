@@ -1,0 +1,69 @@
+###############################################################################
+# GATE-J0B-RESUME v2.1 ATTENDED PRE-FLIGHT — the --add-dir workspace boundary, 2x2.
+# host=forge-mini  utc=2026-08-28T21:30:44Z  user=kalib
+#
+# WHY THIS PROBE EXISTS: v2.1's header is  ADD-DIRS: /var/lib/wrought/j0b  — but EVERY command in
+# the proven Phase-A shape also names /var/lib/wrought/j0a (user-data for cloud-localds, the base
+# image for the hash re-verify and the overlay backing file, and j0a_key for every in-guest ssh).
+# j0a is NOT declared. Under the ESTABLISHED FACT in docs/PHASE-J-STATE.md — "A Bash call
+# targeting a path OUTSIDE the session cwd is denied under dontAsk even when explicitly
+# allowlisted" — that would be a total blocker on Phase A, the same class as v2.0's B-1.
+#
+# Rather than report it as a blocker on the strength of that sentence, the box MEASURED it. The
+# prior measurement (build-evidence/runner-arm/raw/31, and runner/raw/14 before it) used
+# --allowedTools "Bash(touch:*)" and a WRITE. This gate declares BARE `Bash`. That is the
+# untested cell, and it is the cell this gate actually runs in.
+#
+# All arms: cwd=<T>/cwd, target=<T>/outside/*, env scrubbed of the 9 CLAUDE_CODE_* vars,
+# DISABLE_AUTOUPDATER=1, --setting-sources '' --settings /etc/wrought/runner-hooks.json,
+# --permission-mode dontAsk, --output-format json, NO --add-dir in any arm.
+# GROUND TRUTH = the file on disk / the hash actually returned, never the child's self-report.
+# <T> = /tmp/claude-1000/-home-kalib-foundry/17cb8777-3757-4838-92ad-565baeb8498e/scratchpad/addirprobe
+###############################################################################
+
+## ARM A — READ outside cwd, allowlist "Read, Edit, Write, Bash"  (THIS GATE'S DECLARED SURFACE)
+$ cd <T>/cwd && ... claude -p "Use the Bash tool to run exactly this command:
+    sha256sum <T>/outside/payload.txt ..." --allowedTools "Read, Edit, Write, Bash"
+  denials  = []
+  result   = '985b97e0d9b2cba7e3e15a7411a4cf2afb2aaeae1d200b8af1e1cee39b8d3616'
+  GROUND TRUTH: that IS the real sha256 of <T>/outside/payload.txt (independently computed above).
+  => READ OUTSIDE THE WORKSPACE: ALLOWED, silently, no --add-dir.
+
+## ARM B — WRITE outside cwd, allowlist "Read, Edit, Write, Bash"  (THIS GATE'S DECLARED SURFACE)
+$ ... touch <T>/outside/canary.txt ... --allowedTools "Read, Edit, Write, Bash"
+  denials  = []
+  result   = 'DONE'
+  GROUND TRUTH: canary.txt PRESENT on disk (-rw-rw-r-- 0 bytes).
+  => WRITE OUTSIDE THE WORKSPACE: ALLOWED, silently, no --add-dir.
+
+## ARM C — WRITE outside cwd, allowlist "Bash(touch:*)"  (raw/31's spelling; ONE variable changed)
+$ ... touch <T>/outside/canary2.txt ... --allowedTools "Bash(touch:*)"
+  denials  = ['Bash']
+  result   = 'DENIED'
+  GROUND TRUTH: canary2.txt ABSENT.
+  => reproduces build-evidence/runner-arm/raw/31 exactly.
+
+=== VERDICT ===
+The --add-dir workspace boundary is enforced for a SCOPED Bash allowlist rule and is NOT enforced
+for a BARE `Bash` allowlist entry. The single discriminating variable is the allowlist spelling;
+target, mode, settings, env and cwd were identical across B and C.
+
+CONSEQUENCE 1 — for THIS gate, GOOD: the missing /var/lib/wrought/j0a in the ADD-DIRS header is
+NOT a blocker. GATE-J0B-RESUME declares bare `Bash`, so Phase A can read j0a. No prompt edit and
+no config widening is needed to run tonight.
+
+CONSEQUENCE 2 — for the PROJECT, a SAFETY FINDING: docs/PHASE-J-STATE.md's ESTABLISHED FACT, the
+VERDICT line of build-evidence/runner-arm/raw/31, and /etc/wrought/runner.conf's _add_dirs_note all
+state the boundary UNCONDITIONALLY. They generalize a scoped-rule measurement to every allowlist.
+For a bare-`Bash` gate the claim is FALSE, and every gate dispatched so far declares bare `Bash`.
+So the workspace boundary has never actually constrained a real gate child's Bash on this box.
+raw/31's "CORROBORATION FROM A REAL GATE" (the child wrote its bundle into the courier because
+add_dirs named it) does not corroborate: with bare `Bash` that write would have succeeded anyway.
+
+Stated plainly, and NOT repaired here: combined with the recorded fact that `kalib` has
+NOPASSWD: ALL and gate children inherit it, the real fences around a bare-`Bash` gate child are
+the systemd scope (MemoryMax/MemorySwapMax/RuntimeMaxSec), the PreToolUse hook's six-pattern
+denylist, and the reaper. The workspace boundary is NOT among them. This is an advisor/operator
+ruling, not a box decision: the fix is either to require scoped Bash rules in ALLOWED-TOOLS
+headers, or to correct three documents to say the boundary is conditional. The box did neither on
+its own judgement.

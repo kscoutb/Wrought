@@ -1,0 +1,9 @@
+###############################################################################
+# GATE-J0B-RESUME v2.1 ATTENDED PRE-FLIGHT — byte-freeze RE-ASSERT (EXECUTOR-RAILS §2), raw/99.
+# host=forge-mini  utc=2026-08-28T21:34:29Z  user=kalib
+###############################################################################
+
+$ sha256sum /var/lib/wrought/state/orchestrator.db{,-wal,-shm}
+6600fe63abd0116c63f51723b2cee83e6477e06e76604d6f36e3d843396d8fde  /var/lib/wrought/state/orchestrator.db
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /var/lib/wrought/state/orchestrator.db-wal
+fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb  /var/lib/wrought/state/orchestrator.db-shm

@@ -1,0 +1,39 @@
+###############################################################################
+# GATE-J0B-RESUME v2.1 ATTENDED PRE-FLIGHT — prompt archived, and the FILENAME is load-bearing.
+# host=forge-mini  utc=2026-08-28T21:33:11Z  user=kalib
+###############################################################################
+
+# NEW BLOCKER FOUND BY THIS PRE-FLIGHT — B-6, and it would have halted the runner BEFORE the
+# gate child was ever launched, with the batch looking like a runner defect rather than a
+# naming collision. bin/wrought-runner:900-911 resolves a gate's prompt as:
+#     prompt = courier/prompts/<GATE>.md
+#     if not prompt.is_file():
+#         cands = sorted(prompts.glob("<GATE>-v*.md"))
+#         if len(cands) != 1: raise Halt(..., "prompt-missing")
+# prompts/GATE-J0B-RESUME-v2.0.md ALREADY EXISTS (archived by the v2.0 pre-flight, and
+# referenced by name from the QUEUE row). Archiving v2.1 under the same -vN.M convention would
+# have made len(cands) == 2 and raised Halt("prompt-missing") — the misleading part being that
+# the halt reason reads "prompt MISSING" when the actual condition is "prompt AMBIGUOUS".
+
+# RESOLUTION, chosen by the box and stated loudly: archive v2.1 under the runner's EXACT-NAME
+# first choice. Rails §8 requires the prompt be "archived verbatim to prompts/"; it does not
+# fix the filename, so the CONTENT is verbatim and only the NAME differs from convention. The
+# exact-name branch short-circuits before the glob, so -v2.0.md stays exactly where it is and
+# the QUEUE row's reference to it stays valid. Nothing was moved, renamed or edited.
+
+$ cp <staged verbatim paste> /home/kalib/courier/Wrought/prompts/GATE-J0B-RESUME.md
+$ sha256sum /home/kalib/courier/Wrought/prompts/GATE-J0B-RESUME.md
+88897e4432e2856f685494b0d20d7fc7c65dda522ecf6c1c2d588ffee80beb9d  /home/kalib/courier/Wrought/prompts/GATE-J0B-RESUME.md
+
+$ ls /home/kalib/courier/Wrought/prompts/ | grep J0B-RESUME
+GATE-J0B-RESUME-v2.0.md
+GATE-J0B-RESUME.md
+
+# RESOLUTION RE-CHECKED with the runner's own config:
+#   exact-name file exists : True -> GATE-J0B-RESUME.md
+#   glob candidates        : ['GATE-J0B-RESUME-v2.0.md']
+#   => the exact-name branch wins, the glob is never consulted, NO HALT.
+
+# CARRIED FORWARD, so it does not become a trap: a future v2.2 of this gate MUST overwrite
+# prompts/GATE-J0B-RESUME.md, not merely add prompts/GATE-J0B-RESUME-v2.2.md — otherwise the
+# runner will silently re-run THIS version. Recorded in the QUEUE row and PHASE-J-STATE.

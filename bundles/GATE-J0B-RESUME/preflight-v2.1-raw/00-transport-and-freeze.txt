@@ -1,0 +1,28 @@
+###############################################################################
+# GATE-J0B-RESUME v2.1 ATTENDED PRE-FLIGHT — transport verdict + byte-freeze baseline.
+# host=forge-mini  utc=2026-08-28T21:33:11Z  user=kalib
+###############################################################################
+
+## TRANSPORT (EXECUTOR-RAILS §7)
+CHANNEL: **CHAT TEXT, not a file.** This is the FIFTH consecutive miss of rails §7
+(GATE-RUNNER, GATE-RECONCILE, GATE-RUNNER-HARDEN, GATE-RUNNER-ARM, and now this).
+v2.1's own header acknowledges it: "Run through the runner, so the prompt is file-sourced;
+transport is a formality". That is true of the CHILD's copy — the runner reads prompts/ from
+disk — but the ATTENDED half still arrived by paste, and the paste is what the box archived.
+CONTENT: intact. Block-count claim "exactly TWO indented blocks" — VERIFIED, 2 found (3 lines
+and 4 lines). Archived verbatim; sha256 of the archived file recorded in 20-prompt-archive.txt.
+VERDICT: TRANSPORT-OK on content, RAIL NOT MET on channel. Surfaced, not absorbed.
+
+## BYTE FREEZE — baseline (EXECUTOR-RAILS §2), raw/00
+$ sha256sum /var/lib/wrought/state/orchestrator.db{,-wal,-shm}
+6600fe63abd0116c63f51723b2cee83e6477e06e76604d6f36e3d843396d8fde  /var/lib/wrought/state/orchestrator.db
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /var/lib/wrought/state/orchestrator.db-wal
+fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb  /var/lib/wrought/state/orchestrator.db-shm
+
+## ADJUDICATION CARRY-IN (EXECUTOR-RAILS §10)
+v2.1's PRIOR-ADJUDICATION block names GATE-RUNNER-ARM: ACCEPTED (advisor Fable, 2026-08-28),
+and says "Record per §10 if not already". IT ALREADY WAS — recorded on 2026-08-28T19:51:51Z by
+the v2.0 pre-flight at bundles/GATE-RUNNER-ARM/ADJUDICATION.md, extracted mechanically
+(sed -n '22,25p') from prompts/GATE-J0B-RESUME-v2.0.md, and the QUEUE row is already
+ADJUDICATED. No second record was written: re-recording the same verdict from a re-worded
+carrier would replace a mechanical extraction with a paraphrase. Nothing to do; said so.

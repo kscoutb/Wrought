@@ -1,0 +1,47 @@
+###############################################################################
+# GATE-J0B-RESUME v2.1 ATTENDED PRE-FLIGHT — the two BOX edits (prompt pre-flight items 1 and 2).
+# host=forge-mini  utc=2026-08-28T21:33:11Z  user=kalib
+###############################################################################
+
+## EDIT 1 (B-3) — the Goose pin, ratified into pins.lock
+Added virtualization.guest_agent_surface. Values are NOT invented and NOT re-resolved: every one
+is transcribed from GATE-J0B-SURFACE evidence preserved at courier bundles/GATE-J0B/PARTIAL/raw/
+(21-P2-goose-release.txt, 22-P2-goose-install.txt), and each carries in-line the command that
+produced it (J-95). `releases/latest` was resolved ONCE, on 2026-08-21, to tag v1.46.0; THE TAG
+is what is pinned, so a re-run fetches a fixed artifact rather than a moving pointer — the same
+failure mode GATE-RUNNER-ARM had just closed for the claude CLI.
+Key name `guest_agent_surface` is a STRUCTURAL choice by the box (placed beside
+`guest_base_image`, so `grep -i goose pins.lock` finds it); every VALUE came from the prompt
+or from committed evidence. Flagged as a choice, not smuggled in as a measurement.
+Recorded as SELECTED, NOT ADOPTED (docs/10 §18.7), GUEST-ONLY, and signature NONE-PUBLISHED-UPSTREAM.
+
+$ python3 -c "import yaml; d=yaml.safe_load(open('pins.lock')); print(d['virtualization']['guest_agent_surface']['tag'], d['virtualization']['guest_agent_surface']['asset_sha256'])"
+v1.46.0 a1cf4856a765d07d6b95689a53c7bca21fcc6e6d65c0dfd064fc704052b85a7b
+  => pins.lock still parses as YAML (30 top-level keys, unchanged).
+
+## EDIT 2 (R-1) — the dead-man raised above the runtime cap
+/etc/wrought/runner.conf is root:root 0644, so this needed root. THE BOX USED ITS OWN
+PASSWORDLESS SUDO for it, and says so rather than letting it pass unremarked: GATE-RUNNER-ARM
+set the precedent of routing root actions through the operator, and this one departs from that
+precedent because v2.1 assigns it to the box explicitly as pre-flight item 2 and the session is
+attended. Single `sudo install`, no editor, on a candidate validated BEFORE installation.
+
+$ cp /etc/wrought/runner.conf <scratch>/runner.conf.orig     # kept; 60-runner-conf-orig.json
+$ <build candidate>; python3 -c "import json; json.load(open(<candidate>))"   # JSON valid
+$ <mechanical leaf diff, orig vs candidate>:
+    .breakers._deadman_note              OLD: <absent>   NEW: "RAISED 3600 -> 6000 ..."
+    .breakers.deadman_no_progress_sec    OLD: 3600       NEW: 6000
+  => EXACTLY ONE VALUE CHANGED, plus one provenance note. No other leaf moved.
+$ sudo install -m 0644 -o root -g root <candidate> /etc/wrought/runner.conf
+-rw-r--r-- 1 root root 9232 Aug 28 17:32 /etc/wrought/runner.conf
+
+$ <load_config() on the INSTALLED file — READ-ONLY, deliberately NOT a runner start>
+  load_config: OK (no SystemExit)
+  deadman_no_progress_sec : 6000
+  runtime_max_sec         : 5400
+  ORDERING ASSERT: deadman > runtime_max_sec -> RuntimeMaxSec is the real ceiling. PASS
+
+# WHY NOT `wrought-runner --something` TO TEST: a runner start is NEVER read-only with respect
+# to the courier on ANY exit path — both the halt path and the clean path call push_status(),
+# which writes, commits and pushes STATUS.md (GATE-RUNNER-ARM raw/23, raw/28; it clobbered that
+# session's heartbeat twice). load_config() was called directly instead.
