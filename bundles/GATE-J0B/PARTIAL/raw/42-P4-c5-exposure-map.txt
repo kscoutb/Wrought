@@ -1,0 +1,249 @@
+###############################################################################
+# PHASE 4.2 — THE C5 EXPOSURE MAP. Record every place Goose asks for or stores a key. NOTHING REAL IS EVER FED. A charter input, not pass/fail.
+# host=forge-mini  utc=2026-08-21T00:22:51Z  user=kalib
+###############################################################################
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "PROBE 1: does goose demand a key with a keyless endpoint configured? (env deliberately clean)"; env | grep -ci openai || echo "(no OPENAI* in env: 0)"; timeout 120 goose run --no-session -t "Reply with the single word OK and nothing else." 2>&1 | tail -30; echo "[pipeline exit=${PIPESTATUS[0]}]"'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+PROBE 1: does goose demand a key with a keyless endpoint configured? (env deliberately clean)
+0
+(no OPENAI* in env: 0)
+
+    __( O)>  ● new session · openai primary-qwen27b
+   \____)    20260821_1 · /home/probe
+     L L     goose is ready
+Single word response
+[pipeline exit=0]
+[exit=0]
+
+$ echo 'HOST-SIDE PROOF that probe 1 really reached the model (no key was ever present in the guest):'; tail -6 /var/lib/wrought/j0b/apicalls.log; wc -l /var/lib/wrought/j0b/apicalls.log
+HOST-SIDE PROOF that probe 1 really reached the model (no key was ever present in the guest):
+2026-08-21T00:20:55Z GET /props 200
+2026-08-21T00:21:49Z GET /props 200
+2026-08-21T00:21:49Z GET /props 200
+2026-08-21T00:22:51Z GET /v1/models 200
+2026-08-21T00:22:51Z POST /v1/chat/completions 200
+2026-08-21T00:23:13Z POST /v1/chat/completions 200
+17 /var/lib/wrought/j0b/apicalls.log
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "PROBE 1b: full untruncated output with --stats"; timeout 180 goose run --no-session --stats -t "Reply with the single word OK and nothing else." 2>&1; echo "[goose exit=$?]"'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+PROBE 1b: full untruncated output with --stats
+
+    __( O)>  ● new session · openai primary-qwen27b
+   \____)    20260821_2 · /home/probe
+     L L     goose is ready
+Reply with OK
+
+Stats:
+  Time to first token: 0.75s
+  Tokens/sec: 34.97
+  Output tokens: 349
+[goose exit=0]
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'cat > /tmp/sniff.py <<"EOF"
+import socket, sys
+s=socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR,1)
+s.bind(("127.0.0.1",9999)); s.listen(4)
+c,_=s.accept()
+buf=b""
+while b"\r\n\r\n" not in buf:
+    d=c.recv(65536)
+    if not d: break
+    buf+=d
+head=buf.split(b"\r\n\r\n")[0].decode("latin-1")
+print("=== EXACTLY WHAT GOOSE PUTS ON THE WIRE (request head only, no body) ===")
+for line in head.split("\r\n"):
+    print("  "+line)
+print("=== Authorization header present? ===")
+print("  ", any(l.lower().startswith("authorization") for l in head.split("\r\n")))
+c.sendall(b"HTTP/1.1 500 Sniffer\r\nContent-Length: 0\r\nConnection: close\r\n\r\n")
+c.close()
+EOF
+echo "sniffer written"'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+sniffer written
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'cd /tmp && (timeout 60 python3 /tmp/sniff.py > /tmp/sniff.out 2>&1 &) ; sleep 1; GOOSE_PROVIDER=openai GOOSE_MODEL=primary-qwen27b OPENAI_HOST=http://127.0.0.1:9999 timeout 45 goose run --no-session -t "hi" >/dev/null 2>&1; sleep 1; cat /tmp/sniff.out'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+=== EXACTLY WHAT GOOSE PUTS ON THE WIRE (request head only, no body) ===
+  GET /v1/models HTTP/1.1
+  accept: */*
+  accept-encoding: zstd,gzip,deflate,br
+  host: 127.0.0.1:9999
+=== Authorization header present? ===
+   False
+[exit=0]
+
+$ echo 'FINDING C5-1: goose sent NO Authorization header at all — not an empty one. With OPENAI_HOST set and no key configured it simply omits the header. The host proxy is therefore the SOLE authenticator, and there is nothing in the guest to steal.'
+echo 'FINDING C5-2: the FIRST call goose makes is GET /v1/models (provider validation), then POST /v1/chat/completions. Note the recon finding that llama-server answers /v1/models 200 WITHOUT a key — so provider validation would have appeared to succeed even direct; it is the chat call that needs the key.'
+FINDING C5-1: goose sent NO Authorization header at all — not an empty one. With OPENAI_HOST set and no key configured it simply omits the header. The host proxy is therefore the SOLE authenticator, and there is nothing in the guest to steal.
+FINDING C5-2: the FIRST call goose makes is GET /v1/models (provider validation), then POST /v1/chat/completions. Note the recon finding that llama-server answers /v1/models 200 WITHOUT a key — so provider validation would have appeared to succeed even direct; it is the chat call that needs the key.
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "=== KEY SLOTS THAT EXIST IN THE BINARY (read-only: strings, nothing fed) ==="; strings -a /usr/local/bin/goose 2>/dev/null | grep -E "^(OPENAI_API_KEY|OPENAI_HOST|OPENAI_BASE_PATH|GOOSE_PROVIDER|GOOSE_MODEL|GOOSE_DISABLE_KEYRING|ANTHROPIC_API_KEY)$" | sort -u'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+=== KEY SLOTS THAT EXIST IN THE BINARY (read-only: strings, nothing fed) ===
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "=== secrets file / keyring vocabulary in the binary ==="; strings -a /usr/local/bin/goose 2>/dev/null | grep -E "secrets\.yaml|keyring|Secret Service|keyutils|GOOSE_DISABLE_KEYRING|no_keyring" | sort -u | head -25'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+=== secrets file / keyring vocabulary in the binary ===
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "=== FILESYSTEM DIFF: everything under /home/probe now, vs the 6 files at the Phase-2 baseline ==="; find /home/probe -type f 2>/dev/null | sort; echo "--- count ---"; find /home/probe -type f 2>/dev/null | wc -l'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+=== FILESYSTEM DIFF: everything under /home/probe now, vs the 6 files at the Phase-2 baseline ===
+/home/probe/.bash_logout
+/home/probe/.bashrc
+/home/probe/.cache/motd.legal-displayed
+/home/probe/.config/goose/config.yaml
+/home/probe/.local/share/goose/apps/clock.html
+/home/probe/.local/share/goose/sessions/sessions.db
+/home/probe/.local/share/goose/sessions/sessions.db-shm
+/home/probe/.local/share/goose/sessions/sessions.db-wal
+/home/probe/.local/state/goose/logs/cli/2026-08-21/20260821_001420.log
+/home/probe/.local/state/goose/logs/cli/2026-08-21/20260821_002221.log
+/home/probe/.local/state/goose/logs/cli/2026-08-21/20260821_002237.log
+/home/probe/.local/state/goose/logs/cli/2026-08-21/20260821_002250.log
+/home/probe/.local/state/goose/logs/cli/2026-08-21/20260821_002322.log
+/home/probe/.local/state/goose/logs/cli/2026-08-21/20260821_002404.log
+/home/probe/.local/state/goose/logs/llm_request.0.jsonl
+/home/probe/.local/state/goose/logs/llm_request.1.jsonl
+/home/probe/.local/state/goose/logs/llm_request.2.jsonl
+/home/probe/.local/state/goose/logs/llm_request.3.jsonl
+/home/probe/.local/state/goose/logs/llm_request.4.jsonl
+/home/probe/.local/state/goose/logs/llm_request.5.jsonl
+/home/probe/.profile
+/home/probe/.ssh/authorized_keys
+--- count ---
+22
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "=== does a secrets store exist on disk? ==="; for f in ~/.config/goose/secrets.yaml ~/.config/goose/config.yaml ~/.local/share/goose/sessions/sessions.db; do printf "%-55s " "$f"; [ -e "$f" ] && echo EXISTS || echo absent; done'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+=== does a secrets store exist on disk? ===
+/home/probe/.config/goose/secrets.yaml                  absent
+/home/probe/.config/goose/config.yaml                   EXISTS
+/home/probe/.local/share/goose/sessions/sessions.db     EXISTS
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "(is strings even installed? the previous probe returned nothing at all)"; command -v strings || echo "strings ABSENT in the guest — the previous empty result was a MISSING TOOL, not an absence of key slots. Recorded as such; the binary was NOT searched."'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+(is strings even installed? the previous probe returned nothing at all)
+strings ABSENT in the guest — the previous empty result was a MISSING TOOL, not an absence of key slots. Recorded as such; the binary was NOT searched.
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "=== substitute for strings: grep -a over the binary for the key vocabulary ==="; for pat in OPENAI_API_KEY OPENAI_HOST GOOSE_DISABLE_KEYRING secrets.yaml keyring ANTHROPIC_API_KEY; do printf "%-24s " "$pat"; if grep -a -q -F "$pat" /usr/local/bin/goose; then echo PRESENT; else echo absent; fi; done'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+=== substitute for strings: grep -a over the binary for the key vocabulary ===
+OPENAI_API_KEY           PRESENT
+OPENAI_HOST              PRESENT
+GOOSE_DISABLE_KEYRING    PRESENT
+secrets.yaml             PRESENT
+keyring                  PRESENT
+ANTHROPIC_API_KEY        PRESENT
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "=== WHAT IS IN THE ON-DISK LLM REQUEST LOGS? (the C5 question: could a key land here?) ==="; ls -l ~/.local/state/goose/logs/llm_request.*.jsonl; echo; echo "--- top-level keys of the first record of llm_request.0.jsonl ---"; head -c 400000 ~/.local/state/goose/logs/llm_request.0.jsonl | head -1 | python3 -c "
+import sys,json
+try:
+    d=json.loads(sys.stdin.readline())
+    print(\"top-level keys:\", sorted(d.keys()))
+    for k in sorted(d.keys()):
+        v=d[k]
+        print(\"  \",k,\"->\",type(v).__name__, (str(v)[:160]+\"...\") if len(str(v))>160 else v)
+except Exception as e:
+    print(\"parse:\", e)
+"'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+=== WHAT IS IN THE ON-DISK LLM REQUEST LOGS? (the C5 question: could a key land here?) ===
+-rw-rw-r-- 1 probe probe  18747 Aug 21 00:24 /home/probe/.local/state/goose/logs/llm_request.0.jsonl
+-rw-rw-r-- 1 probe probe    939 Aug 21 00:24 /home/probe/.local/state/goose/logs/llm_request.1.jsonl
+-rw-rw-r-- 1 probe probe    872 Aug 21 00:23 /home/probe/.local/state/goose/logs/llm_request.2.jsonl
+-rw-rw-r-- 1 probe probe  98248 Aug 21 00:23 /home/probe/.local/state/goose/logs/llm_request.3.jsonl
+-rw-rw-r-- 1 probe probe    872 Aug 21 00:23 /home/probe/.local/state/goose/logs/llm_request.4.jsonl
+-rw-rw-r-- 1 probe probe 200178 Aug 21 00:23 /home/probe/.local/state/goose/logs/llm_request.5.jsonl
+
+--- top-level keys of the first record of llm_request.0.jsonl ---
+top-level keys: ['input', 'model_config']
+   input -> dict {'model': 'primary-qwen27b', 'messages': [{'role': 'system', 'content': "You are a general-purpose AI agent called goose, created by AAIF (Agentic AI Foundation...
+   model_config -> dict {'model_name': 'primary-qwen27b', 'context_limit': None, 'temperature': None, 'max_tokens': None, 'toolshim': False, 'toolshim_model': None}
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "=== do the on-disk logs contain any header/authorization material at all? ==="; grep -ail -E "authorization|bearer|api[_-]?key" ~/.local/state/goose/logs/*.jsonl ~/.local/state/goose/logs/cli/*/*.log 2>/dev/null || echo "NO authorization/bearer/api_key string in ANY goose log on disk"'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+=== do the on-disk logs contain any header/authorization material at all? ===
+NO authorization/bearer/api_key string in ANY goose log on disk
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "=== --no-session still created a sessions.db: what is in it? ==="; python3 -c "
+import sqlite3
+c=sqlite3.connect(\"/home/probe/.local/share/goose/sessions/sessions.db\")
+t=[r[0] for r in c.execute(\"select name from sqlite_master where type=1==1 and type=\\\"table\\\"\")]
+print(\"tables:\", t)
+for name in t:
+    n=c.execute(\"select count(*) from \\\"%s\\\"\" % name).fetchone()[0]
+    print(\"  %-24s %d row(s)\" % (name,n))
+" 2>&1'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+=== --no-session still created a sessions.db: what is in it? ===
+tables: []
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "=== the unexpected app file ==="; ls -l ~/.local/share/goose/apps/; echo "--- first 15 lines ---"; head -15 ~/.local/share/goose/apps/clock.html'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+=== the unexpected app file ===
+total 8
+-rw-rw-r-- 1 probe probe 6732 Aug 21 00:22 clock.html
+--- first 15 lines ---
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Clock</title>
+  
+  
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+[exit=0]
+
+$ echo 'NOTE: the previous sqlite probe was written with a broken WHERE clause and returned [] — that was MY defect, not a finding. Re-run correctly below (EXECUTOR-RAILS 4: add the correction, never edit the record).'
+NOTE: the previous sqlite probe was written with a broken WHERE clause and returned [] — that was MY defect, not a finding. Re-run correctly below (EXECUTOR-RAILS 4: add the correction, never edit the record).
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'python3 /tmp/dbq.py 2>&1'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+tables: ['schema_version', 'sessions', 'messages', 'sqlite_sequence', 'usage_ledger', 'provider_inventory_entries', 'provider_inventory_models']
+  schema_version             1 row(s)
+  sessions                   3 row(s)
+  messages                   8 row(s)
+  sqlite_sequence            2 row(s)
+  usage_ledger               2 row(s)
+  provider_inventory_entries 0 row(s)
+  provider_inventory_models  0 row(s)
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "AAIF confirmation, straight from the system prompt goose sent:"; head -1 ~/.local/state/goose/logs/llm_request.0.jsonl | python3 -c "
+import sys,json; d=json.loads(sys.stdin.readline())
+print(d[\"input\"][\"messages\"][0][\"content\"][:220])
+"'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+AAIF confirmation, straight from the system prompt goose sent:
+You are a general-purpose AI agent called goose, created by AAIF (Agentic AI Foundation).
+goose is being developed as an open-source software project.
+
+# Turn Context
+
+Each turn may include a `<turn-context>` block added
+[exit=0]
+

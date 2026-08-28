@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-28T13:04:31Z
+updated:  2026-08-28T13:08:54Z
 gate:     GATE-RECONCILE
-state:    RUNNING P2
-last:     Phase 1 complete (raw/00-11). THREE prompt premises did not survive contact: (a) Phase 4 was ALREADY DONE by the operator 2026-08-20 21:12:37 with the byte-identical command — none of the 11 packages is installed; (b) the prompt's J-159 collides with GATE-RUNNER's existing J-159; (c) no J0B guest or libvirt domain exists to stop. NEW FINDING: J0B's p3c guest ran ~7 days (2026-08-20 to the unclean box shutdown 2026-08-27 19:58) — serial-p3c.log has 0 'Power down' lines, its three siblings have 1 each.
-next:     Phase 2 — preserve J0B partial evidence, enumerated deletes, QUEUE row RESET.
+state:    RUNNING P5
+last:     Phases 2-4 done. J0B: partial evidence preserved (25 raw + 4 serial logs + proxy source), overlay+seed deleted by name (1.16 GB), QUEUE row RESET. HJ2 debt paid: rails §9 heartbeat + §10 adjudication-carrying, README mirrored, HJ1 ADJUDICATION.md written and row ADJUDICATED. Phase 4 recorded PRIOR-COMPLETED, not re-run. Pin check: 36/51 hold, 15 drifted (all libvirt 5.2 -> 5.3), 0 missing; kernel now -30. Drift recorded in pins.lock, nothing re-pinned.
+next:     Phase 5 — SNAPSHOT.md + PHASE-J-STATE.md, then wind-down.
 usage:    n/a

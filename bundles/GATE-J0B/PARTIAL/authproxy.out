@@ -1,0 +1,3 @@
+authproxy: key read from stdin (64 bytes), held in memory only
+authproxy: listening on 127.0.0.1:8081 -> 127.0.0.1:8080  pid=298991
+Terminated                 sudo cat /run/credentials/wrought-inference.service/inference-api-key | python3 /var/lib/wrought/j0b/authproxy.py

@@ -1,0 +1,40 @@
+###############################################################################
+# PHASE 3.2 — THE THREE-WAY EGRESS MEASUREMENT, from INSIDE the guest, all --max-time 5. Expect: external FAIL, raw host endpoint FAIL under restrict, pinhole 200. Exact failure modes recorded, not just pass/fail.
+# host=forge-mini  utc=2026-08-21T00:16:15Z  user=kalib
+###############################################################################
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "=== 1. EXTERNAL (must be dead) ==="; curl -s -o /dev/null -w "%{http_code}\n" --max-time 5 http://connectivity-check.ubuntu.com; echo "curl exit=$?"'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+=== 1. EXTERNAL (must be dead) ===
+000
+curl exit=6
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "=== 2. RAW HOST ENDPOINT 10.0.2.2:8080 (must be closed under restrict) ==="; curl -s -o /dev/null -w "%{http_code}\n" --max-time 5 http://10.0.2.2:8080/health; echo "curl exit=$?"'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+=== 2. RAW HOST ENDPOINT 10.0.2.2:8080 (must be closed under restrict) ===
+000
+curl exit=7
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "=== 3. THE PINHOLE 10.0.2.100:8081 (must be the only thing alive) ==="; curl -s -o /dev/null -w "%{http_code}\n" --max-time 5 http://10.0.2.100:8081/health; echo "curl exit=$?"'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+=== 3. THE PINHOLE 10.0.2.100:8081 (must be the only thing alive) ===
+000
+curl exit=28
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "--- exact failure modes, verbose ---"; for u in http://connectivity-check.ubuntu.com http://10.0.2.2:8080/health http://10.0.2.100:8081/health; do echo "### $u"; curl -sS -o /dev/null --max-time 5 "$u" 2>&1; echo "   [curl exit=$?]"; done'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+--- exact failure modes, verbose ---
+### http://connectivity-check.ubuntu.com
+curl: (6) Could not resolve host: connectivity-check.ubuntu.com
+   [curl exit=6]
+### http://10.0.2.2:8080/health
+curl: (7) Failed to connect to 10.0.2.2 port 8080 after 0 ms: Couldn't connect to server
+   [curl exit=7]
+### http://10.0.2.100:8081/health
+curl: (28) Operation timed out after 5003 milliseconds with 0 bytes received
+   [curl exit=28]
+[exit=0]
+

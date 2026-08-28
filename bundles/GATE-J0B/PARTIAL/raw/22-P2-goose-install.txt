@@ -1,0 +1,120 @@
+###############################################################################
+# PHASE 2.3 — asset choice, download, sha256 (the pin candidate), extract, install to /usr/local/bin, goose --version. NO install script piped to bash.
+# host=forge-mini  utc=2026-08-21T00:13:21Z  user=kalib
+###############################################################################
+
+$ echo 'ASSET CHOICE: goose-x86_64-unknown-linux-gnu.tar.bz2'
+echo 'WHY: (1) it is exactly the shape the prompt named, so no adaptation was needed;'
+echo '     (2) -gnu matches the guest, Ubuntu 24.04.4 noble, glibc 2.39 — musl would be a different libc target than the prompt named;'
+echo '     (3) the plain variant over -vulkan: the guest has no GPU and this gate tests the AGENT SURFACE, not local inference in the guest. Vulkan runtime in a disposable guest would be unused weight.'
+echo 'NOTE: the release also ships io.github.block.Goose flatpaks — the aaif-goose org is the successor to block/goose, and the artifact ids still carry the old reverse-DNS name. Recorded, not relied on.'
+ASSET CHOICE: goose-x86_64-unknown-linux-gnu.tar.bz2
+WHY: (1) it is exactly the shape the prompt named, so no adaptation was needed;
+     (2) -gnu matches the guest, Ubuntu 24.04.4 noble, glibc 2.39 — musl would be a different libc target than the prompt named;
+     (3) the plain variant over -vulkan: the guest has no GPU and this gate tests the AGENT SURFACE, not local inference in the guest. Vulkan runtime in a disposable guest would be unused weight.
+NOTE: the release also ships io.github.block.Goose flatpaks — the aaif-goose org is the successor to block/goose, and the artifact ids still carry the old reverse-DNS name. Recorded, not relied on.
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'cd /tmp && curl -fsSL -O -w "HTTP %{http_code}  size=%{size_download}\n" --max-time 600 https://github.com/aaif-goose/goose/releases/download/v1.46.0/goose-x86_64-unknown-linux-gnu.tar.bz2; echo "curl exit=$?"; ls -l /tmp/goose-x86_64-unknown-linux-gnu.tar.bz2'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+HTTP 200  size=84957951
+curl exit=0
+-rw-rw-r-- 1 probe probe 84957951 Aug 21 00:13 /tmp/goose-x86_64-unknown-linux-gnu.tar.bz2
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'sha256sum /tmp/goose-x86_64-unknown-linux-gnu.tar.bz2'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+a1cf4856a765d07d6b95689a53c7bca21fcc6e6d65c0dfd064fc704052b85a7b  /tmp/goose-x86_64-unknown-linux-gnu.tar.bz2
+[exit=0]
+
+$ echo 'SIZE CROSS-CHECK: the GitHub API asset list said size=84957951 and curl downloaded size=84957951. Two independent statements of the same number.'
+SIZE CROSS-CHECK: the GitHub API asset list said size=84957951 and curl downloaded size=84957951. Two independent statements of the same number.
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'cd /tmp && tar -tjf goose-x86_64-unknown-linux-gnu.tar.bz2 | head -40; echo "--- entry count ---"; tar -tjf goose-x86_64-unknown-linux-gnu.tar.bz2 | wc -l'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+tar (child): bzip2: Cannot exec: No such file or directory
+tar (child): Error is not recoverable: exiting now
+tar: Child returned status 2
+tar: Error is not recoverable: exiting now
+--- entry count ---
+tar (child): bzip2: Cannot exec: No such file or directory
+tar (child): Error is not recoverable: exiting now
+tar: Child returned status 2
+tar: Error is not recoverable: exiting now
+0
+[exit=0]
+
+$ echo 'SURPRISE S-J0B-1: the pinned noble cloud image ships NO bzip2, so tar -tjf on the asset the prompt named fails with "bzip2: Cannot exec". The asset is not broken; the guest cannot open it out of the box.'
+echo 'RESOLUTION, chosen to change as little as possible: decompress with python3 stdlib bz2 (present in the image). Rejected alternatives: apt-get install bzip2 (adds a package and a network dependency to a guest we are about to egress-lock), and switching to the .tar.gz asset (would invalidate the sha256 pin candidate already recorded for the .tar.bz2).'
+SURPRISE S-J0B-1: the pinned noble cloud image ships NO bzip2, so tar -tjf on the asset the prompt named fails with "bzip2: Cannot exec". The asset is not broken; the guest cannot open it out of the box.
+RESOLUTION, chosen to change as little as possible: decompress with python3 stdlib bz2 (present in the image). Rejected alternatives: apt-get install bzip2 (adds a package and a network dependency to a guest we are about to egress-lock), and switching to the .tar.gz asset (would invalidate the sha256 pin candidate already recorded for the .tar.bz2).
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'command -v bzip2 bunzip2 lbzip2 pbzip2 2>/dev/null; echo "[none of the bzip2 family present: exit=$?]"; dpkg -l | grep -c bzip2'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+[none of the bzip2 family present: exit=1]
+0
+[exit=1]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'cd /tmp && time python3 -c "
+import bz2, shutil
+with bz2.open(\"goose-x86_64-unknown-linux-gnu.tar.bz2\",\"rb\") as i, open(\"goose.tar\",\"wb\") as o:
+    shutil.copyfileobj(i,o,1<<20)
+print(\"decompressed OK\")
+"; ls -l /tmp/goose.tar; sha256sum /tmp/goose.tar'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+decompressed OK
+
+real	0m6.612s
+user	0m5.831s
+sys	0m0.780s
+-rw-rw-r-- 1 probe probe 306063360 Aug 21 00:14 /tmp/goose.tar
+6b7ee8d5e6f75ac63fdb74c9b4bb22a7f023b4c13a912146f2c0217e54e57e0d  /tmp/goose.tar
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'cd /tmp && tar -tf goose.tar | head -30; echo "--- entry count ---"; tar -tf goose.tar | wc -l'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+./
+./goose
+--- entry count ---
+2
+[exit=0]
+
+$ echo 'The tarball is TWO entries — ./ and ./goose. The prompt calls Goose a single Rust binary; the artifact agrees.'
+The tarball is TWO entries — ./ and ./goose. The prompt calls Goose a single Rust binary; the artifact agrees.
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'cd /tmp && mkdir -p goosex && tar -xf goose.tar -C goosex && ls -l goosex/ && file goosex/goose && sha256sum goosex/goose'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+total 298888
+-rwxr-xr-x 1 probe probe 306057864 Aug 12 15:51 goose
+goosex/goose: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV), dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, for GNU/Linux 3.2.0, BuildID[sha1]=b23e48d2a57bff7a157b3f8a0abe4feea3419b66, not stripped
+29b3340ef3d80fd146bf01f752667549c212a09cfd1035acd7ac16457a2e4a89  goosex/goose
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'sudo install -m 0755 -o root -g root /tmp/goosex/goose /usr/local/bin/goose && ls -l /usr/local/bin/goose && sha256sum /usr/local/bin/goose'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+-rwxr-xr-x 1 root root 306057864 Aug 21 00:14 /usr/local/bin/goose
+29b3340ef3d80fd146bf01f752667549c212a09cfd1035acd7ac16457a2e4a89  /usr/local/bin/goose
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'command -v goose; goose --version; echo "goose --version exit=$?"'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+/usr/local/bin/goose
+ 1.46.0
+goose --version exit=0
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'ldd /usr/local/bin/goose 2>&1 | head -20'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+	linux-vdso.so.1 (0x00007ffe2058e000)
+	libstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007de38e200000)
+	libgcc_s.so.1 => /lib/x86_64-linux-gnu/libgcc_s.so.1 (0x00007de39d5fa000)
+	libpthread.so.0 => /lib/x86_64-linux-gnu/libpthread.so.0 (0x00007de39d5f5000)
+	libm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007de39d50c000)
+	libdl.so.2 => /lib/x86_64-linux-gnu/libdl.so.2 (0x00007de39d507000)
+	libc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007de38de00000)
+	/lib64/ld-linux-x86-64.so.2 (0x00007de39d630000)
+[exit=0]
+

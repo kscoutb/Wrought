@@ -1,0 +1,57 @@
+###############################################################################
+# PHASE 2.4 — poweroff. The overlay now carries the installed surface and is the artifact under test.
+# host=forge-mini  utc=2026-08-21T00:15:04Z  user=kalib
+###############################################################################
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'sudo systemctl poweroff' ; echo '(ssh connection loss on poweroff is expected)'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+(ssh connection loss on poweroff is expected)
+[exit=0]
+
+$ (echo 'process-NAME match (comm), immune to command-line self-match:'; ps -eo comm= | grep -x 'qemu-system-x86' && echo 'QEMU RUNNING' || echo 'NO qemu-system-x86 PROCESS — guest confirmed down'; echo '--- pidof:'; pidof qemu-system-x86_64 || echo 'pidof: none'; echo '--- listeners on 2222:'; ss -ltn | grep ':2222' || echo 'none'; echo '--- pidfile:'; ls -l /var/lib/wrought/j0b/qemu-p2.pid 2>&1)
+process-NAME match (comm), immune to command-line self-match:
+NO qemu-system-x86 PROCESS — guest confirmed down
+--- pidof:
+pidof: none
+--- listeners on 2222:
+none
+--- pidfile:
+ls: cannot access '/var/lib/wrought/j0b/qemu-p2.pid': No such file or directory
+[exit=2]
+
+$ ls -l /var/lib/wrought/j0b/; echo '--- the artifact under test ---'; qemu-img info /var/lib/wrought/j0b/j0b-overlay.qcow2 | head -8
+total 1039732
+drwxrwxr-x 2 kalib kalib       4096 Aug 20 20:11 __pycache__
+-rw-rw-r-- 1 kalib kalib        231 Aug 20 20:11 apicalls.log
+-rw-rw-r-- 1 kalib kalib        132 Aug 20 20:11 authproxy.out
+-rw-rw-r-- 1 kalib kalib          7 Aug 20 20:11 authproxy.pid
+-rw-rw-r-- 1 kalib kalib      12825 Aug 20 20:11 authproxy.py
+-rw-rw-r-- 1 kalib kalib        946 Aug 20 20:07 cap.sh
+-rw-r--r-- 1 kalib kalib 1064239104 Aug 20 20:15 j0b-overlay.qcow2
+drwxr-xr-x 2 kalib kalib       4096 Aug 20 20:15 raw
+-rw-rw-r-- 1 kalib kalib     374784 Aug 10 22:14 seed.img
+-rw-r----- 1 kalib kalib      84309 Aug 20 20:15 serial-p2.log
+--- the artifact under test ---
+image: /var/lib/wrought/j0b/j0b-overlay.qcow2
+file format: qcow2
+virtual size: 20 GiB (21474836480 bytes)
+disk size: 0.991 GiB
+cluster_size: 65536
+backing file: /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+backing file format: qcow2
+Format specific information:
+[exit=0]
+
+$ echo 'base image still immutable after a write-through boot (the J0A invariant, re-measured):'; sha256sum /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+base image still immutable after a write-through boot (the J0A invariant, re-measured):
+0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe  /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+[exit=0]
+
+$ tail -5 /var/lib/wrought/j0b/serial-p2.log
+[[0;32m  OK  [0m] Reached target [0;1;39mshutdown.target[0m - System Shutdown.
+[[0;32m  OK  [0m] Reached target [0;1;39mfinal.target[0m - Late Shutdown Services.
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-poweroff.service[0m - System Power Off.
+[[0;32m  OK  [0m] Reached target [0;1;39mpoweroff.target[0m - System Power Off.
+[  157.882563] reboot: Power down
+[exit=0]
+

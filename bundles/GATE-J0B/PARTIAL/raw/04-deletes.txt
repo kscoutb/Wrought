@@ -1,0 +1,96 @@
+###############################################################################
+# PHASE 0.6 — the TWO enumerated, operator-approved deletes (EXECUTOR-RAILS 3: enumerated, never globbed; preconditions checked first).
+# host=forge-mini  utc=2026-08-21T00:08:26Z  user=kalib
+###############################################################################
+
+$ echo 'PRECONDITION A: no qemu process may hold either target open.'; pgrep -a qemu-system-x86_64 || echo 'no qemu-system-x86_64 running'
+PRECONDITION A: no qemu process may hold either target open.
+pgrep: pattern that searches for process name longer than 15 characters will result in zero matches
+Try `pgrep -f' option to match against the complete command line.
+no qemu-system-x86_64 running
+[exit=0]
+
+$ sudo fuser -v /var/lib/wrought/j0a/round2/overlay.qcow2 /var/lib/wrought/j0a/round2/seed.img 2>&1 || echo 'fuser: no process holds either file open'
+fuser: no process holds either file open
+[exit=0]
+
+$ ls -l --time-style=full-iso /var/lib/wrought/j0a/round2/overlay.qcow2 /var/lib/wrought/j0a/round2/seed.img
+-rw-r--r-- 1 kalib kalib 55377920 2026-08-10 22:16:10.673140898 -0400 /var/lib/wrought/j0a/round2/overlay.qcow2
+-rw-rw-r-- 1 kalib kalib   374784 2026-08-10 22:14:10.279862652 -0400 /var/lib/wrought/j0a/round2/seed.img
+[exit=0]
+
+$ echo 'TARGET 1 identity (dirty boot-2 overlay), recorded before deletion:'; sha256sum /var/lib/wrought/j0a/round2/overlay.qcow2; qemu-img info /var/lib/wrought/j0a/round2/overlay.qcow2
+TARGET 1 identity (dirty boot-2 overlay), recorded before deletion:
+0ced03acdc479e4035ada6340517c15d4c03da38e86823aab4f2364a891897cb  /var/lib/wrought/j0a/round2/overlay.qcow2
+image: /var/lib/wrought/j0a/round2/overlay.qcow2
+file format: qcow2
+virtual size: 20 GiB (21474836480 bytes)
+disk size: 52.8 MiB
+cluster_size: 65536
+backing file: /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+backing file format: qcow2
+Format specific information:
+    compat: 1.1
+    compression type: zlib
+    lazy refcounts: false
+    refcount bits: 16
+    corrupt: false
+    extended l2: false
+Child node '/file':
+    filename: /var/lib/wrought/j0a/round2/overlay.qcow2
+    protocol type: file
+    file length: 52.8 MiB (55377920 bytes)
+    disk size: 52.8 MiB
+[exit=0]
+
+$ echo 'DELETE 1: /var/lib/wrought/j0a/round2/overlay.qcow2 — the dirty boot-2 overlay, slated by PHASE-J-STATE RESIDUE and this prompt. Not needed: J0B builds a fresh overlay on the same pinned base.'; rm -v /var/lib/wrought/j0a/round2/overlay.qcow2
+DELETE 1: /var/lib/wrought/j0a/round2/overlay.qcow2 — the dirty boot-2 overlay, slated by PHASE-J-STATE RESIDUE and this prompt. Not needed: J0B builds a fresh overlay on the same pinned base.
+removed '/var/lib/wrought/j0a/round2/overlay.qcow2'
+[exit=0]
+
+$ test -e /var/lib/wrought/j0a/round2/overlay.qcow2 && echo 'STILL PRESENT — DELETE FAILED' || echo 'CONFIRMED GONE: overlay.qcow2'
+CONFIRMED GONE: overlay.qcow2
+[exit=0]
+
+$ echo 'TARGET 2: seed.img may be deleted ONLY AFTER a hash-matching copy lands in j0b. sha256 BEFORE the copy:'; sha256sum /var/lib/wrought/j0a/round2/seed.img
+TARGET 2: seed.img may be deleted ONLY AFTER a hash-matching copy lands in j0b. sha256 BEFORE the copy:
+700f639818c00788fa9fb3c411f9c234d11f55a05307630dbd086c5470f848e4  /var/lib/wrought/j0a/round2/seed.img
+[exit=0]
+
+$ cp -p /var/lib/wrought/j0a/round2/seed.img /var/lib/wrought/j0b/seed.img; echo 'sha256 AFTER the copy, both paths:'; sha256sum /var/lib/wrought/j0a/round2/seed.img /var/lib/wrought/j0b/seed.img
+sha256 AFTER the copy, both paths:
+700f639818c00788fa9fb3c411f9c234d11f55a05307630dbd086c5470f848e4  /var/lib/wrought/j0a/round2/seed.img
+700f639818c00788fa9fb3c411f9c234d11f55a05307630dbd086c5470f848e4  /var/lib/wrought/j0b/seed.img
+[exit=0]
+
+$ a=$(sha256sum /var/lib/wrought/j0a/round2/seed.img | cut -d' ' -f1); b=$(sha256sum /var/lib/wrought/j0b/seed.img | cut -d' ' -f1); if [ "$a" = "$b" ]; then echo "COPY VERIFIED IDENTICAL ($a) — delete precondition satisfied"; else echo 'HASH MISMATCH — REPORT, DO NOT DELETE'; fi
+COPY VERIFIED IDENTICAL (700f639818c00788fa9fb3c411f9c234d11f55a05307630dbd086c5470f848e4) — delete precondition satisfied
+[exit=0]
+
+$ echo 'DELETE 2 (precondition satisfied above): /var/lib/wrought/j0a/round2/seed.img'; rm -v /var/lib/wrought/j0a/round2/seed.img
+DELETE 2 (precondition satisfied above): /var/lib/wrought/j0a/round2/seed.img
+removed '/var/lib/wrought/j0a/round2/seed.img'
+[exit=0]
+
+$ test -e /var/lib/wrought/j0a/round2/seed.img && echo 'STILL PRESENT — DELETE FAILED' || echo 'CONFIRMED GONE: round2/seed.img'; echo 'and the surviving copy still hashes to the recorded value:'; sha256sum /var/lib/wrought/j0b/seed.img
+CONFIRMED GONE: round2/seed.img
+and the surviving copy still hashes to the recorded value:
+700f639818c00788fa9fb3c411f9c234d11f55a05307630dbd086c5470f848e4  /var/lib/wrought/j0b/seed.img
+[exit=0]
+
+$ echo 'POST-STATE of the round-2 workdir (nothing else touched — no glob, exactly two paths removed):'; ls -la /var/lib/wrought/j0a/round2/
+POST-STATE of the round-2 workdir (nothing else touched — no glob, exactly two paths removed):
+total 452
+drwxr-xr-x 3 kalib kalib   4096 Aug 20 20:08 .
+drwxr-xr-x 4 kalib kalib   4096 Aug 10 22:04 ..
+-rw-rw-r-- 1 kalib kalib   9894 Aug 10 22:55 PROPOSED-COTS-J0A.md
+-rw-rw-r-- 1 kalib kalib   9731 Aug 10 22:55 PROPOSED-PINS-DELTA.md
+-rw-rw-r-- 1 kalib kalib  37879 Aug 10 22:56 REPORT-J0A2.md
+-rw-rw-r-- 1 kalib kalib 200373 Aug 10 22:56 REVIEW-BUNDLE-J0A2.zip
+-rw-rw-r-- 1 kalib kalib   4579 Aug 10 22:56 SHA256SUMS
+-rw-rw-r-- 1 kalib kalib   1097 Aug 10 22:05 cap.sh
+drwxr-xr-x 2 kalib kalib   4096 Aug 10 22:55 raw
+-rw-r----- 1 kalib kvm    84309 Aug 10 22:15 serial-1.log
+-rw-r----- 1 kalib kvm    84529 Aug 10 22:16 serial-2.log
+[exit=0]
+

@@ -1,0 +1,39 @@
+###############################################################################
+# PHASE 0.1/0.2 — premise check against PHASE-J-STATE OPEN section (J-156 check), and the transport integrity verdict.
+# host=forge-mini  utc=2026-08-21T00:07:48Z  user=kalib
+###############################################################################
+
+$ sed -n '/^## OPEN/,/^- \*\*ST-1/p' /home/kalib/foundry/docs/PHASE-J-STATE.md
+## OPEN
+
+- **GATE-J0B is next.** Surface = **Goose** (SELECTED, *not* adopted — `docs/10` §18.7). Design:
+  authenticating proxy + `restrict`/`guestfwd` pinhole. Prompt exists advisor-side.
+- **ST-1 re-run is QUEUED and UNSATISFIED**, now on **two** independent triggers:
+[exit=0]
+
+$ echo 'PREMISE MATCH: PHASE-J-STATE OPEN says GATE-J0B is next, surface = Goose (SELECTED not adopted), design = authenticating proxy + restrict/guestfwd pinhole. The v1.2 prompt states the same premise. No contradiction; the J-156 check passes.'
+PREMISE MATCH: PHASE-J-STATE OPEN says GATE-J0B is next, surface = Goose (SELECTED not adopted), design = authenticating proxy + restrict/guestfwd pinhole. The v1.2 prompt states the same premise. No contradiction; the J-156 check passes.
+[exit=0]
+
+$ awk '/^    [^ ]/ { if(!inb){inb=1; n++} next } { inb=0 } END { printf "STRICT four-space command/config blocks in the prompt: %d (expected 12)\n", n }' /home/kalib/courier/Wrought/prompts/GATE-J0B-SURFACE-v1.2.md
+STRICT four-space command/config blocks in the prompt: 12 (expected 12)
+[exit=0]
+
+$ grep -c '```' /home/kalib/courier/Wrought/prompts/GATE-J0B-SURFACE-v1.2.md; echo '(0 = no fenced code, as the prompt asserts)'
+0
+(0 = no fenced code, as the prompt asserts)
+[exit=0]
+
+$ sha256sum /home/kalib/courier/Wrought/prompts/GATE-J0B-SURFACE-v1.2.md /home/kalib/foundry/GATEJ0BSURFACEv1.2.md
+f603fd982899dee93eeb8014c1e5e0b06f434d3b106ee7d5da3500e40a9ebada  /home/kalib/courier/Wrought/prompts/GATE-J0B-SURFACE-v1.2.md
+f603fd982899dee93eeb8014c1e5e0b06f434d3b106ee7d5da3500e40a9ebada  /home/kalib/foundry/GATEJ0BSURFACEv1.2.md
+[exit=0]
+
+$ echo 'TRANSPORT VERDICT: OK. 12/12 blocks present, none empty or garbled. A loose filter that also matches 5-space lines reports 14; the two extras are markdown list continuations of the Phase 1.1 prose bullets, not command blocks.'
+TRANSPORT VERDICT: OK. 12/12 blocks present, none empty or garbled. A loose filter that also matches 5-space lines reports 14; the two extras are markdown list continuations of the Phase 1.1 prose bullets, not command blocks.
+[exit=0]
+
+$ echo 'HEARTBEAT NOTE: GATE-HJ2-HEARTBEAT was dispatched alongside this prompt but NEVER RUN — at J0B start /home/kalib/courier/Wrought/STATUS.md did not exist and docs/EXECUTOR-RAILS.md carried no HEARTBEAT section. J0B v1.2 assumes the mechanism is standing, so this session bootstrapped STATUS.md alone from HJ2 v1.0 verbatim schema. HJ2 remains NOT RUN in QUEUE.md.'
+HEARTBEAT NOTE: GATE-HJ2-HEARTBEAT was dispatched alongside this prompt but NEVER RUN — at J0B start /home/kalib/courier/Wrought/STATUS.md did not exist and docs/EXECUTOR-RAILS.md carried no HEARTBEAT section. J0B v1.2 assumes the mechanism is standing, so this session bootstrapped STATUS.md alone from HJ2 v1.0 verbatim schema. HJ2 remains NOT RUN in QUEUE.md.
+[exit=0]
+

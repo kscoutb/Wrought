@@ -1,0 +1,40 @@
+###############################################################################
+# PHASE 0.5 — health: service active, /health 200, runpm 0, dGPU by id 0x744c with VRAM ~19-20 GB (the round-2 identity loop, re-run verbatim).
+# host=forge-mini  utc=2026-08-21T00:08:09Z  user=kalib
+###############################################################################
+
+$ systemctl is-active wrought-inference.service
+active
+[exit=0]
+
+$ systemctl show wrought-inference.service -p ActiveState -p SubState -p ExecMainStartTimestamp -p NRestarts
+ActiveState=active
+SubState=running
+NRestarts=0
+ExecMainStartTimestamp=Mon 2026-08-10 21:32:24 EDT
+[exit=0]
+
+$ curl -sS --max-time 8 -o /dev/null -w 'GET /health -> %{http_code}\n' http://127.0.0.1:8080/health
+GET /health -> 200
+[exit=0]
+
+$ curl -sS --max-time 8 http://127.0.0.1:8080/health
+{"status":"ok"}[exit=0]
+
+$ cat /sys/module/amdgpu/parameters/runpm
+0
+[exit=0]
+
+$ for c in /sys/class/drm/card*/device; do if [ "$(cat $c/device 2>/dev/null)" = '0x744c' ]; then echo "MATCH cardN=$(basename $(dirname $c)) vram_used_bytes=$(cat $c/mem_info_vram_used) vram_total_bytes=$(cat $c/mem_info_vram_total)"; fi; done; echo "[explicit-enumeration exit=$?]"
+MATCH cardN=card0 vram_used_bytes=19619987456 vram_total_bytes=25753026560
+[explicit-enumeration exit=0]
+[exit=0]
+
+$ ss -lntp 2>/dev/null | grep -E ':8080|:8081' || echo 'no listener on 8080/8081 visible to this user'
+LISTEN 0      512                      127.0.0.1:8080       0.0.0.0:*                                          
+[exit=0]
+
+$ sudo ss -lntp | grep -E ':8080|:8081' || echo 'none'
+LISTEN 0      512                      127.0.0.1:8080       0.0.0.0:*    users:(("llama-server",pid=2558,fd=8))                 
+[exit=0]
+

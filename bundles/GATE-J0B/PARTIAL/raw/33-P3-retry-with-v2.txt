@@ -1,0 +1,49 @@
+###############################################################################
+# PHASE 3 RETRY — same restrict=on + guestfwd pinhole, with authproxy2.py (per-request upstream). authproxy.py v1 is left on disk unedited as the record (EXECUTOR-RAILS 4: never overwrite evidence).
+# host=forge-mini  utc=2026-08-21T00:20:11Z  user=kalib
+###############################################################################
+
+$ echo 'Graceful poweroff of the diagnosis VM:'; ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'sudo systemctl poweroff'; echo '(connection loss expected)'
+Graceful poweroff of the diagnosis VM:
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+(connection loss expected)
+[exit=0]
+
+$ ps -eo comm= | grep -x 'qemu-system-x86' && echo 'QEMU RUNNING' || echo 'guest down'; pidof qemu-system-x86_64 || echo 'pidof: none'
+guest down
+pidof: none
+[exit=0]
+
+$ echo 'Stop proxy v1 (recorded pid), confirm the port frees:'; kill $(cat /var/lib/wrought/j0b/authproxy.pid); sleep 1; ps -p $(cat /var/lib/wrought/j0b/authproxy.pid) >/dev/null 2>&1 && echo 'v1 STILL RUNNING' || echo 'v1 stopped'; ss -lntp | grep ':8081' || echo 'port 8081 free'
+Stop proxy v1 (recorded pid), confirm the port frees:
+v1 stopped
+port 8081 free
+[exit=0]
+
+$ echo 'Start proxy v2, key on stdin only, same launch shape:'; echo "setsid bash -c 'sudo cat /run/credentials/wrought-inference.service/inference-api-key | python3 /var/lib/wrought/j0b/authproxy2.py' >/var/lib/wrought/j0b/authproxy2.out 2>&1 &"; cat /var/lib/wrought/j0b/authproxy2.out; ss -lntp | grep ':8081'
+Start proxy v2, key on stdin only, same launch shape:
+setsid bash -c 'sudo cat /run/credentials/wrought-inference.service/inference-api-key | python3 /var/lib/wrought/j0b/authproxy2.py' >/var/lib/wrought/j0b/authproxy2.out 2>&1 &
+authproxy2: key read from stdin (64 bytes), held in memory only
+authproxy2: listening on 127.0.0.1:8081 -> 127.0.0.1:8080  pid=300319
+LISTEN 0      64                       127.0.0.1:8081       0.0.0.0:*    users:(("python3",pid=300319,fd=3))   
+[exit=0]
+
+$ echo 'HOST-SIDE CONTROL before the guest ever touches it:'; curl -s -o /dev/null -w 'direct :8080/props (no key) = %{http_code}\n' http://127.0.0.1:8080/props; curl -s -o /dev/null -w 'via  :8081/props           = %{http_code}\n' http://127.0.0.1:8081/props
+HOST-SIDE CONTROL before the guest ever touches it:
+direct :8080/props (no key) = 401
+via  :8081/props           = 200
+[exit=0]
+
+$ echo 'Relaunch, IDENTICAL netdev to the first attempt — only the proxy changed:'; echo 'qemu-system-x86_64 -machine q35,accel=kvm -cpu host -smp 4 -m 8192 -drive file=j0b-overlay.qcow2,if=virtio,format=qcow2 -drive file=seed.img,if=virtio,format=raw -netdev user,id=n0,restrict=on,hostfwd=tcp:127.0.0.1:2222-:22,guestfwd=tcp:10.0.2.100:8081-tcp:127.0.0.1:8081 -device virtio-net-pci,netdev=n0 -display none -serial file:serial-p3c.log -daemonize -pidfile qemu-p3c.pid'
+Relaunch, IDENTICAL netdev to the first attempt — only the proxy changed:
+qemu-system-x86_64 -machine q35,accel=kvm -cpu host -smp 4 -m 8192 -drive file=j0b-overlay.qcow2,if=virtio,format=qcow2 -drive file=seed.img,if=virtio,format=raw -netdev user,id=n0,restrict=on,hostfwd=tcp:127.0.0.1:2222-:22,guestfwd=tcp:10.0.2.100:8081-tcp:127.0.0.1:8081 -device virtio-net-pci,netdev=n0 -display none -serial file:serial-p3c.log -daemonize -pidfile qemu-p3c.pid
+[exit=0]
+
+[qemu launch exit=0]
+MEASURED boot-to-ssh (locked, v2): 9 seconds
+$ echo 'chardev connected at startup again (expected — this is the single-stream property, now handled):'; ss -tnp 2>/dev/null | grep ':8081' || echo 'no connection'
+chardev connected at startup again (expected — this is the single-stream property, now handled):
+ESTAB      0      0          127.0.0.1:54304       127.0.0.1:8081  users:(("qemu-system-x86",pid=300360,fd=17))
+ESTAB      0      0          127.0.0.1:8081        127.0.0.1:54304 users:(("python3",pid=300319,fd=5))         
+[exit=0]
+

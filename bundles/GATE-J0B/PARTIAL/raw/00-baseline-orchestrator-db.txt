@@ -1,0 +1,27 @@
+###############################################################################
+# PHASE 0 — BYTE FREEZE BASELINE (EXECUTOR-RAILS 2). Production orchestrator store must not move this session.
+# host=forge-mini  utc=2026-08-21T00:07:25Z  user=kalib
+###############################################################################
+
+$ sha256sum /var/lib/wrought/state/orchestrator.db{,-wal,-shm}
+6600fe63abd0116c63f51723b2cee83e6477e06e76604d6f36e3d843396d8fde  /var/lib/wrought/state/orchestrator.db
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /var/lib/wrought/state/orchestrator.db-wal
+fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb  /var/lib/wrought/state/orchestrator.db-shm
+[exit=0]
+
+$ sudo ls -l --time-style=full-iso /var/lib/wrought/state/
+total 1732
+drwxrwxr-x 2 kalib kalib   4096 2026-08-03 22:59:51.095023733 -0400 effects
+drwxrwxr-x 2 kalib kalib   4096 2026-08-09 10:03:05.305163179 -0400 gate39-effects
+-rw-r--r-- 1 kalib kalib  69632 2026-08-09 10:03:05.317138949 -0400 gate39-scope.db
+-rw-r--r-- 1 kalib kalib 622592 2026-08-08 18:28:09.486335053 -0400 orchestrator.db
+-rw-r--r-- 1 kalib kalib  32768 2026-08-08 23:31:54.963965375 -0400 orchestrator.db-shm
+-rw-r--r-- 1 kalib kalib      0 2026-08-08 23:31:26.149621471 -0400 orchestrator.db-wal
+-rw-r--r-- 1 kalib kalib 528384 2026-08-03 22:27:58.052357264 -0400 orchestrator.db.pre-r3-migration-20260804T022758Z
+-rw-r--r-- 1 kalib kalib 512000 2026-08-02 22:11:18.614067718 -0400 pre-J77-migration.db
+[exit=0]
+
+$ date -u +%Y-%m-%dT%H:%M:%SZ
+2026-08-21T00:07:25Z
+[exit=0]
+

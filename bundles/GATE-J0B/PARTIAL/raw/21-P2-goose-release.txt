@@ -1,0 +1,82 @@
+###############################################################################
+# PHASE 2.3 — fetch the latest stable Goose release from GitHub, INSIDE the guest, egress open for this phase only. No install script is ever piped to bash.
+# host=forge-mini  utc=2026-08-21T00:12:52Z  user=kalib
+###############################################################################
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'systemd-detect-virt; id; uname -r; ldd --version | head -1; . /etc/os-release; echo "guest=$PRETTY_NAME"'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+kvm
+uid=1000(probe) gid=1000(probe) groups=1000(probe)
+6.8.0-136-generic
+ldd (Ubuntu GLIBC 2.39-0ubuntu8.8) 2.39
+guest=Ubuntu 24.04.4 LTS
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'curl -s -o /dev/null -w "guest egress precheck: connectivity-check.ubuntu.com -> %{http_code}\n" --max-time 8 http://connectivity-check.ubuntu.com'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+guest egress precheck: connectivity-check.ubuntu.com -> 204
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'curl -fsSL -o /tmp/rel.json -w "HTTP %{http_code}\n" --max-time 30 https://api.github.com/repos/aaif-goose/goose/releases/latest; echo "curl exit=$?"; ls -l /tmp/rel.json 2>&1'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+HTTP 200
+curl exit=0
+-rw-rw-r-- 1 probe probe 106621 Aug 21 00:12 /tmp/rel.json
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'python3 -c "
+import json
+d=json.load(open(\"/tmp/rel.json\"))
+print(\"tag_name      :\", d.get(\"tag_name\"))
+print(\"name          :\", d.get(\"name\"))
+print(\"published_at  :\", d.get(\"published_at\"))
+print(\"prerelease    :\", d.get(\"prerelease\"))
+print(\"draft         :\", d.get(\"draft\"))
+print(\"target_commit :\", d.get(\"target_commitish\"))
+print()
+print(\"ASSET LIST (name, size, download_count):\")
+for a in d.get(\"assets\",[]):
+    print(\"  \", a[\"name\"], a[\"size\"], a.get(\"download_count\"))
+"'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+tag_name      : v1.46.0
+name          : v1.46.0
+published_at  : 2026-08-12T16:05:13Z
+prerelease    : False
+draft         : False
+target_commit : main
+
+ASSET LIST (name, size, download_count):
+   download_cli.sh 15247 1039
+   Goose-1.46.0-1.x86_64-vulkan.rpm 183499141 48
+   Goose-1.46.0-1.x86_64.rpm 179468357 324
+   goose-aarch64-apple-darwin.tar.bz2 78434554 1711
+   goose-aarch64-apple-darwin.tar.gz 88513315 264
+   goose-aarch64-unknown-linux-gnu-vulkan.tar.bz2 90150789 23
+   goose-aarch64-unknown-linux-gnu-vulkan.tar.gz 104753937 27
+   goose-aarch64-unknown-linux-gnu.tar.bz2 83982052 826
+   goose-aarch64-unknown-linux-gnu.tar.gz 95553417 265
+   goose-aarch64-unknown-linux-musl.tar.bz2 44322353 48
+   goose-aarch64-unknown-linux-musl.tar.gz 49992591 118
+   goose-source-v1.46.0.tar.gz 316225905 31
+   goose-source-v1.46.0.zip 317238729 118
+   Goose-win32-x64-cuda.zip 427060373 119
+   Goose-win32-x64.zip 254377406 7313
+   goose-x86_64-apple-darwin.tar.bz2 80566749 697
+   goose-x86_64-apple-darwin.tar.gz 91746718 165
+   goose-x86_64-pc-windows-msvc-cuda.zip 254269230 88
+   goose-x86_64-pc-windows-msvc.zip 81586571 1706
+   goose-x86_64-unknown-linux-gnu-vulkan.tar.bz2 90763631 36
+   goose-x86_64-unknown-linux-gnu-vulkan.tar.gz 104666428 22
+   goose-x86_64-unknown-linux-gnu.tar.bz2 84957951 2440
+   goose-x86_64-unknown-linux-gnu.tar.gz 95673661 805
+   goose-x86_64-unknown-linux-musl.tar.bz2 45066132 74
+   goose-x86_64-unknown-linux-musl.tar.gz 51611672 201
+   Goose.zip 217124325 10169
+   goose_1.46.0_amd64-vulkan.deb 174879124 541
+   goose_1.46.0_amd64.deb 172117218 748
+   Goose_intel_mac.zip 229235339 513
+   io.github.block.Goose_stable_x86_64-vulkan.flatpak 165928376 24
+   io.github.block.Goose_stable_x86_64.flatpak 162624248 293
+[exit=0]
+

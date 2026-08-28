@@ -1,0 +1,63 @@
+###############################################################################
+# PHASE 2.1/2.2 — fresh overlay on the PINNED base, then egress-OPEN boot for the fetch only. Launched NATIVELY (no sudo -u/-g): V-1 closed in Phase 0.4.
+# host=forge-mini  utc=2026-08-21T00:12:13Z  user=kalib
+###############################################################################
+
+$ qemu-img create -f qcow2 -b /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img -F qcow2 /var/lib/wrought/j0b/j0b-overlay.qcow2 20G
+Formatting '/var/lib/wrought/j0b/j0b-overlay.qcow2', fmt=qcow2 cluster_size=65536 extended_l2=off compression_type=zlib size=21474836480 backing_file=/var/lib/wrought/j0a/noble-server-cloudimg-amd64.img backing_fmt=qcow2 lazy_refcounts=off refcount_bits=16
+[exit=0]
+
+$ qemu-img info /var/lib/wrought/j0b/j0b-overlay.qcow2
+image: /var/lib/wrought/j0b/j0b-overlay.qcow2
+file format: qcow2
+virtual size: 20 GiB (21474836480 bytes)
+disk size: 196 KiB
+cluster_size: 65536
+backing file: /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+backing file format: qcow2
+Format specific information:
+    compat: 1.1
+    compression type: zlib
+    lazy refcounts: false
+    refcount bits: 16
+    corrupt: false
+    extended l2: false
+Child node '/file':
+    filename: /var/lib/wrought/j0b/j0b-overlay.qcow2
+    protocol type: file
+    file length: 192 KiB (197120 bytes)
+    disk size: 196 KiB
+[exit=0]
+
+$ ls -l /var/lib/wrought/j0b/
+total 604
+drwxrwxr-x 2 kalib kalib   4096 Aug 20 20:11 __pycache__
+-rw-rw-r-- 1 kalib kalib    231 Aug 20 20:11 apicalls.log
+-rw-rw-r-- 1 kalib kalib    132 Aug 20 20:11 authproxy.out
+-rw-rw-r-- 1 kalib kalib      7 Aug 20 20:11 authproxy.pid
+-rw-rw-r-- 1 kalib kalib  12825 Aug 20 20:11 authproxy.py
+-rw-rw-r-- 1 kalib kalib    946 Aug 20 20:07 cap.sh
+-rw-r--r-- 1 kalib kalib 196928 Aug 20 20:12 j0b-overlay.qcow2
+drwxr-xr-x 2 kalib kalib   4096 Aug 20 20:12 raw
+-rw-rw-r-- 1 kalib kalib 374784 Aug 10 22:14 seed.img
+[exit=0]
+
+$ qemu-system-x86_64 --version | head -1
+QEMU emulator version 10.2.1 (Debian 1:10.2.1+ds-1ubuntu3.2)
+[exit=0]
+
+$ echo 'TIMING METHOD (round-2 wording): t0 on the HOST immediately BEFORE the qemu exec; t1 on the HOST the first time an ssh with -o ConnectTimeout=5 -o BatchMode=yes returns exit 0 having run true in the guest. 2 s poll => +/-2 s, an UPPER bound on boot-to-ssh. Ceiling 180 s.'
+TIMING METHOD (round-2 wording): t0 on the HOST immediately BEFORE the qemu exec; t1 on the HOST the first time an ssh with -o ConnectTimeout=5 -o BatchMode=yes returns exit 0 having run true in the guest. 2 s poll => +/-2 s, an UPPER bound on boot-to-ssh. Ceiling 180 s.
+[exit=0]
+
+$ echo 'launch command (as run, NATIVE — round 2 needed sudo -u kalib -g kvm; V-1 is closed so this session does not):'; echo 'qemu-system-x86_64 -machine q35,accel=kvm -cpu host -smp 4 -m 8192 -drive file=j0b-overlay.qcow2,if=virtio,format=qcow2 -drive file=seed.img,if=virtio,format=raw -netdev user,id=n0,hostfwd=tcp:127.0.0.1:2222-:22 -device virtio-net-pci,netdev=n0 -display none -serial file:serial-p2.log -daemonize -pidfile qemu-p2.pid'
+launch command (as run, NATIVE — round 2 needed sudo -u kalib -g kvm; V-1 is closed so this session does not):
+qemu-system-x86_64 -machine q35,accel=kvm -cpu host -smp 4 -m 8192 -drive file=j0b-overlay.qcow2,if=virtio,format=qcow2 -drive file=seed.img,if=virtio,format=raw -netdev user,id=n0,hostfwd=tcp:127.0.0.1:2222-:22 -device virtio-net-pci,netdev=n0 -display none -serial file:serial-p2.log -daemonize -pidfile qemu-p2.pid
+[exit=0]
+
+MEASURED boot-to-ssh: 14 seconds (t0=1787271146 t1=1787271160, 2s poll => +/-2s, upper bound)
+$ ps -o pid,user,group,etime,args -p $(cat /var/lib/wrought/j0b/qemu-p2.pid) | cut -c1-170
+    PID USER     GROUP        ELAPSED COMMAND
+ 299229 kalib    kalib          00:14 qemu-system-x86_64 -machine q35,accel=kvm -cpu host -smp 4 -m 8192 -drive file=j0b-overlay.qcow2,if=virtio,format=qcow2 -drive file=
+[exit=0]
+

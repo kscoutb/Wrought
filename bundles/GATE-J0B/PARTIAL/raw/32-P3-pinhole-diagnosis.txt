@@ -1,0 +1,98 @@
+###############################################################################
+# PHASE 3 — DIAGNOSIS: qemu ACCEPTED the primary guestfwd form and launched, but the pinhole returns curl exit 28 (timeout, 0 bytes) rather than 200. Failure is functional, not a parse rejection.
+# host=forge-mini  utc=2026-08-21T00:16:55Z  user=kalib
+###############################################################################
+
+$ echo 'Is the proxy still alive and still listening?'; ps -o pid,user,etime,args -p $(cat /var/lib/wrought/j0b/authproxy.pid) 2>&1; ss -lntp | grep ':8081' || echo 'NOT LISTENING'
+Is the proxy still alive and still listening?
+    PID USER         ELAPSED COMMAND
+ 298991 kalib          05:42 python3 /var/lib/wrought/j0b/authproxy.py
+LISTEN 0      64                       127.0.0.1:8081       0.0.0.0:*    users:(("python3",pid=298991,fd=3))         
+[exit=0]
+
+$ echo 'Did the proxy see ANY connection during the pinhole test? (log unchanged = slirp never reached it)'; wc -l /var/lib/wrought/j0b/apicalls.log; tail -3 /var/lib/wrought/j0b/apicalls.log
+Did the proxy see ANY connection during the pinhole test? (log unchanged = slirp never reached it)
+6 /var/lib/wrought/j0b/apicalls.log
+2026-08-21T00:11:29Z GET /props 200
+2026-08-21T00:11:29Z GET /props 200
+2026-08-21T00:11:29Z POST /v1/chat/completions 200
+[exit=0]
+
+$ echo 'Any ESTABLISHED socket between qemu and the proxy?'; ss -tnp 2>/dev/null | grep -E '8081' || echo 'no ESTABLISHED connection to/from 8081 at all'
+Any ESTABLISHED socket between qemu and the proxy?
+no ESTABLISHED connection to/from 8081 at all
+[exit=0]
+
+$ echo 'Proxy still answers from the host (control: the proxy is not the broken part):'; curl -s -o /dev/null -w 'host -> 127.0.0.1:8081/health = %{http_code}\n' --max-time 5 http://127.0.0.1:8081/health
+Proxy still answers from the host (control: the proxy is not the broken part):
+host -> 127.0.0.1:8081/health = 200
+[exit=0]
+
+$ echo 'qemu stderr is not captured under -daemonize; check for a chardev complaint on the serial console and in the journal:'; grep -i -E 'chardev|guestfwd|slirp|connection refused' /var/lib/wrought/j0b/serial-p3.log | tail -5 || echo 'nothing in serial-p3.log'
+qemu stderr is not captured under -daemonize; check for a chardev complaint on the serial console and in the journal:
+[exit=0]
+
+$ command -v socat || echo 'socat ABSENT on the host — the prompt fallback (indented block 10) needs it'
+socat ABSENT on the host — the prompt fallback (indented block 10) needs it
+[exit=0]
+
+$ echo 'Graceful poweroff (NOT a kill — the overlay is the artifact under test and must stay clean), then relaunch with stderr captured so the chardev error is visible.'; ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'sudo systemctl poweroff'; echo '(connection loss expected)'
+Graceful poweroff (NOT a kill — the overlay is the artifact under test and must stay clean), then relaunch with stderr captured so the chardev error is visible.
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+(connection loss expected)
+[exit=0]
+
+$ ps -eo comm= | grep -x 'qemu-system-x86' && echo 'QEMU RUNNING' || echo 'guest down'; pidof qemu-system-x86_64 || echo 'pidof: none'
+guest down
+pidof: none
+[exit=0]
+
+$ echo 'RELAUNCH, same guestfwd, WITHOUT -daemonize, stderr to qemu-p3b.err:'; echo 'qemu-system-x86_64 -machine q35,accel=kvm -cpu host -smp 4 -m 8192 -drive file=j0b-overlay.qcow2,if=virtio,format=qcow2 -drive file=seed.img,if=virtio,format=raw -netdev user,id=n0,restrict=on,hostfwd=tcp:127.0.0.1:2222-:22,guestfwd=tcp:10.0.2.100:8081-tcp:127.0.0.1:8081 -device virtio-net-pci,netdev=n0 -display none -serial file:serial-p3b.log -pidfile qemu-p3b.pid'
+RELAUNCH, same guestfwd, WITHOUT -daemonize, stderr to qemu-p3b.err:
+qemu-system-x86_64 -machine q35,accel=kvm -cpu host -smp 4 -m 8192 -drive file=j0b-overlay.qcow2,if=virtio,format=qcow2 -drive file=seed.img,if=virtio,format=raw -netdev user,id=n0,restrict=on,hostfwd=tcp:127.0.0.1:2222-:22,guestfwd=tcp:10.0.2.100:8081-tcp:127.0.0.1:8081 -device virtio-net-pci,netdev=n0 -display none -serial file:serial-p3b.log -pidfile qemu-p3b.pid
+[exit=0]
+
+$ echo '--- qemu stderr/stdout ---'; cat /var/lib/wrought/j0b/qemu-p3b.err; echo '[end]'
+--- qemu stderr/stdout ---
+[end]
+[exit=0]
+
+$ echo '--- did qemu connect to the proxy AT STARTUP? ---'; ss -tnp 2>/dev/null | grep ':8081' || echo 'NO connection to 8081 from qemu at startup'
+--- did qemu connect to the proxy AT STARTUP? ---
+CLOSE-WAIT 1      0          127.0.0.1:51216       127.0.0.1:8081  users:(("qemu-system-x86",pid=300059,fd=16))
+FIN-WAIT-2 0      0          127.0.0.1:8081        127.0.0.1:51216 users:(("python3",pid=298991,fd=6))         
+[exit=0]
+
+$ echo '--- proxy log unchanged? ---'; wc -l /var/lib/wrought/j0b/apicalls.log
+--- proxy log unchanged? ---
+7 /var/lib/wrought/j0b/apicalls.log
+[exit=0]
+
+$ echo 'THE LINE THE PROXY LOGGED WHEN THE CHARDEV TORE DOWN:'; tail -2 /var/lib/wrought/j0b/apicalls.log
+THE LINE THE PROXY LOGGED WHEN THE CHARDEV TORE DOWN:
+2026-08-21T00:11:29Z POST /v1/chat/completions 200
+2026-08-21T00:16:55Z GET /health 200
+[exit=0]
+
+$ echo 'ROOT CAUSE — established by the socket state above:'
+echo '  qemu connected to 127.0.0.1:8081 AT VM STARTUP, BEFORE any guest traffic existed (the socket was already there 6 s after launch, and the guest had sent nothing).'
+echo '  Therefore QEMU guestfwd=<addr>:<port>-tcp:<host>:<port> is NOT a per-connection forwarder. libslirp registers ONE chardev for the guest-forward and funnels every guest connection to that single always-on stream.'
+echo '  authproxy.py was written to the prompt s per-connection model: on accept it eagerly opened an upstream socket to 127.0.0.1:8080 and tore the connection down when either side EOFd.'
+echo '  llama-server closed that idle upstream connection within seconds. The proxy therefore shut down the ONE chardev stream (socket state now CLOSE-WAIT / FIN-WAIT-2) and the pinhole was dead for the rest of the VM lifetime.'
+echo '  That is exactly the curl exit 28 seen in Phase 3.2: slirp ACCEPTED the guest SYN (so not exit 7) but had no live chardev to carry the bytes, so 0 bytes came back before the 5 s deadline.'
+echo 'THE FAILURE IS IN THE PROXY MODEL, NOT IN restrict=on. Egress lock results 1 and 2 stand on their own evidence.'
+ROOT CAUSE — established by the socket state above:
+  qemu connected to 127.0.0.1:8081 AT VM STARTUP, BEFORE any guest traffic existed (the socket was already there 6 s after launch, and the guest had sent nothing).
+  Therefore QEMU guestfwd=<addr>:<port>-tcp:<host>:<port> is NOT a per-connection forwarder. libslirp registers ONE chardev for the guest-forward and funnels every guest connection to that single always-on stream.
+  authproxy.py was written to the prompt s per-connection model: on accept it eagerly opened an upstream socket to 127.0.0.1:8080 and tore the connection down when either side EOFd.
+  llama-server closed that idle upstream connection within seconds. The proxy therefore shut down the ONE chardev stream (socket state now CLOSE-WAIT / FIN-WAIT-2) and the pinhole was dead for the rest of the VM lifetime.
+  That is exactly the curl exit 28 seen in Phase 3.2: slirp ACCEPTED the guest SYN (so not exit 7) but had no live chardev to carry the bytes, so 0 bytes came back before the 5 s deadline.
+THE FAILURE IS IN THE PROXY MODEL, NOT IN restrict=on. Egress lock results 1 and 2 stand on their own evidence.
+[exit=0]
+
+$ echo 'FALLBACK STATUS: the prompt fallback (indented block 10) is guestfwd ...-cmd:socat STDIO TCP:127.0.0.1:8081. socat is ABSENT from the host and EXECUTOR-RAILS/this prompt forbid installing host packages, so that block cannot be run as written. It would also inherit the SAME single-chardev property — it is a different way to attach one stream, not a per-connection listener.'
+echo 'CHOSEN FIX (no host package, no unit change, no firewall change, nothing outside /var/lib/wrought/j0b): make authproxy.py speak the stream it is actually given. Treat the chardev as a SEQUENCE OF REQUESTS: read each request head, open a FRESH upstream connection per request, relay the response by its own framing, then loop for the next head. Never tear the client stream down because upstream closed.'
+FALLBACK STATUS: the prompt fallback (indented block 10) is guestfwd ...-cmd:socat STDIO TCP:127.0.0.1:8081. socat is ABSENT from the host and EXECUTOR-RAILS/this prompt forbid installing host packages, so that block cannot be run as written. It would also inherit the SAME single-chardev property — it is a different way to attach one stream, not a per-connection listener.
+CHOSEN FIX (no host package, no unit change, no firewall change, nothing outside /var/lib/wrought/j0b): make authproxy.py speak the stream it is actually given. Treat the chardev as a SEQUENCE OF REQUESTS: read each request head, open a FRESH upstream connection per request, relay the response by its own framing, then loop for the next head. Never tear the client stream down because upstream closed.
+[exit=0]
+

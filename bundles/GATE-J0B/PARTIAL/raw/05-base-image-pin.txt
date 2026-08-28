@@ -1,0 +1,25 @@
+###############################################################################
+# PHASE 0.7 — re-verify the guest base image against its pin BEFORE any use. pins.lock virtualization.guest_base_image.
+# host=forge-mini  utc=2026-08-21T00:08:46Z  user=kalib
+###############################################################################
+
+$ sha256sum /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe  /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+[exit=0]
+
+$ echo 'EXPECTED (from the prompt, an indented block): 0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe'
+EXPECTED (from the prompt, an indented block): 0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe
+[exit=0]
+
+$ grep -n -A8 'guest_base_image' /home/kalib/foundry/pins.lock
+635:  guest_base_image:
+636-    file: noble-server-cloudimg-amd64.img
+637-    url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+638-    sha256: 0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe   # verify on EVERY pull
+639-    size_bytes: 624239616
+640-    release: "Ubuntu 24.04 LTS (noble) cloud image"
+641-    upstream_last_modified: "2026-08-01T13:17:55Z"   # quoted: an unquoted timestamp resolves to a
+642-                                                     # datetime and stops comparing equal as text
+643-    format: "qcow2 v3, 3758096384 bytes virtual"
+[exit=0]
+

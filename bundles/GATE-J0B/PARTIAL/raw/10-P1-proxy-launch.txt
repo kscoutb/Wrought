@@ -1,0 +1,34 @@
+###############################################################################
+# PHASE 1 — launch the authenticating proxy. The key passes on STDIN ONLY: never argv, never env, never a file, never the guest.
+# host=forge-mini  utc=2026-08-21T00:11:13Z  user=kalib
+###############################################################################
+
+$ echo 'THE PROMPT LITERAL LAUNCH LINE (indented block 5):'; echo 'sudo cat /run/credentials/wrought-inference.service/inference-api-key | python3 /var/lib/wrought/j0b/authproxy.py &'
+THE PROMPT LITERAL LAUNCH LINE (indented block 5):
+sudo cat /run/credentials/wrought-inference.service/inference-api-key | python3 /var/lib/wrought/j0b/authproxy.py &
+[exit=0]
+
+$ echo 'AS ACTUALLY RUN — same pipeline, wrapped in setsid with stderr to a file so the daemon survives the capture shell that starts it. The key path is unchanged and still stdin-only:'; echo "setsid bash -c 'sudo cat /run/credentials/wrought-inference.service/inference-api-key | python3 /var/lib/wrought/j0b/authproxy.py' >/var/lib/wrought/j0b/authproxy.out 2>&1 &"
+AS ACTUALLY RUN — same pipeline, wrapped in setsid with stderr to a file so the daemon survives the capture shell that starts it. The key path is unchanged and still stdin-only:
+setsid bash -c 'sudo cat /run/credentials/wrought-inference.service/inference-api-key | python3 /var/lib/wrought/j0b/authproxy.py' >/var/lib/wrought/j0b/authproxy.out 2>&1 &
+[exit=0]
+
+$ sudo -n test -r /run/credentials/wrought-inference.service/inference-api-key && echo 'credential readable via sudo'; sudo stat -c '%n %s bytes mode=%a owner=%U:%G' /run/credentials/wrought-inference.service/inference-api-key
+credential readable via sudo
+/run/credentials/wrought-inference.service/inference-api-key 64 bytes mode=440 owner=root:root
+[exit=0]
+
+$ cat /var/lib/wrought/j0b/authproxy.out
+authproxy: key read from stdin (64 bytes), held in memory only
+authproxy: listening on 127.0.0.1:8081 -> 127.0.0.1:8080  pid=298991
+[exit=0]
+
+$ cat /var/lib/wrought/j0b/authproxy.pid
+298991
+[exit=0]
+
+$ ps -o pid,user,etime,args -p $(cat /var/lib/wrought/j0b/authproxy.pid)
+    PID USER         ELAPSED COMMAND
+ 298991 kalib          00:02 python3 /var/lib/wrought/j0b/authproxy.py
+[exit=0]
+

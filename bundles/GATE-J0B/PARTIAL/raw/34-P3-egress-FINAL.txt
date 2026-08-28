@@ -1,0 +1,34 @@
+###############################################################################
+# PHASE 3.2 FINAL — THE THREE-WAY EGRESS MEASUREMENT, from INSIDE the egress-locked guest, all --max-time 5. Same guest, same netdev, corrected proxy.
+# host=forge-mini  utc=2026-08-21T00:20:54Z  user=kalib
+###############################################################################
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'for u in http://connectivity-check.ubuntu.com http://10.0.2.2:8080/health http://10.0.2.100:8081/health; do printf "%-45s " "$u"; curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$u"; echo "  [curl exit=$?]"; done'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+http://connectivity-check.ubuntu.com          000  [curl exit=6]
+http://10.0.2.2:8080/health                   000  [curl exit=7]
+http://10.0.2.100:8081/health                 200  [curl exit=0]
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "--- exact failure modes ---"; for u in http://connectivity-check.ubuntu.com http://10.0.2.2:8080/health http://10.0.2.100:8081/health; do echo "### $u"; curl -sS -o /dev/null --max-time 5 "$u" 2>&1; echo "   [curl exit=$?]"; done'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+--- exact failure modes ---
+### http://connectivity-check.ubuntu.com
+curl: (6) Could not resolve host: connectivity-check.ubuntu.com
+   [curl exit=6]
+### http://10.0.2.2:8080/health
+curl: (7) Failed to connect to 10.0.2.2 port 8080 after 0 ms: Couldn't connect to server
+   [curl exit=7]
+### http://10.0.2.100:8081/health
+   [curl exit=0]
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "--- the pinhole body, proving it is really the model server ---"; curl -s --max-time 5 http://10.0.2.100:8081/health; echo; curl -s --max-time 10 http://10.0.2.100:8081/props | python3 -c "import sys,json; d=json.load(sys.stdin); print(\"model_alias:\", d[\"model_alias\"]); print(\"n_ctx:\", d[\"default_generation_settings\"][\"n_ctx\"]); print(\"build_info:\", d[\"build_info\"])"'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+--- the pinhole body, proving it is really the model server ---
+{"status":"ok"}
+model_alias: primary-qwen27b
+n_ctx: 65536
+build_info: b10233-0ab9d6fed
+[exit=0]
+

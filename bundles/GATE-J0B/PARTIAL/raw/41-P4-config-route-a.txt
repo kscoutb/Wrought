@@ -1,0 +1,36 @@
+###############################################################################
+# PHASE 4.1 — route (a), the config file, EXACTLY as indented block 12 specifies. Model alias primary-qwen27b matches what /props reports through the pinhole.
+# host=forge-mini  utc=2026-08-21T00:22:37Z  user=kalib
+###############################################################################
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 "mkdir -p ~/.config/goose && printf 'GOOSE_PROVIDER: openai\nGOOSE_MODEL: primary-qwen27b\nOPENAI_HOST: http://10.0.2.100:8081\n' > ~/.config/goose/config.yaml"
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "--- config.yaml as written ---"; cat -A ~/.config/goose/config.yaml | sed "s/\$$//"; echo; echo "--- plain ---"; cat ~/.config/goose/config.yaml; ls -l ~/.config/goose/'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+--- config.yaml as written ---
+GOOSE_PROVIDER: openai
+GOOSE_MODEL: primary-qwen27b
+OPENAI_HOST: http://10.0.2.100:8081
+
+--- plain ---
+GOOSE_PROVIDER: openai
+GOOSE_MODEL: primary-qwen27b
+OPENAI_HOST: http://10.0.2.100:8081
+total 4
+-rw-rw-r-- 1 probe probe 88 Aug 21 00:22 config.yaml
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'goose info 2>&1'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+goose Version:
+  Version:                  1.46.0
+
+Paths:
+Config dir:              /home/probe/.config/goose                              
+Config yaml:             /home/probe/.config/goose/config.yaml                  
+Sessions DB (sqlite):    /home/probe/.local/share/goose/sessions/sessions.db    missing (can create)
+Logs dir:                /home/probe/.local/state/goose/logs                    
+[exit=0]
+

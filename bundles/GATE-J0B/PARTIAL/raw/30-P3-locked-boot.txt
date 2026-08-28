@@ -1,0 +1,18 @@
+###############################################################################
+# PHASE 3.1 — boot the SAME overlay EGRESS-LOCKED. restrict=on isolates the guest except explicitly set forwards: ssh (hostfwd) and the model pinhole (guestfwd). The prompt marks this [Assumption-based from QEMU docs]; this phase measures it.
+# host=forge-mini  utc=2026-08-21T00:15:53Z  user=kalib
+###############################################################################
+
+$ echo 'launch command (as run) — PRIMARY guestfwd form, indented block 9:'; echo 'qemu-system-x86_64 -machine q35,accel=kvm -cpu host -smp 4 -m 8192 -drive file=j0b-overlay.qcow2,if=virtio,format=qcow2 -drive file=seed.img,if=virtio,format=raw -netdev user,id=n0,restrict=on,hostfwd=tcp:127.0.0.1:2222-:22,guestfwd=tcp:10.0.2.100:8081-tcp:127.0.0.1:8081 -device virtio-net-pci,netdev=n0 -display none -serial file:serial-p3.log -daemonize -pidfile qemu-p3.pid'
+launch command (as run) — PRIMARY guestfwd form, indented block 9:
+qemu-system-x86_64 -machine q35,accel=kvm -cpu host -smp 4 -m 8192 -drive file=j0b-overlay.qcow2,if=virtio,format=qcow2 -drive file=seed.img,if=virtio,format=raw -netdev user,id=n0,restrict=on,hostfwd=tcp:127.0.0.1:2222-:22,guestfwd=tcp:10.0.2.100:8081-tcp:127.0.0.1:8081 -device virtio-net-pci,netdev=n0 -display none -serial file:serial-p3.log -daemonize -pidfile qemu-p3.pid
+[exit=0]
+
+[qemu launch exit=0]
+MEASURED boot-to-ssh (locked): 10 seconds (t0=1787271353 t1=1787271363, 2s poll => +/-2s, upper bound)
+$ echo 'THE PRIMARY guestfwd FORM WAS ACCEPTED BY QEMU 10.2.1 — no fallback to the socat cmd: form (indented block 10) was needed.'; ps -o pid,user,etime,args -p $(cat /var/lib/wrought/j0b/qemu-p3.pid) | cut -c1-200
+THE PRIMARY guestfwd FORM WAS ACCEPTED BY QEMU 10.2.1 — no fallback to the socat cmd: form (indented block 10) was needed.
+    PID USER         ELAPSED COMMAND
+ 299813 kalib          00:09 qemu-system-x86_64 -machine q35,accel=kvm -cpu host -smp 4 -m 8192 -drive file=j0b-overlay.qcow2,if=virtio,format=qcow2 -drive file=seed.img,if=virtio,format=raw -netdev u
+[exit=0]
+

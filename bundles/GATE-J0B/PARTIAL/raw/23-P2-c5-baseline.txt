@@ -1,0 +1,119 @@
+###############################################################################
+# PHASE 2 (for the Phase 4 C5 map) — the guest's config/secret surface BEFORE goose has ever been configured. Only 'goose --version' has run. This is the before-image the C5 diff is taken against.
+# host=forge-mini  utc=2026-08-21T00:14:39Z  user=kalib
+###############################################################################
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'ls -laR /home/probe 2>&1 | head -60'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+/home/probe:
+total 32
+drwxr-x--- 5 probe probe 4096 Aug 21 00:14 .
+drwxr-xr-x 3 root  root  4096 Aug 21 00:12 ..
+-rw-r--r-- 1 probe probe  220 Mar 31  2024 .bash_logout
+-rw-r--r-- 1 probe probe 3771 Mar 31  2024 .bashrc
+drwx------ 2 probe probe 4096 Aug 21 00:12 .cache
+drwxrwxr-x 3 probe probe 4096 Aug 21 00:14 .local
+-rw-r--r-- 1 probe probe  807 Mar 31  2024 .profile
+drwx------ 2 probe probe 4096 Aug 21 00:12 .ssh
+
+/home/probe/.cache:
+total 8
+drwx------ 2 probe probe 4096 Aug 21 00:12 .
+drwxr-x--- 5 probe probe 4096 Aug 21 00:14 ..
+-rw-r--r-- 1 probe probe    0 Aug 21 00:12 motd.legal-displayed
+
+/home/probe/.local:
+total 12
+drwxrwxr-x 3 probe probe 4096 Aug 21 00:14 .
+drwxr-x--- 5 probe probe 4096 Aug 21 00:14 ..
+drwxrwxr-x 3 probe probe 4096 Aug 21 00:14 state
+
+/home/probe/.local/state:
+total 12
+drwxrwxr-x 3 probe probe 4096 Aug 21 00:14 .
+drwxrwxr-x 3 probe probe 4096 Aug 21 00:14 ..
+drwxrwxr-x 3 probe probe 4096 Aug 21 00:14 goose
+
+/home/probe/.local/state/goose:
+total 12
+drwxrwxr-x 3 probe probe 4096 Aug 21 00:14 .
+drwxrwxr-x 3 probe probe 4096 Aug 21 00:14 ..
+drwxrwxr-x 3 probe probe 4096 Aug 21 00:14 logs
+
+/home/probe/.local/state/goose/logs:
+total 12
+drwxrwxr-x 3 probe probe 4096 Aug 21 00:14 .
+drwxrwxr-x 3 probe probe 4096 Aug 21 00:14 ..
+drwxrwxr-x 3 probe probe 4096 Aug 21 00:14 cli
+
+/home/probe/.local/state/goose/logs/cli:
+total 12
+drwxrwxr-x 3 probe probe 4096 Aug 21 00:14 .
+drwxrwxr-x 3 probe probe 4096 Aug 21 00:14 ..
+drwxrwxr-x 2 probe probe 4096 Aug 21 00:14 2026-08-21
+
+/home/probe/.local/state/goose/logs/cli/2026-08-21:
+total 8
+drwxrwxr-x 2 probe probe 4096 Aug 21 00:14 .
+drwxrwxr-x 3 probe probe 4096 Aug 21 00:14 ..
+-rw-rw-r-- 1 probe probe    0 Aug 21 00:14 20260821_001420.log
+
+/home/probe/.ssh:
+total 12
+drwx------ 2 probe probe 4096 Aug 21 00:12 .
+drwxr-x--- 5 probe probe 4096 Aug 21 00:14 ..
+-rw------- 1 probe probe   91 Aug 21 00:12 authorized_keys
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'for d in ~/.config ~/.local/share ~/.cache ~/.config/goose ~/.local/share/goose ~/.goose; do printf "%s: " "$d"; if [ -e "$d" ]; then echo EXISTS; else echo absent; fi; done'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+/home/probe/.config: absent
+/home/probe/.local/share: absent
+/home/probe/.cache: EXISTS
+/home/probe/.config/goose: absent
+/home/probe/.local/share/goose: absent
+/home/probe/.goose: absent
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'echo "keyring/secret-service surface in the guest:"; command -v secret-tool gnome-keyring-daemon kwalletd5 kwalletd6 2>/dev/null; echo "[exit=$?]"; ls -la /run/user/1000/ 2>&1 | head -20; echo "--- dbus session? ---"; echo "DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS:-<unset>}"'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+keyring/secret-service surface in the guest:
+[exit=1]
+total 0
+drwx------ 4 probe probe 140 Aug 21 00:14 .
+drwxr-xr-x 3 root  root   60 Aug 21 00:14 ..
+srw-rw-rw- 1 probe probe   0 Aug 21 00:14 bus
+drwx------ 2 probe probe 160 Aug 21 00:14 gnupg
+srw-rw-rw- 1 probe probe   0 Aug 21 00:14 pk-debconf-socket
+srw-rw-rw- 1 probe probe   0 Aug 21 00:14 snapd-session-agent.socket
+drwxr-xr-x 6 probe probe 160 Aug 21 00:14 systemd
+--- dbus session? ---
+DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+[exit=0]
+
+$ ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o BatchMode=yes -o ConnectTimeout=5 probe@127.0.0.1 'find /home/probe -type f 2>/dev/null | sort; echo "--- file count under /home/probe ---"; find /home/probe -type f 2>/dev/null | wc -l'
+Warning: Permanently added '[127.0.0.1]:2222' (ED25519) to the list of known hosts.
+/home/probe/.bash_logout
+/home/probe/.bashrc
+/home/probe/.cache/motd.legal-displayed
+/home/probe/.local/state/goose/logs/cli/2026-08-21/20260821_001420.log
+/home/probe/.profile
+/home/probe/.ssh/authorized_keys
+--- file count under /home/probe ---
+6
+[exit=0]
+
+$ echo 'C5 BASELINE FINDINGS (before any goose configuration):'
+echo ' 1. goose --version ALONE created /home/probe/.local/state/goose/logs/cli/2026-08-21/20260821_001420.log (0 bytes). Goose opens a per-invocation CLI log on EVERY run, including --version. A disk surface exists before any config does.'
+echo ' 2. ~/.config, ~/.config/goose, ~/.local/share/goose and ~/.goose ALL ABSENT — goose --version wrote state but no config.'
+echo ' 3. NO secret-service client is installed in the guest: secret-tool, gnome-keyring-daemon, kwalletd5, kwalletd6 all absent (command -v exit=1).'
+echo ' 4. A session dbus IS present: DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus. So a keyring ATTEMPT can be made and will find no provider — which is exactly the C5 fallback question Phase 4 must answer.'
+echo ' 5. Six files under /home/probe total. This is the before-image for the Phase 4 diff.'
+C5 BASELINE FINDINGS (before any goose configuration):
+ 1. goose --version ALONE created /home/probe/.local/state/goose/logs/cli/2026-08-21/20260821_001420.log (0 bytes). Goose opens a per-invocation CLI log on EVERY run, including --version. A disk surface exists before any config does.
+ 2. ~/.config, ~/.config/goose, ~/.local/share/goose and ~/.goose ALL ABSENT — goose --version wrote state but no config.
+ 3. NO secret-service client is installed in the guest: secret-tool, gnome-keyring-daemon, kwalletd5, kwalletd6 all absent (command -v exit=1).
+ 4. A session dbus IS present: DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus. So a keyring ATTEMPT can be made and will find no provider — which is exactly the C5 fallback question Phase 4 must answer.
+ 5. Six files under /home/probe total. This is the before-image for the Phase 4 diff.
+[exit=0]
+

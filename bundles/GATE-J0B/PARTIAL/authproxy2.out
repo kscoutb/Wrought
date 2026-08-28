@@ -1,0 +1,5 @@
+authproxy2: key read from stdin (64 bytes), held in memory only
+authproxy2: listening on 127.0.0.1:8081 -> 127.0.0.1:8080  pid=300319
+authproxy2: stream 1 opened from 127.0.0.1:55374
+authproxy2: stream 1 closed after 1 request(s)
+authproxy2: stream 2 opened from 127.0.0.1:54304
