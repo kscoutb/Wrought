@@ -1,0 +1,37 @@
+# cmd: live capture, taken by the supervising session WHILE the Probe A gate child is running.
+# date: 2026-08-28T13:46:15Z
+
+## ListAgents from THIS session (a normal session on the real HOME), verbatim:
+This session is foundry-87 [d99af6] — the name other sessions use to message it (it is not listed below; a message to it would be a message to yourself).
+
+Peer sessions (3):
+  foundry-50 [fffb9a]  ·  interactive  ·  started 1s ago
+  Configure report runner with daily operating loop [5ee86a]  ·  Remote Control  ·  offline
+  forge-mini-jazzy-koala [d45509]  ·  Remote Control  ·  offline
+
+## cc-socks at the same moment
+# cmd: ls -la /run/user/1000/cc-socks/
+total 0
+drwx------  2 kalib kalib  80 Aug 28 09:46 .
+drwx------ 14 kalib kalib 440 Aug 28 09:00 ..
+srw-------  1 kalib kalib   0 Aug 28 09:37 13774.sock
+srw-------  1 kalib kalib   0 Aug 28 09:46 14473.sock
+
+## roster.json at the same moment
+# cmd: cat /home/kalib/.claude/daemon/roster.json
+{
+  "proto": 1,
+  "supervisorPid": 306846,
+  "updatedAt": 1787277035010,
+  "workers": {}
+}
+## which pid owns which socket
+# cmd: for s in /run/user/1000/cc-socks/*.sock; do echo $s; done ; ps -eo pid,etime,args | grep -a '[c]laude' | cut -c1-150
+/run/user/1000/cc-socks/13774.sock
+/run/user/1000/cc-socks/14473.sock
+  13774       09:00 claude --dangerously-skip-permissions
+  14468       00:12 /bin/bash -c source /home/kalib/.claude/shell-snapshots/snapshot-bash-1787924242061-x2xiyo.sh 2>/dev/null || true && shopt -u extg
+  14473       00:12 /home/kalib/.local/bin/claude -p Run these Bash commands one at a time, in order: date -u; sleep 25; date -u; sleep 25; date -u. T
+  14677       00:00 /bin/bash -c source /home/kalib/.claude/shell-snapshots/snapshot-bash-1787924242061-x2xiyo.sh 2>/dev/null || true && shopt -u extg
+  14679       00:00 /bin/bash -c source /home/kalib/.claude/shell-snapshots/snapshot-bash-1787924242061-x2xiyo.sh 2>/dev/null || true && shopt -u extg
+  14686       00:00 /bin/bash -c source /home/kalib/.claude/shell-snapshots/snapshot-bash-1787924242061-x2xiyo.sh 2>/dev/null || true && shopt -u extg

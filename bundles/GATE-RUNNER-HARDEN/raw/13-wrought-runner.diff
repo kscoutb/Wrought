@@ -1,0 +1,384 @@
+# cmd: diff -u raw/07-wrought-runner.BEFORE.py bin/wrought-runner   (the whole change, reviewable)
+# date: 2026-08-28T14:14:20Z
+# before sha256: f794882bfb3a9aedf463a3d4e7e1efbcf0fbb86cf598e1d242b3fd3f808f05f9
+# after  sha256: 29468ecc1b42b923537332227ff128125c24afa18fe2ef92da7dd7650cf6b454
+
+--- /var/lib/wrought/runner-harden/raw/07-wrought-runner.BEFORE.py	2026-08-28 10:00:35.612826862 -0400
++++ bin/wrought-runner	2026-08-28 10:07:51.895444566 -0400
+@@ -28,6 +28,18 @@
+           --max-budget-usd overshot its cap 4.6x -> the kernel scope is the only real kill, and
+           the budget cap is a soft ceiling that must be reconciled after the fact.
+   raw/05  Per-project auto-memory is a live cross-invocation channel -> fenced per gate.
++
++GATE-RUNNER-HARDEN evidence (build-evidence/runner-harden/raw/, 2026-08-28) — the two blockers
++that stood between this runner and unattended use:
++  raw/06  The steering surfaces are TWO, with DIFFERENT keys: the peer LISTING is keyed on
++          $HOME, the addressable SOCKET on $XDG_RUNTIME_DIR/cc-socks/<pid>.sock. A private HOME
++          alone leaves the socket in the shared directory. Both are now fenced per gate, and
++          the measured minimum HOME is three files. Auth and the gate's own courier push both
++          survive the isolated shape (probe D2 pushed to origin/main from inside it).
++  raw/09  A post-gate orphan sweep, because a gate that dies does not reap its own guest:
++          GATE-J0B-SURFACE left one running for seven days with the API key in a proxy's memory.
++  raw/02  The CLI SELF-UPDATED 2.1.238 -> 2.1.250 underneath the pin on 2026-08-28. Every
++          containment behaviour above was measured on 2.1.238. See the report's drift section.
+ """
+ 
+ from __future__ import annotations
+@@ -102,9 +114,13 @@
+         sys.exit(f"wrought-runner: config {p} is not a JSON object  (refusing to start)")
+     if cfg.get("schema_version") != SCHEMA_VERSION:
+         sys.exit(f"wrought-runner: config schema_version != {SCHEMA_VERSION}  (refusing to start)")
++    # `ephemeral_home` and `reaper` are REQUIRED, not optional-with-a-default. Both are safety
++    # controls added by GATE-RUNNER-HARDEN, and a config predating them would otherwise start
++    # silently unhardened — a gate child back on the shared socket, and no post-gate sweep.
++    # Refusing to start is the loud failure; a quiet default is the one that costs seven days.
+     required = ("courier_dir", "gate_cwd", "state_dir", "freeze_paths", "claude_bin",
+                 "hook_settings", "permission_mode", "limits", "pacing", "breakers",
+-                "course_check", "git")
++                "course_check", "git", "ephemeral_home", "reaper")
+     missing = [k for k in required if k not in cfg]
+     if missing:
+         sys.exit(f"wrought-runner: config missing required keys: {missing}  (refusing to start)")
+@@ -269,10 +285,190 @@
+         shutil.copytree(snap_dir, mem_dir)
+ 
+ 
++# ------------------------------------------------- ephemeral HOME (steering breaker, BLOCKER 1)
++
++
++# The MEASURED minimum a headless `claude -p` gate child needs in a private HOME
++# (GATE-RUNNER-HARDEN raw/06, incremental seeding):
++#   .claude/.credentials.json   authentication.   Without it: is_error=true,
++#                               terminal_reason=api_error, "Not logged in · Please run /login".
++#   .gitconfig                  identity + credential.helper=store, for the gate's OWN push.
++#   .git-credentials            the https push token.
++# `.claude.json` is deliberately NOT seeded: the CLI writes a fresh one per gate, and that is
++# the point of the fence rather than a gap in it.
++EPHEMERAL_HOME_SEED = (".claude/.credentials.json", ".gitconfig", ".git-credentials")
++
++
++def make_ephemeral_home(cfg: dict, gate: str, rlog: RunLog) -> tuple[Path | None, Path | None]:
++    """Build this gate's private HOME and private runtime dir. Returns (home, runtime_dir).
++
++    BLOCKER 1, closed by measurement rather than by assumption. raw/06 isolates TWO independent
++    surfaces with DIFFERENT keys, and closing one does not close the other:
++      * the PEER LISTING is keyed on $HOME      — probe E3 vs F2;
++      * the ADDRESSABLE SOCKET is keyed on $XDG_RUNTIME_DIR — probe D2 vs E3.
++    A private HOME alone leaves the child's socket sitting in the shared cc-socks directory,
++    where it is still addressable by path. NOT LISTED IS NOT NOT ADDRESSABLE, so we do both.
++
++    Returns (None, None) when the fence is disabled, which restores the pre-hardening behaviour
++    and is a config decision the operator can see rather than a silent fallback.
++    """
++    fence = cfg.get("ephemeral_home", {})
++    if not fence.get("enabled", True):
++        rlog.say(f"{gate}: ephemeral HOME fence DISABLED by config — the child will run on the "
++                 f"real HOME and IS discoverable by other local sessions")
++        return None, None
++    root = Path(fence["root"])
++    root.mkdir(parents=True, exist_ok=True)
++    root.chmod(0o700)
++    home = root / f"{gate}-{int(time.time())}"
++    if home.exists():
++        shutil.rmtree(home)
++    home.mkdir(parents=True)
++    home.chmod(0o700)
++    src_home = Path(os.path.expanduser("~"))
++    seeded, missing = [], []
++    for rel in fence.get("seed", EPHEMERAL_HOME_SEED):
++        src = src_home / rel
++        if not src.is_file():
++            missing.append(rel)
++            continue
++        dst = home / rel
++        dst.parent.mkdir(parents=True, exist_ok=True)
++        dst.parent.chmod(0o700)
++        shutil.copyfile(src, dst)
++        dst.chmod(0o600)
++        seeded.append(rel)
++    if missing:
++        # Loud, never papered over: a missing credential means the gate cannot authenticate or
++        # cannot push, and finding that out from the child's own confused output is worse.
++        raise Halt(f"{gate}: ephemeral HOME seed is incomplete — {missing} not found under "
++                   f"{src_home}. The gate would fail to authenticate or fail to push.",
++                   "ephemeral-home")
++    runtime = home / "xdg-runtime"
++    runtime.mkdir()
++    runtime.chmod(0o700)
++    rlog.log(kind="ephemeral-home", gate=gate, home=str(home), runtime=str(runtime),
++             seeded=seeded)
++    rlog.say(f"{gate}: private HOME {home} (seeded {seeded}), private runtime dir {runtime}")
++    return home, runtime
++
++
++def teardown_ephemeral_home(home: Path | None, rlog: RunLog, gate: str) -> None:
++    """Tear the ephemeral HOME down WITH the gate. It holds live credential copies."""
++    if home is None:
++        return
++    try:
++        shutil.rmtree(home)
++        rlog.log(kind="ephemeral-home-torn-down", gate=gate, home=str(home))
++    except Exception as e:
++        # Loud: a surviving ephemeral HOME is two secrets left on disk.
++        rlog.say(f"{gate}: WARNING — could not remove ephemeral HOME {home}: {e}")
++        rlog.log(kind="ephemeral-home-teardown-failed", gate=gate, home=str(home), err=str(e))
++
++
++# ------------------------------------------------------------- orphan reaper (BLOCKER 2)
++
++
++def _libvirtd_active() -> bool:
++    """Is libvirtd ALREADY running? Never socket-activate it just to look.
++
++    docs/PHASE-J-STATE records that libvirtd on this box is monolithic and socket-activated: a
++    bare `virsh list --all` STARTS it. A sweep that starts a daemon on every gate is a side
++    effect the sweep exists to prevent, so the domain probe is conditional. Nothing is lost by
++    skipping it — a libvirt domain always has a qemu-system process, which the PID scan sees
++    regardless of who its parent is.
++    """
++    r = subprocess.run(["systemctl", "is-active", "--quiet", "libvirtd.service"], check=False)
++    return r.returncode == 0
++
++
++def residue_snapshot(cfg: dict) -> dict:
++    """Snapshot the three things a gate can strand: guests, domains, credential-holding ports."""
++    snap = {"qemu": {}, "domains": [], "listeners": {}, "notes": []}
++
++    pat = cfg.get("reaper", {}).get("qemu_pattern", "qemu-system")
++    r = subprocess.run(["pgrep", "-a", "-f", pat], capture_output=True, text=True, check=False)
++    for line in r.stdout.splitlines():
++        pid, _, cmdline = line.partition(" ")
++        if pid.strip().isdigit():
++            snap["qemu"][pid.strip()] = cmdline.strip()[:300]
++
++    if _libvirtd_active():
++        d = subprocess.run(["virsh", "list", "--all", "--name"],
++                           capture_output=True, text=True, check=False, timeout=30)
++        snap["domains"] = sorted(n for n in d.stdout.split() if n.strip())
++    else:
++        snap["notes"].append("libvirtd inactive — domain probe skipped, not socket-activated")
++
++    ss = subprocess.run(["ss", "-lntpH"], capture_output=True, text=True, check=False)
++    for line in ss.stdout.splitlines():
++        f = line.split()
++        if len(f) < 4:
++            continue
++        local = f[3]
++        m = re.search(r"pid=(\d+)", line)
++        snap["listeners"][f"{local}"] = m.group(1) if m else "?"
++    return snap
++
++
++def residue_diff(before: dict, after: dict) -> dict:
++    """NEW survivors only. A guest that was already running when the gate started is not the
++    gate's residue, and blaming a gate for its predecessor's mess is how a loud rule gets
++    switched off."""
++    new = {
++        "qemu": {k: v for k, v in after["qemu"].items() if k not in before["qemu"]},
++        "domains": [d for d in after["domains"] if d not in before["domains"]],
++        "listeners": {k: v for k, v in after["listeners"].items() if k not in before["listeners"]},
++    }
++    new["any"] = bool(new["qemu"] or new["domains"] or new["listeners"])
++    return new
++
++
++def reap(cfg: dict, new: dict, rlog: RunLog, gate: str) -> list[str]:
++    """Terminate every NEW survivor, one at a time, each named in the log. Enumerated, never
++    globbed (EXECUTOR-RAILS §3) — the sweep says exactly what it killed and why."""
++    grace = int(cfg.get("reaper", {}).get("terminate_grace_sec", 5))
++    killed = []
++    for name in new["domains"]:
++        r = subprocess.run(["virsh", "destroy", name], capture_output=True, text=True,
++                           check=False, timeout=60)
++        killed.append(f"libvirt domain {name!r}: virsh destroy rc={r.returncode} "
++                      f"{r.stderr.strip()[:160]}")
++    pids = set(new["qemu"]) | {v for v in new["listeners"].values() if v.isdigit()}
++    for pid in sorted(pids, key=int):
++        what = new["qemu"].get(pid) or next(
++            (f"listener on {k}" for k, v in new["listeners"].items() if v == pid), "unknown")
++        try:
++            os.kill(int(pid), 15)
++        except ProcessLookupError:
++            killed.append(f"pid {pid} ({what}): already gone at SIGTERM")
++            continue
++        except Exception as e:
++            killed.append(f"pid {pid} ({what}): SIGTERM failed: {e}")
++            continue
++        deadline = time.monotonic() + grace
++        while time.monotonic() < deadline:
++            try:
++                os.kill(int(pid), 0)
++            except ProcessLookupError:
++                break
++            time.sleep(0.25)
++        try:
++            os.kill(int(pid), 0)
++            os.kill(int(pid), 9)
++            killed.append(f"pid {pid} ({what}): SIGTERM ignored for {grace}s, SIGKILLed")
++        except ProcessLookupError:
++            killed.append(f"pid {pid} ({what}): terminated by SIGTERM")
++    for k in killed:
++        rlog.log(kind="reaped", gate=gate, what=k)
++        rlog.say(f"{gate}: REAPED {k}")
++    return killed
++
++
+ # --------------------------------------------------------------------------- child
+ 
+ 
+-def build_child_env(cfg: dict) -> dict:
++def build_child_env(cfg: dict, child_home: Path | None = None) -> dict:
+     """Allowlist, not blacklist.
+ 
+     Two reasons this is an allowlist. (1) A blacklist rots the next time the CLI adds a variable.
+@@ -280,11 +476,20 @@
+     CLAUDE_CODE_MESSAGING_TOKEN — the cross-session steering channel. Never inheriting them IS
+     the "refuse inbound cross-session messages" breaker: an address that was never handed over
+     cannot be used to steer the gate.
++
++    `child_home` overrides HOME with the gate's ephemeral HOME (GATE-RUNNER-HARDEN raw/06). Note
++    what is deliberately NOT overridden here: XDG_RUNTIME_DIR stays REAL in this env, because
++    `systemd-run --user` needs the real user bus to exist. The child's PRIVATE runtime dir is
++    applied one level in, by an `env` prefix on the claude argv — measured in probe C1, where
++    overriding it out here killed the launcher with
++    "Failed to connect to user scope bus via local transport: No such file or directory".
+     """
+     lim = cfg["limits"]
+     keep = ("HOME", "PATH", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL",
+             "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS")
+     env = {k: os.environ[k] for k in keep if k in os.environ}
++    if child_home is not None:
++        env["HOME"] = str(child_home)
+     env["TERM"] = "dumb"
+     env["CI"] = "1"
+     env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = str(lim["max_output_tokens"])
+@@ -312,7 +517,9 @@
+ 
+ def run_gate_child(cfg: dict, gate: str, prompt_text: str, allowed_tools: str,
+                    budget_usd: float, unit: str, outdir: Path,
+-                   rlog: RunLog, deadman, add_dirs: list[str]) -> dict:
++                   rlog: RunLog, deadman, add_dirs: list[str],
++                   child_home: Path | None = None,
++                   priv_runtime: Path | None = None) -> dict:
+     """Launch one gate in a fresh, sessionless, kernel-contained, default-deny context."""
+     lim = cfg["limits"]
+     cmd = [
+@@ -325,6 +532,15 @@
+         # that a runaway can buy its way out of with swap is not a cap.
+         "-p", f"MemorySwapMax={lim.get('memory_swap_max', '0')}",
+         "-p", f"RuntimeMaxSec={lim['runtime_max_sec']}",
++    ]
++    # STEERING BREAKER, measured (GATE-RUNNER-HARDEN raw/06). The child's addressable
++    # cross-session socket is created at $XDG_RUNTIME_DIR/cc-socks/<pid>.sock. Pointing that at a
++    # per-gate private directory moves the socket OUT of the shared /run/user/<uid>/cc-socks,
++    # where any other local session could reach it. This override must sit HERE — after the
++    # scope, before the binary — because `systemd-run --user` itself needs the real runtime dir.
++    if priv_runtime is not None:
++        cmd += ["/usr/bin/env", f"XDG_RUNTIME_DIR={priv_runtime}"]
++    cmd += [
+         cfg["claude_bin"], "-p", prompt_text,
+         "--setting-sources", "",
+         "--settings", str(cfg["hook_settings"]),
+@@ -348,7 +564,7 @@
+     (outdir / "child-cmd.txt").write_text(
+         "\n".join(cmd[:_pi] + ["<prompt text: see prompt.md>"] + cmd[_pi + 1:]) + "\n")
+ 
+-    env = build_child_env(cfg)
++    env = build_child_env(cfg, child_home)
+     started = time.monotonic()
+     with (outdir / "child.stdout.json").open("wb") as so, \
+          (outdir / "child.stderr.txt").open("wb") as se, \
+@@ -436,8 +652,16 @@
+         # a MemoryMax+MemorySwapMax OOM kills with rc=137 (SIGKILL). Either way the child never
+         # finishes its result JSON, and no-parseable-JSON is the reliable discriminator — the
+         # same doctrine as the project's own result envelope (CLAUDE.md, docs/03 S10.7).
+-        sig = {143: "SIGTERM — RuntimeMaxSec deadline",
+-               137: "SIGKILL — MemoryMax/MemorySwapMax OOM"}.get(child["rc"], "unknown signal")
++        # MEASURED DEFECT, GATE-RUNNER-HARDEN raw/10: GATE-RUNNER recorded these kills as
++        # rc=143 / rc=137, which is the SHELL's 128+signal convention. The runner does not go
++        # through a shell — `subprocess.Popen.wait()` returns the NEGATED signal number, so a
++        # RuntimeMaxSec kill arrives here as -15 and an OOM kill as -9. The old map missed both
++        # and printed "unknown signal" for the two signatures it exists to name. The
++        # classification was never wrong (no-parseable-JSON is the discriminator, exactly as in
++        # docs/03 §10.7), but the detail line was, in the one place an operator would read it.
++        sig = {143: "SIGTERM — RuntimeMaxSec deadline", -15: "SIGTERM — RuntimeMaxSec deadline",
++               137: "SIGKILL — MemoryMax/MemorySwapMax OOM",
++               -9: "SIGKILL — MemoryMax/MemorySwapMax OOM"}.get(child["rc"], "unknown signal")
+         return "SUBSTRATE", (f"child produced no parseable result JSON "
+                              f"(rc={child['rc']}: {sig}, {child['raw_len']} bytes captured)")
+     if j.get("terminal_reason") == "budget_exhausted" or j.get("subtype") == "error_max_budget_usd":
+@@ -575,6 +799,62 @@
+ 
+ 
+ def run_one_gate(cfg: dict, row: dict, rlog: RunLog, deadman: DeadMan, run_dir: Path) -> str:
++    """Own the gate's ephemeral HOME and its post-gate orphan sweep, around the core run.
++
++    Both duties are in a wrapper, not inline in the core, for one reason: THEY MUST RUN FOR A
++    GATE THAT DIED, not only for one that finished. "A killed/dead gate must strand none"
++    includes a gate that raised a Halt half way through, and a sweep on the happy path only
++    would have missed exactly the case that produced this requirement — GATE-J0B-SURFACE, which
++    stopped mid-Phase-4 and left a guest running for seven days with the inference API key held
++    in a proxy's memory (docs/PHASE-J-STATE, "NEW SAFETY FINDING").
++    """
++    gate = row["gate"]
++    home, runtime = make_ephemeral_home(cfg, gate, rlog)
++    sweep_on = cfg.get("reaper", {}).get("enabled", True)
++    before = residue_snapshot(cfg) if sweep_on else None
++    if before is not None:
++        (run_dir / gate).mkdir(parents=True, exist_ok=True)
++        (run_dir / gate / "residue-before.json").write_text(
++            json.dumps(before, indent=2, sort_keys=True) + "\n")
++
++    pending: Halt | None = None
++    verdict = "FAIL"
++    try:
++        verdict = _run_one_gate_core(cfg, row, rlog, deadman, run_dir, home, runtime)
++    except Halt as h:
++        pending = h
++    finally:
++        teardown_ephemeral_home(home, rlog, gate)
++
++    if before is None:
++        rlog.say(f"{gate}: orphan sweep DISABLED by config — residue is NOT being checked")
++        if pending:
++            raise pending
++        return verdict
++
++    after = residue_snapshot(cfg)
++    new = residue_diff(before, after)
++    (run_dir / gate / "residue-after.json").write_text(
++        json.dumps({"after": after, "new": new}, indent=2, sort_keys=True) + "\n")
++    if not new["any"]:
++        rlog.say(f"{gate}: orphan sweep CLEAN — no new guest, domain or listener survived")
++        if pending:
++            raise pending
++        return verdict
++
++    killed = reap(cfg, new, rlog, gate)
++    detail = (f"new qemu pids {sorted(new['qemu'])}; new domains {new['domains']}; "
++              f"new listeners {sorted(new['listeners'])}")
++    reason = (f"{gate} LEFT RESIDUE and was reaped — {detail}. Terminated: {killed}")
++    if pending:
++        # Do not let either halt hide the other: the residue is the new fault, and the reason
++        # the gate died is very often why it leaked in the first place.
++        reason += (f" | the gate had ALSO already halted: [{pending.breaker}] {pending.reason}")
++    raise Halt(reason, "gate-residue")
++
++
++def _run_one_gate_core(cfg: dict, row: dict, rlog: RunLog, deadman: DeadMan, run_dir: Path,
++                       child_home: Path | None, priv_runtime: Path | None) -> str:
+     """Run a single approved gate end to end. Returns 'PASS' or 'FAIL'. Raises Halt to stop."""
+     gate = row["gate"]
+     courier = Path(cfg["courier_dir"])
+@@ -640,7 +920,8 @@
+     attempts = int(cfg["pacing"]["api_retry_max"])
+     for attempt in range(1, attempts + 2):
+         child = run_gate_child(cfg, gate, text, allowed_tools, budget,
+-                               f"{unit[:-6]}-{attempt}.scope", outdir, rlog, deadman, add_dirs)
++                               f"{unit[:-6]}-{attempt}.scope", outdir, rlog, deadman, add_dirs,
++                               child_home=child_home, priv_runtime=priv_runtime)
+         deadman.progress()
+         disposition, detail = classify(child)
+         if disposition != "RETRYABLE":
+
+# exit 0 (1 = differs, as expected)

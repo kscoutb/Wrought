@@ -1,0 +1,526 @@
+# The raw per-probe captures behind raw/06's matrix. Each block is one probe's seed record,
+# its 2s poll of both socket directories, and the child's own result fields.
+# date: 2026-08-28T14:14:33Z
+
+================================================== A
+--- poll ---
+# cmd: 2s-interval poll of /run/user/1000/cc-socks and ~/.claude/daemon/roster.json while a
+#      runner-shape gate child is alive. Supervising session pid: 14470 (this script).
+# date: 2026-08-28T13:46:03Z
+# NOTE: this session's own socket is 13774.sock — any OTHER entry is the gate child.
+
+t=13:46:03 socks=[13774.sock ] roster_workers={} claude_pids=[13774 14473 ]
+t=13:46:05 socks=[13774.sock 14473.sock ] roster_workers={} claude_pids=[13774 14473 ]
+t=13:46:07 socks=[13774.sock 14473.sock ] roster_workers={} claude_pids=[13774 14473 ]
+t=13:46:09 socks=[13774.sock 14473.sock ] roster_workers={} claude_pids=[13774 14473 ]
+t=13:46:11 socks=[13774.sock 14473.sock ] roster_workers={} claude_pids=[13774 14473 ]
+t=13:46:13 socks=[13774.sock 14473.sock ] roster_workers={} claude_pids=[13774 14473 ]
+t=13:46:15 socks=[13774.sock 14473.sock ] roster_workers={} claude_pids=[13774 14473 ]
+t=13:46:17 socks=[13774.sock 14473.sock ] roster_workers={} claude_pids=[13774 14473 ]
+t=13:46:19 socks=[13774.sock 14473.sock ] roster_workers={} claude_pids=[13774 14473 ]
+t=13:46:21 socks=[13774.sock 14473.sock ] roster_workers={} claude_pids=[13774 14473 ]
+t=13:46:23 socks=[13774.sock 14473.sock ] roster_workers={} claude_pids=[13774 14473 ]
+t=13:46:25 socks=[13774.sock 14473.sock ] roster_workers={} claude_pids=[13774 14473 ]
+t=13:46:27 socks=[13774.sock 14473.sock ] roster_workers={} claude_pids=[13774 14473 ]
+t=13:46:29 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:46:31 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:46:33 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:46:35 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:46:37 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:46:39 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:46:41 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:46:44 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:46:46 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:46:48 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:46:50 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:46:52 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:46:54 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:46:56 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:46:58 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:47:00 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:47:02 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:47:04 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:47:06 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:47:08 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:47:10 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+t=13:47:12 socks=[13774.sock ] roster_workers={} claude_pids=[13774 ]
+--- child result ---
+is_error=False terminal_reason=completed num_turns=6 cost=0.31066 denials=2
+result: I could not complete the sequence. Reporting what actually happened rather than the requested token:
+
+1. `date -u` → `Fri Aug 28 01:46:07 PM UTC 2026` ✅
+2. `sleep 25` → **blocked by the harness**: "Blocked: standalone sleep 25. To wait for a condition, use Monitor with an until-loop... Do not chain shorter sleeps to work around this block."
+3. Fallback A — backgrounded `until [ $(date +%s) -ge $en
+
+================================================== B0-emptyhome
+--- seed ---
+label=B0-emptyhome seed_level=0 seeded=[] HOME=/var/lib/wrought/runner-harden/ehome-L0 XDG_RUNTIME_DIR=/run/user/1000
+seeded tree:
+unit=harden-B0-emptyhome-1787924848.scope launcher=15011
+launcher rc=1
+--- post-run ephemeral HOME tree ---
+$EPHEMERAL_HOME/.claude
+$EPHEMERAL_HOME/.claude/backups
+$EPHEMERAL_HOME/.claude/backups/.claude.json.backup.1787924848262
+$EPHEMERAL_HOME/.claude.json
+$EPHEMERAL_HOME/.claude/projects
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe/bf61889c-44c8-4f61-96bb-3d90eefab007.jsonl
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe/memory
+$EPHEMERAL_HOME/.claude/sessions
+--- poll ---
+# 2s poll of BOTH candidate discovery artifacts while the B0-emptyhome child is alive.
+# shared cc-socks = /run/user/1000/cc-socks ; private = $EPHEMERAL_HOME/xdg-runtime/cc-socks
+# this supervising session owns 13774.sock — any OTHER entry is the child.
+t=13:47:28 shared_socks=[13774.sock ] private_socks=[13774.sock ] real_roster={} ehome_roster=(none)
+child gone at 13:47:30
+--- child result ---
+is_error=True terminal_reason=api_error num_turns=1 cost=0 denials=0
+result: Not logged in · Please run /login
+
+================================================== B1-creds
+--- seed ---
+label=B1-creds seed_level=1 seeded=[ .claude/.credentials.json] HOME=/var/lib/wrought/runner-harden/ehome-L1 XDG_RUNTIME_DIR=/run/user/1000
+seeded tree:
+$EPHEMERAL_HOME/.claude
+$EPHEMERAL_HOME/.claude/.credentials.json
+unit=harden-B1-creds-1787924857.scope launcher=15100
+launcher rc=0
+--- post-run ephemeral HOME tree ---
+$EPHEMERAL_HOME/.claude
+$EPHEMERAL_HOME/.claude/backups
+$EPHEMERAL_HOME/.claude/backups/.claude.json.backup.1787924857504
+$EPHEMERAL_HOME/.claude/.credentials.json
+$EPHEMERAL_HOME/.claude.json
+$EPHEMERAL_HOME/.claude/projects
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe/34adab88-6f62-4071-808d-8a6386ded227.jsonl
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe/memory
+$EPHEMERAL_HOME/.claude/sessions
+--- poll ---
+# 2s poll of BOTH candidate discovery artifacts while the B1-creds child is alive.
+# shared cc-socks = /run/user/1000/cc-socks ; private = $EPHEMERAL_HOME/xdg-runtime/cc-socks
+# this supervising session owns 13774.sock — any OTHER entry is the child.
+t=13:47:37 shared_socks=[13774.sock ] private_socks=[13774.sock ] real_roster={} ehome_roster=(none)
+t=13:47:39 shared_socks=[13774.sock ] private_socks=[13774.sock ] real_roster={} ehome_roster=(none)
+child gone at 13:47:41
+--- child result ---
+is_error=False terminal_reason=completed num_turns=1 cost=0.0646595 denials=0
+result: SEED-L1-OK
+
+================================================== C1-privrt
+--- seed ---
+label=C1-privrt seed_level=1 seeded=[ .claude/.credentials.json] HOME=/var/lib/wrought/runner-harden/ehome-L1p XDG_RUNTIME_DIR=/var/lib/wrought/runner-harden/ehome-L1p/xdg-runtime
+seeded tree:
+$EPHEMERAL_HOME/.claude
+$EPHEMERAL_HOME/.claude/.credentials.json
+$EPHEMERAL_HOME/xdg-runtime
+unit=harden-C1-privrt-1787924873.scope launcher=15194
+launcher rc=1
+--- post-run ephemeral HOME tree ---
+$EPHEMERAL_HOME/.claude
+$EPHEMERAL_HOME/.claude/.credentials.json
+$EPHEMERAL_HOME/xdg-runtime
+--- poll ---
+# 2s poll of BOTH candidate discovery artifacts while the C1-privrt child is alive.
+# shared cc-socks = /run/user/1000/cc-socks ; private = $EPHEMERAL_HOME/xdg-runtime/cc-socks
+# this supervising session owns 13774.sock — any OTHER entry is the child.
+t=13:47:53 shared_socks=[13774.sock ] private_socks=[] real_roster={} ehome_roster=(none)
+child gone at 13:47:55
+--- child result ---
+(no parseable result JSON: Expecting value: line 1 column 1 (char 0))
+
+================================================== C2-privrt-inner
+--- seed ---
+label=C2-privrt-inner seed_level=1 seeded=[ .claude/.credentials.json] HOME=/var/lib/wrought/runner-harden/ehome-L1i XDG_RUNTIME_DIR=/var/lib/wrought/runner-harden/ehome-L1i/xdg-runtime
+seeded tree:
+$EPHEMERAL_HOME/.claude
+$EPHEMERAL_HOME/.claude/.credentials.json
+$EPHEMERAL_HOME/xdg-runtime
+unit=harden-C2-privrt-inner-1787924899.scope launcher=15249
+launcher rc=0
+--- post-run ephemeral HOME tree ---
+$EPHEMERAL_HOME/.claude
+$EPHEMERAL_HOME/.claude/backups
+$EPHEMERAL_HOME/.claude/backups/.claude.json.backup.1787924899906
+$EPHEMERAL_HOME/.claude/.credentials.json
+$EPHEMERAL_HOME/.claude.json
+$EPHEMERAL_HOME/.claude/projects
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe/4c4a5d30-7e0b-40c9-acfe-cd711fe76214.jsonl
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe/memory
+$EPHEMERAL_HOME/.claude/sessions
+$EPHEMERAL_HOME/xdg-runtime
+$EPHEMERAL_HOME/xdg-runtime/cc-socks
+--- poll ---
+# 2s poll of BOTH candidate discovery artifacts while the C2-privrt-inner child is alive.
+# shared cc-socks = /run/user/1000/cc-socks ; private = $EPHEMERAL_HOME/xdg-runtime/cc-socks
+# this supervising session owns 13774.sock — any OTHER entry is the child.
+t=13:48:19 shared_socks=[13774.sock ] private_socks=[] real_roster={} ehome_roster=(none)
+t=13:48:21 shared_socks=[13774.sock ] private_socks=[] real_roster={} ehome_roster=(none)
+child gone at 13:48:23
+--- child result ---
+is_error=False terminal_reason=completed num_turns=1 cost=0.06481549999999998 denials=0
+result: PRIVRT-INNER-OK
+
+================================================== D2-full-isolation
+--- seed ---
+label=D2-full-isolation seed_level=3 seeded=[ .claude/.credentials.json .claude.json .gitconfig .git-credentials] HOME=/var/lib/wrought/runner-harden/ehome-D2 XDG_RUNTIME_DIR=/var/lib/wrought/runner-harden/ehome-D2/xdg-runtime
+seeded tree:
+$EPHEMERAL_HOME/.git-credentials
+$EPHEMERAL_HOME/.gitconfig
+$EPHEMERAL_HOME/.claude.json
+$EPHEMERAL_HOME/.claude
+$EPHEMERAL_HOME/.claude/.credentials.json
+$EPHEMERAL_HOME/xdg-runtime
+unit=harden-D2-full-isolation-1787924981.scope launcher=15576
+launcher rc=0
+--- post-run ephemeral HOME tree ---
+$EPHEMERAL_HOME/.claude
+$EPHEMERAL_HOME/.claude/backups
+$EPHEMERAL_HOME/.claude/backups/.claude.json.backup.1787924982032
+$EPHEMERAL_HOME/.claude/.credentials.json
+$EPHEMERAL_HOME/.claude.json
+$EPHEMERAL_HOME/.claude/.last-cleanup
+$EPHEMERAL_HOME/.claude/projects
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe/575a19f8-abab-4e28-84fc-ce7306676b44.jsonl
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe/memory
+$EPHEMERAL_HOME/.claude/session-env
+$EPHEMERAL_HOME/.claude/session-env/575a19f8-abab-4e28-84fc-ce7306676b44
+$EPHEMERAL_HOME/.claude/sessions
+$EPHEMERAL_HOME/.claude/shell-snapshots
+$EPHEMERAL_HOME/.gitconfig
+$EPHEMERAL_HOME/.git-credentials
+$EPHEMERAL_HOME/xdg-runtime
+$EPHEMERAL_HOME/xdg-runtime/cc-socks
+--- poll ---
+# 2s poll of BOTH candidate discovery artifacts while the D2-full-isolation child is alive.
+# shared cc-socks = /run/user/1000/cc-socks ; private = $EPHEMERAL_HOME/xdg-runtime/cc-socks
+# this supervising session owns 13774.sock — any OTHER entry is the child.
+t=13:49:41 shared_socks=[13774.sock ] private_socks=[] real_roster={} ehome_roster=(none)
+t=13:49:43 shared_socks=[13774.sock ] private_socks=[15576.sock ] real_roster={} ehome_roster=(none)
+t=13:49:45 shared_socks=[13774.sock ] private_socks=[15576.sock ] real_roster={} ehome_roster=(none)
+t=13:49:47 shared_socks=[13774.sock ] private_socks=[15576.sock ] real_roster={} ehome_roster=(none)
+t=13:49:49 shared_socks=[13774.sock ] private_socks=[15576.sock ] real_roster={} ehome_roster=(none)
+t=13:49:51 shared_socks=[13774.sock ] private_socks=[15576.sock ] real_roster={} ehome_roster=(none)
+t=13:49:53 shared_socks=[13774.sock ] private_socks=[15576.sock ] real_roster={} ehome_roster=(none)
+t=13:49:55 shared_socks=[13774.sock ] private_socks=[15576.sock ] real_roster={} ehome_roster=(none)
+t=13:49:58 shared_socks=[13774.sock ] private_socks=[15576.sock ] real_roster={} ehome_roster=(none)
+t=13:50:00 shared_socks=[13774.sock ] private_socks=[15576.sock ] real_roster={} ehome_roster=(none)
+t=13:50:02 shared_socks=[13774.sock ] private_socks=[15576.sock ] real_roster={} ehome_roster=(none)
+child gone at 13:50:04
+--- child result ---
+is_error=False terminal_reason=completed num_turns=7 cost=0.180019 denials=0
+result: PROBE-D-PUSH-OK
+
+================================================== D-full-isolation
+--- seed ---
+label=D-full-isolation seed_level=3 seeded=[ .claude/.credentials.json .claude.json .gitconfig .git-credentials] HOME=/var/lib/wrought/runner-harden/ehome-D XDG_RUNTIME_DIR=/var/lib/wrought/runner-harden/ehome-D/xdg-runtime
+seeded tree:
+$EPHEMERAL_HOME/.git-credentials
+$EPHEMERAL_HOME/.gitconfig
+$EPHEMERAL_HOME/.claude.json
+$EPHEMERAL_HOME/.claude
+$EPHEMERAL_HOME/.claude/.credentials.json
+$EPHEMERAL_HOME/xdg-runtime
+unit=harden-D-full-isolation-1787924932.scope launcher=15363
+launcher rc=0
+--- post-run ephemeral HOME tree ---
+$EPHEMERAL_HOME/.claude
+$EPHEMERAL_HOME/.claude/backups
+$EPHEMERAL_HOME/.claude/backups/.claude.json.backup.1787924933341
+$EPHEMERAL_HOME/.claude/.credentials.json
+$EPHEMERAL_HOME/.claude.json
+$EPHEMERAL_HOME/.claude/.last-cleanup
+$EPHEMERAL_HOME/.claude/projects
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe/c2f1ea73-e092-4d36-8410-151de495bd81.jsonl
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe/memory
+$EPHEMERAL_HOME/.claude/sessions
+$EPHEMERAL_HOME/.gitconfig
+$EPHEMERAL_HOME/.git-credentials
+$EPHEMERAL_HOME/xdg-runtime
+$EPHEMERAL_HOME/xdg-runtime/cc-socks
+--- poll ---
+# 2s poll of BOTH candidate discovery artifacts while the D-full-isolation child is alive.
+# shared cc-socks = /run/user/1000/cc-socks ; private = $EPHEMERAL_HOME/xdg-runtime/cc-socks
+# this supervising session owns 13774.sock — any OTHER entry is the child.
+t=13:48:52 shared_socks=[13774.sock ] private_socks=[] real_roster={} ehome_roster=(none)
+t=13:48:55 shared_socks=[13774.sock ] private_socks=[15363.sock ] real_roster={} ehome_roster=(none)
+t=13:48:57 shared_socks=[13774.sock ] private_socks=[15363.sock ] real_roster={} ehome_roster=(none)
+t=13:48:59 shared_socks=[13774.sock ] private_socks=[15363.sock ] real_roster={} ehome_roster=(none)
+t=13:49:01 shared_socks=[13774.sock ] private_socks=[15363.sock ] real_roster={} ehome_roster=(none)
+t=13:49:03 shared_socks=[13774.sock ] private_socks=[15363.sock ] real_roster={} ehome_roster=(none)
+t=13:49:05 shared_socks=[13774.sock ] private_socks=[15363.sock ] real_roster={} ehome_roster=(none)
+t=13:49:07 shared_socks=[13774.sock ] private_socks=[15363.sock ] real_roster={} ehome_roster=(none)
+t=13:49:09 shared_socks=[13774.sock ] private_socks=[15363.sock ] real_roster={} ehome_roster=(none)
+t=13:49:11 shared_socks=[13774.sock ] private_socks=[15363.sock ] real_roster={} ehome_roster=(none)
+child gone at 13:49:13
+--- child result ---
+is_error=False terminal_reason=completed num_turns=2 cost=0.1209885 denials=1
+result: Blocked on the first step: Bash is denied in this session (Claude Code is running in "don't ask" mode), so I couldn't run anything.
+
+What that means for the probe:
+
+- **Steps 1, 2, 3, 5, 6, 7, 8** all require Bash — none ran. No marker line, no socket listings, no `mkdir`, no `git add`/`commit`/`push`/`log`.
+- **Step 4** (Write) is technically available, but its entire content is supposed to be th
+
+================================================== E2-privhome-realrt
+--- seed ---
+label=E2-privhome-realrt seed_level=3 seeded=[ .claude/.credentials.json .claude.json .gitconfig .git-credentials] HOME=/var/lib/wrought/runner-harden/ehome-E2 XDG_RUNTIME_DIR=/run/user/1000
+seeded tree:
+$EPHEMERAL_HOME/.git-credentials
+$EPHEMERAL_HOME/.gitconfig
+$EPHEMERAL_HOME/.claude.json
+$EPHEMERAL_HOME/.claude
+$EPHEMERAL_HOME/.claude/.credentials.json
+unit=harden-E2-privhome-realrt-1787925199.scope launcher=17012
+launcher rc=0
+--- post-run ephemeral HOME tree ---
+$EPHEMERAL_HOME/.claude
+$EPHEMERAL_HOME/.claude/backups
+$EPHEMERAL_HOME/.claude/backups/.claude.json.backup.1787925200299
+$EPHEMERAL_HOME/.claude/.credentials.json
+$EPHEMERAL_HOME/.claude.json
+$EPHEMERAL_HOME/.claude/.last-cleanup
+$EPHEMERAL_HOME/.claude/projects
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe/0fb42a56-b0ec-4f85-81d5-7c6980e878f0.jsonl
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe/memory
+$EPHEMERAL_HOME/.claude/session-env
+$EPHEMERAL_HOME/.claude/session-env/0fb42a56-b0ec-4f85-81d5-7c6980e878f0
+$EPHEMERAL_HOME/.claude/sessions
+$EPHEMERAL_HOME/.claude/shell-snapshots
+$EPHEMERAL_HOME/.gitconfig
+$EPHEMERAL_HOME/.git-credentials
+--- poll ---
+# 2s poll of BOTH candidate discovery artifacts while the E2-privhome-realrt child is alive.
+# shared cc-socks = /run/user/1000/cc-socks ; private = $EPHEMERAL_HOME/xdg-runtime/cc-socks
+# this supervising session owns 13774.sock — any OTHER entry is the child.
+t=13:53:19 shared_socks=[13774.sock ] private_socks=[13774.sock ] real_roster={} ehome_roster=(none)
+t=13:53:21 shared_socks=[13774.sock 17012.sock ] private_socks=[13774.sock 17012.sock ] real_roster={} ehome_roster=(none)
+t=13:53:24 shared_socks=[13774.sock 17012.sock ] private_socks=[13774.sock 17012.sock ] real_roster={} ehome_roster=(none)
+t=13:53:26 shared_socks=[13774.sock 17012.sock ] private_socks=[13774.sock 17012.sock ] real_roster={} ehome_roster=(none)
+t=13:53:28 shared_socks=[13774.sock 17012.sock ] private_socks=[13774.sock 17012.sock ] real_roster={} ehome_roster=(none)
+t=13:53:30 shared_socks=[13774.sock 17012.sock ] private_socks=[13774.sock 17012.sock ] real_roster={} ehome_roster=(none)
+t=13:53:32 shared_socks=[13774.sock 17012.sock ] private_socks=[13774.sock 17012.sock ] real_roster={} ehome_roster=(none)
+t=13:53:34 shared_socks=[13774.sock 17012.sock ] private_socks=[13774.sock 17012.sock ] real_roster={} ehome_roster=(none)
+t=13:53:36 shared_socks=[13774.sock 17012.sock ] private_socks=[13774.sock 17012.sock ] real_roster={} ehome_roster=(none)
+t=13:53:38 shared_socks=[13774.sock 17012.sock ] private_socks=[13774.sock 17012.sock ] real_roster={} ehome_roster=(none)
+t=13:53:40 shared_socks=[13774.sock 17012.sock ] private_socks=[13774.sock 17012.sock ] real_roster={} ehome_roster=(none)
+t=13:53:42 shared_socks=[13774.sock 17012.sock ] private_socks=[13774.sock 17012.sock ] real_roster={} ehome_roster=(none)
+t=13:53:44 shared_socks=[13774.sock 17012.sock ] private_socks=[13774.sock 17012.sock ] real_roster={} ehome_roster=(none)
+t=13:53:47 shared_socks=[13774.sock 17012.sock ] private_socks=[13774.sock 17012.sock ] real_roster={} ehome_roster=(none)
+t=13:53:49 shared_socks=[13774.sock 17012.sock ] private_socks=[13774.sock 17012.sock ] real_roster={} ehome_roster=(none)
+t=13:53:51 shared_socks=[13774.sock 17012.sock ] private_socks=[13774.sock 17012.sock ] real_roster={} ehome_roster=(none)
+t=13:53:53 shared_socks=[13774.sock 17012.sock ] private_socks=[13774.sock 17012.sock ] real_roster={} ehome_roster=(none)
+t=13:53:55 shared_socks=[13774.sock 17012.sock ] private_socks=[13774.sock 17012.sock ] real_roster={} ehome_roster=(none)
+t=13:53:57 shared_socks=[13774.sock ] private_socks=[13774.sock ] real_roster={} ehome_roster=(none)
+child gone at 13:53:59
+--- child result ---
+is_error=False terminal_reason=completed num_turns=4 cost=0.10842900000000001 denials=0
+result: CONTROL-E2-DONE
+
+================================================== E3-privhome-realrt
+--- seed ---
+label=E3-privhome-realrt seed_level=3 seeded=[ .claude/.credentials.json .claude.json .gitconfig .git-credentials] HOME=/var/lib/wrought/runner-harden/ehome-E3 XDG_RUNTIME_DIR=/run/user/1000
+seeded tree:
+$EPHEMERAL_HOME/.git-credentials
+$EPHEMERAL_HOME/.gitconfig
+$EPHEMERAL_HOME/.claude.json
+$EPHEMERAL_HOME/.claude
+$EPHEMERAL_HOME/.claude/.credentials.json
+unit=harden-E3-privhome-realrt-1787925333.scope launcher=18575
+launcher rc=0
+--- post-run ephemeral HOME tree ---
+$EPHEMERAL_HOME/.claude
+$EPHEMERAL_HOME/.claude/backups
+$EPHEMERAL_HOME/.claude/backups/.claude.json.backup.1787925334142
+$EPHEMERAL_HOME/.claude/.credentials.json
+$EPHEMERAL_HOME/.claude.json
+$EPHEMERAL_HOME/.claude/.last-cleanup
+$EPHEMERAL_HOME/.claude/projects
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe/68d5d753-8d1c-47ad-900e-8f199b507eef.jsonl
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe/memory
+$EPHEMERAL_HOME/.claude/session-env
+$EPHEMERAL_HOME/.claude/session-env/68d5d753-8d1c-47ad-900e-8f199b507eef
+$EPHEMERAL_HOME/.claude/sessions
+$EPHEMERAL_HOME/.claude/shell-snapshots
+$EPHEMERAL_HOME/.gitconfig
+$EPHEMERAL_HOME/.git-credentials
+--- poll ---
+# 2s poll of BOTH candidate discovery artifacts while the E3-privhome-realrt child is alive.
+# shared cc-socks = /run/user/1000/cc-socks ; private = $EPHEMERAL_HOME/xdg-runtime/cc-socks
+# this supervising session owns 13774.sock — any OTHER entry is the child.
+t=13:55:33 shared_socks=[13774.sock ] private_socks=[13774.sock ] real_roster={} ehome_roster=(none)
+t=13:55:35 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+t=13:55:37 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+t=13:55:39 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+t=13:55:42 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+t=13:55:44 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+t=13:55:46 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+t=13:55:48 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+t=13:55:50 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+t=13:55:52 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+t=13:55:54 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+t=13:55:56 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+t=13:55:58 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+t=13:56:00 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+t=13:56:02 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+t=13:56:05 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+t=13:56:07 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+t=13:56:09 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+t=13:56:11 shared_socks=[13774.sock 18575.sock ] private_socks=[13774.sock 18575.sock ] real_roster={} ehome_roster=(none)
+child gone at 13:56:13
+--- child result ---
+is_error=False terminal_reason=completed num_turns=4 cost=0.10990699999999999 denials=0
+result: CONTROL-E3-DONE
+
+================================================== E-privhome-realrt
+--- seed ---
+label=E-privhome-realrt seed_level=3 seeded=[ .claude/.credentials.json .claude.json .gitconfig .git-credentials] HOME=/var/lib/wrought/runner-harden/ehome-E XDG_RUNTIME_DIR=/run/user/1000
+seeded tree:
+$EPHEMERAL_HOME/.git-credentials
+$EPHEMERAL_HOME/.gitconfig
+$EPHEMERAL_HOME/.claude.json
+$EPHEMERAL_HOME/.claude
+$EPHEMERAL_HOME/.claude/.credentials.json
+unit=harden-E-privhome-realrt-1787925053.scope launcher=15971
+launcher rc=0
+--- post-run ephemeral HOME tree ---
+$EPHEMERAL_HOME/.claude
+$EPHEMERAL_HOME/.claude/backups
+$EPHEMERAL_HOME/.claude/backups/.claude.json.backup.1787925054048
+$EPHEMERAL_HOME/.claude/.credentials.json
+$EPHEMERAL_HOME/.claude.json
+$EPHEMERAL_HOME/.claude/.last-cleanup
+$EPHEMERAL_HOME/.claude/projects
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe/9e063c42-9b44-4334-bbd0-a020e6cdabb8.jsonl
+$EPHEMERAL_HOME/.claude/projects/-var-lib-wrought-runner-harden-probe/memory
+$EPHEMERAL_HOME/.claude/session-env
+$EPHEMERAL_HOME/.claude/session-env/9e063c42-9b44-4334-bbd0-a020e6cdabb8
+$EPHEMERAL_HOME/.claude/sessions
+$EPHEMERAL_HOME/.claude/shell-snapshots
+$EPHEMERAL_HOME/.gitconfig
+$EPHEMERAL_HOME/.git-credentials
+--- poll ---
+# 2s poll of BOTH candidate discovery artifacts while the E-privhome-realrt child is alive.
+# shared cc-socks = /run/user/1000/cc-socks ; private = $EPHEMERAL_HOME/xdg-runtime/cc-socks
+# this supervising session owns 13774.sock — any OTHER entry is the child.
+t=13:50:53 shared_socks=[13774.sock ] private_socks=[13774.sock ] real_roster={} ehome_roster=(none)
+t=13:50:55 shared_socks=[13774.sock 15971.sock ] private_socks=[13774.sock 15971.sock ] real_roster={} ehome_roster=(none)
+t=13:50:57 shared_socks=[13774.sock 15971.sock ] private_socks=[13774.sock 15971.sock ] real_roster={} ehome_roster=(none)
+t=13:50:59 shared_socks=[13774.sock 15971.sock ] private_socks=[13774.sock 15971.sock ] real_roster={} ehome_roster=(none)
+t=13:51:02 shared_socks=[13774.sock 15971.sock ] private_socks=[13774.sock 15971.sock ] real_roster={} ehome_roster=(none)
+t=13:51:04 shared_socks=[13774.sock 15971.sock ] private_socks=[13774.sock 15971.sock ] real_roster={} ehome_roster=(none)
+t=13:51:06 shared_socks=[13774.sock 15971.sock ] private_socks=[13774.sock 15971.sock ] real_roster={} ehome_roster=(none)
+t=13:51:08 shared_socks=[13774.sock 15971.sock ] private_socks=[13774.sock 15971.sock ] real_roster={} ehome_roster=(none)
+t=13:51:10 shared_socks=[13774.sock 15971.sock ] private_socks=[13774.sock 15971.sock ] real_roster={} ehome_roster=(none)
+t=13:51:12 shared_socks=[13774.sock 15971.sock ] private_socks=[13774.sock 15971.sock ] real_roster={} ehome_roster=(none)
+t=13:51:14 shared_socks=[13774.sock 15971.sock ] private_socks=[13774.sock 15971.sock ] real_roster={} ehome_roster=(none)
+t=13:51:16 shared_socks=[13774.sock 15971.sock ] private_socks=[13774.sock 15971.sock ] real_roster={} ehome_roster=(none)
+t=13:51:18 shared_socks=[13774.sock 15971.sock ] private_socks=[13774.sock 15971.sock ] real_roster={} ehome_roster=(none)
+t=13:51:20 shared_socks=[13774.sock 15971.sock ] private_socks=[13774.sock 15971.sock ] real_roster={} ehome_roster=(none)
+t=13:51:22 shared_socks=[13774.sock 15971.sock ] private_socks=[13774.sock 15971.sock ] real_roster={} ehome_roster=(none)
+t=13:51:25 shared_socks=[13774.sock 15971.sock ] private_socks=[13774.sock 15971.sock ] real_roster={} ehome_roster=(none)
+child gone at 13:51:27
+--- child result ---
+is_error=False terminal_reason=completed num_turns=4 cost=0.1137555 denials=0
+result: CONTROL-E-DONE
+
+================================================== F2-realhome-realrt
+--- seed ---
+unit=harden-F2-1787925513.scope launcher=21355 HOME=/home/kalib XDG_RUNTIME_DIR=/run/user/1000
+launcher rc=0
+--- poll ---
+t=13:58:33 shared_socks=[13774.sock ]
+t=13:58:35 shared_socks=[13774.sock 21355.sock ]
+t=13:58:37 shared_socks=[13774.sock 21355.sock ]
+t=13:58:39 shared_socks=[13774.sock 21355.sock ]
+t=13:58:41 shared_socks=[13774.sock 21355.sock ]
+t=13:58:43 shared_socks=[13774.sock 21355.sock ]
+t=13:58:45 shared_socks=[13774.sock 21355.sock ]
+t=13:58:47 shared_socks=[13774.sock 21355.sock ]
+t=13:58:49 shared_socks=[13774.sock 21355.sock ]
+t=13:58:51 shared_socks=[13774.sock 21355.sock ]
+t=13:58:53 shared_socks=[13774.sock 21355.sock ]
+t=13:58:55 shared_socks=[13774.sock 21355.sock ]
+t=13:58:57 shared_socks=[13774.sock 21355.sock ]
+t=13:58:59 shared_socks=[13774.sock 21355.sock ]
+t=13:59:01 shared_socks=[13774.sock 21355.sock ]
+t=13:59:03 shared_socks=[13774.sock 21355.sock ]
+t=13:59:05 shared_socks=[13774.sock 21355.sock ]
+t=13:59:07 shared_socks=[13774.sock 21355.sock ]
+t=13:59:09 shared_socks=[13774.sock 21355.sock ]
+t=13:59:11 shared_socks=[13774.sock 21355.sock ]
+t=13:59:13 shared_socks=[13774.sock 21355.sock ]
+t=13:59:15 shared_socks=[13774.sock 21355.sock ]
+t=13:59:17 shared_socks=[13774.sock 21355.sock ]
+t=13:59:19 shared_socks=[13774.sock 21355.sock ]
+t=13:59:21 shared_socks=[13774.sock 21355.sock ]
+t=13:59:23 shared_socks=[13774.sock 21355.sock ]
+t=13:59:25 shared_socks=[13774.sock 21355.sock ]
+t=13:59:27 shared_socks=[13774.sock 21355.sock ]
+t=13:59:29 shared_socks=[13774.sock 21355.sock ]
+t=13:59:31 shared_socks=[13774.sock 21355.sock ]
+t=13:59:33 shared_socks=[13774.sock 21355.sock ]
+t=13:59:35 shared_socks=[13774.sock 21355.sock ]
+t=13:59:37 shared_socks=[13774.sock 21355.sock ]
+t=13:59:39 shared_socks=[13774.sock 21355.sock ]
+t=13:59:41 shared_socks=[13774.sock 21355.sock ]
+t=13:59:43 shared_socks=[13774.sock 21355.sock ]
+t=13:59:45 shared_socks=[13774.sock 21355.sock ]
+t=13:59:47 shared_socks=[13774.sock 21355.sock ]
+t=13:59:49 shared_socks=[13774.sock 21355.sock ]
+t=13:59:51 shared_socks=[13774.sock 21355.sock ]
+t=13:59:53 shared_socks=[13774.sock 21355.sock ]
+t=13:59:55 shared_socks=[13774.sock 21355.sock ]
+t=13:59:57 shared_socks=[13774.sock 21355.sock ]
+t=13:59:59 shared_socks=[13774.sock 21355.sock ]
+t=14:00:01 shared_socks=[13774.sock 21355.sock ]
+t=14:00:03 shared_socks=[13774.sock 21355.sock ]
+t=14:00:05 shared_socks=[13774.sock 21355.sock ]
+t=14:00:07 shared_socks=[13774.sock 21355.sock ]
+t=14:00:09 shared_socks=[13774.sock 21355.sock ]
+t=14:00:11 shared_socks=[13774.sock 21355.sock ]
+child gone at 14:00:13
+--- child result ---
+is_error=False terminal_reason=completed num_turns=4 cost=0.0906825 denials=0
+result: CONTROL-F2-DONE
+
+================================================== F-realhome-realrt
+--- seed ---
+unit=harden-F-1787925374.scope launcher=19353 HOME=/home/kalib XDG_RUNTIME_DIR=/run/user/1000
+launcher rc=0
+--- poll ---
+t=13:56:14 shared_socks=[13774.sock ]
+t=13:56:16 shared_socks=[13774.sock 19353.sock ]
+t=13:56:18 shared_socks=[13774.sock 19353.sock ]
+t=13:56:20 shared_socks=[13774.sock 19353.sock ]
+t=13:56:22 shared_socks=[13774.sock 19353.sock ]
+t=13:56:24 shared_socks=[13774.sock 19353.sock ]
+t=13:56:26 shared_socks=[13774.sock 19353.sock ]
+t=13:56:28 shared_socks=[13774.sock 19353.sock ]
+t=13:56:30 shared_socks=[13774.sock 19353.sock ]
+t=13:56:32 shared_socks=[13774.sock 19353.sock ]
+t=13:56:34 shared_socks=[13774.sock 19353.sock ]
+t=13:56:36 shared_socks=[13774.sock 19353.sock ]
+t=13:56:38 shared_socks=[13774.sock 19353.sock ]
+t=13:56:40 shared_socks=[13774.sock 19353.sock ]
+t=13:56:42 shared_socks=[13774.sock 19353.sock ]
+t=13:56:44 shared_socks=[13774.sock 19353.sock ]
+t=13:56:46 shared_socks=[13774.sock 19353.sock ]
+t=13:56:48 shared_socks=[13774.sock 19353.sock ]
+t=13:56:50 shared_socks=[13774.sock 19353.sock ]
+t=13:56:52 shared_socks=[13774.sock 19353.sock ]
+t=13:56:54 shared_socks=[13774.sock 19353.sock ]
+t=13:56:56 shared_socks=[13774.sock 19353.sock ]
+t=13:56:58 shared_socks=[13774.sock 19353.sock ]
+t=13:57:00 shared_socks=[13774.sock 19353.sock ]
+child gone at 13:57:02
+--- child result ---
+is_error=False terminal_reason=completed num_turns=4 cost=0.086609 denials=0
+result: CONTROL-F-DONE

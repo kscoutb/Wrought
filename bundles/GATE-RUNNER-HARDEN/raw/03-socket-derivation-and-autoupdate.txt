@@ -1,0 +1,46 @@
+# cmd: various — how is the cross-session socket path derived, and can auto-update be disabled?
+# date: 2026-08-28T13:45:05Z
+
+## file type of the claude binary
+# cmd: file /home/kalib/.local/bin/claude; ls -la /home/kalib/.local/bin/claude
+/home/kalib/.local/bin/claude: symbolic link to /home/kalib/.local/share/claude/versions/2.1.250
+lrwxrwxrwx 1 kalib kalib 48 Aug 28 08:56 /home/kalib/.local/bin/claude -> /home/kalib/.local/share/claude/versions/2.1.250
+
+## cc-socks path derivation (strings over the binary)
+# cmd: grep -aoE '[^"]{0,60}cc-socks[^"]{0,60}' /home/kalib/.local/bin/claude | sort -u | head -20
+
+## roster.json references
+# cmd: grep -aoE '[^"]{0,50}roster\.json[^"]{0,50}' /home/kalib/.local/bin/claude | sort -u | head
+
+## auto-update env / settings knobs
+# cmd: grep -aoE 'DISABLE_AUTOUPDATER|CLAUDE_CODE_DISABLE[A-Z_]*|autoUpdates?|autoUpdaterStatus' /home/kalib/.local/bin/claude | sort | uniq -c | head -20
+      2 autoUpdaterStatus
+     62 autoUpdates
+      6 CLAUDE_CODE_DISABLE_
+      4 CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING
+      8 CLAUDE_CODE_DISABLE_ADMIN_ENV_UNION
+      4 CLAUDE_CODE_DISABLE_ADVISOR_TOOL
+      8 CLAUDE_CODE_DISABLE_AGENT_VIEW
+      7 CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN
+      4 CLAUDE_CODE_DISABLE_ARTIFACT
+      5 CLAUDE_CODE_DISABLE_ATTACHMENTS
+      4 CLAUDE_CODE_DISABLE_AUTO_MEMORY
+      4 CLAUDE_CODE_DISABLE_BACKGROUND_TASKS
+      3 CLAUDE_CODE_DISABLE_BEDROCK_CONTENT_TYPE_DEFAULT
+      5 CLAUDE_CODE_DISABLE_BEDROCK_CONTENT_TYPE_GUARD
+      4 CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF
+      3 CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP
+     11 CLAUDE_CODE_DISABLE_BUNDLED_SKILLS
+      3 CLAUDE_CODE_DISABLE_CLAUDE_API_SKILL
+      3 CLAUDE_CODE_DISABLE_CLAUDE_CODE_SKILL
+     11 CLAUDE_CODE_DISABLE_CLAUDE_MDS
+
+## current settings.json
+# cmd: cat /home/kalib/.claude/settings.json
+{
+  "effortLevel": "xhigh",
+  "advisorModel": "fable",
+  "tui": "fullscreen",
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "dark"
+}

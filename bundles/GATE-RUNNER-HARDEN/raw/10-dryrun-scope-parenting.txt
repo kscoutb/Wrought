@@ -1,0 +1,52 @@
+# cmd: HOME=/var/lib/wrought/runner-harden/dry/fakehome /home/kalib/foundry/bin/wrought-runner --config /var/lib/wrought/runner-harden/dry/conf-scope.json
+# date: 2026-08-28T14:07:12Z
+# SCENARIO (Phase 3 proof 2): SCOPE-PARENTING. The stub gate spawns a guest-shaped process
+#   as a PLAIN BACKGROUND CHILD -- a descendant of the gate's systemd scope, not a transient
+#   unit -- then hangs past RuntimeMaxSec (lowered to 10s for this run ON PURPOSE).
+# EXPECTED: systemd kills the scope's whole cgroup at the deadline, the descendant dies WITH
+#   it, the child produces no parseable result JSON (rc=143 -> SUBSTRATE), and the post-gate
+#   sweep finds NOTHING to reap. That is the layer-1 rule now written into EXECUTOR-RAILS:
+#   a gate that must be reapable-by-scope launches plain qemu-system as a scope descendant,
+#   never via libvirtd, whose domains re-parent to machine.slice and ESCAPE the scope.
+
+--- pre-run ---
+# cmd: pgrep -c -f 'STUB$'
+0
+0
+
+[2026-08-28T14:07:12Z] GATE-SCOPESTUB: private HOME /var/lib/wrought/runner-harden/dry/ephemeral-homes/GATE-SCOPESTUB-1787926032 (seeded ['.claude/.credentials.json', '.gitconfig', '.git-credentials']), private runtime dir /var/lib/wrought/runner-harden/dry/ephemeral-homes/GATE-SCOPESTUB-1787926032/xdg-runtime
+[2026-08-28T14:07:12Z] GATE-SCOPESTUB: launching. tools='Bash' add_dirs=['/var/lib/wrought/runner-harden/dry'] budget=$1.0 mode=dontAsk MemoryMax=8G RuntimeMaxSec=10
+[2026-08-28T14:07:23Z] GATE-SCOPESTUB: FAIL — child=SUBSTRATE (child produced no parseable result JSON (rc=-15: unknown signal, 0 bytes captured)); postconditions: ["QUEUE row for GATE-SCOPESTUB is 'RUNNING', not BUNDLED", '/var/lib/wrought/runner-harden/dry/courier/bundles/GATE-SCOPESTUB does not exist']
+[2026-08-28T14:07:23Z] GATE-SCOPESTUB: orphan sweep CLEAN — no new guest, domain or listener survived
+[2026-08-28T14:07:23Z] pacing: sleeping 5s before the next gate
+[2026-08-28T14:07:28Z] no APPROVED gates left to run — exiting cleanly
+
+wrought-runner: 1 gate(s); clean exit
+evidence: /var/lib/wrought/runner-harden/dry/state/runs/20260828T140712Z
+RUNNER-EXIT=0
+
+--- the descendant the stub launched, from the stub's own log ---
+# cmd: cat /var/lib/wrought/runner-harden/dry/scope-stub.log
+scope-descendant pid 27037 launched at 2026-08-28T14:07:12Z
+
+--- post-run: gone WITHOUT the sweep having to kill it? ---
+# cmd: pgrep -a -f 'STUB$'
+(none — died with the scope)
+
+--- what the sweep saw (must be EMPTY: systemd already did the work) ---
+# file: /var/lib/wrought/runner-harden/dry/state/runs/20260828T140712Z/GATE-SCOPESTUB/residue-after.json
+new qemu:      {}
+new domains:   []
+new listeners: {}
+
+--- how the runner classified the kernel-killed child ---
+rc=-15  disposition=SUBSTRATE  wall=10.2s
+detail: child produced no parseable result JSON (rc=-15: unknown signal, 0 bytes captured)
+
+=== RE-PROOF after the classify() fix (same scenario, same config) ===
+# cmd: HOME=/var/lib/wrought/runner-harden/dry/fakehome /home/kalib/foundry/bin/wrought-runner --config /var/lib/wrought/runner-harden/dry/conf-scope.json
+# date: 2026-08-28T14:07:51Z
+[2026-08-28T14:08:02Z] GATE-SCOPESTUB: FAIL — child=SUBSTRATE (child produced no parseable result JSON (rc=-15: SIGTERM — RuntimeMaxSec deadline, 0 bytes captured)); postconditions: ["QUEUE row for GATE-SCOPESTUB is 'RUNNING', not BUNDLED", '/var/lib/wrought/runner-harden/dry/courier/bundles/GATE-SCOPESTUB does not exist']
+[2026-08-28T14:08:02Z] GATE-SCOPESTUB: orphan sweep CLEAN — no new guest, domain or listener survived
+rc=-15  disposition=SUBSTRATE
+detail NOW: child produced no parseable result JSON (rc=-15: SIGTERM — RuntimeMaxSec deadline, 0 bytes captured)

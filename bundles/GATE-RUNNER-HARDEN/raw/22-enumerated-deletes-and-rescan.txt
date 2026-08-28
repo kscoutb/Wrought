@@ -1,0 +1,53 @@
+# cmd: nine enumerated deletes (EXECUTOR-RAILS S3 — each path written out, each with its
+#      reason). No glob, no 'rm -r the leftovers'.
+# date: 2026-08-28T14:18:27Z
+# WHY: raw/21's scan found that the PROBE ephemeral HOMEs this gate built BY HAND still held
+#      copies of the OAuth credential and the git push token. The RUNNER's own ephemeral
+#      HOMEs were all torn down correctly by teardown_ephemeral_home() — the surviving ones
+#      are mine, from the by-hand Phase-2 probes, and rails S5 says a credential copy does
+#      not linger. Their measurements are complete and recorded in raw/06 and raw/20.
+
+DELETE /var/lib/wrought/runner-harden/ehome-L0
+       reason: hand-built Phase-2 probe HOME; measurement complete (raw/06, raw/20);
+               holds credential copies. 3 files.
+       removed.
+DELETE /var/lib/wrought/runner-harden/ehome-L1
+       reason: hand-built Phase-2 probe HOME; measurement complete (raw/06, raw/20);
+               holds credential copies. 4 files.
+       removed.
+DELETE /var/lib/wrought/runner-harden/ehome-L1i
+       reason: hand-built Phase-2 probe HOME; measurement complete (raw/06, raw/20);
+               holds credential copies. 4 files.
+       removed.
+DELETE /var/lib/wrought/runner-harden/ehome-L1p
+       reason: hand-built Phase-2 probe HOME; measurement complete (raw/06, raw/20);
+               holds credential copies. 1 files.
+       removed.
+DELETE /var/lib/wrought/runner-harden/ehome-D
+       reason: hand-built Phase-2 probe HOME; measurement complete (raw/06, raw/20);
+               holds credential copies. 7 files.
+       removed.
+DELETE /var/lib/wrought/runner-harden/ehome-D2
+       reason: hand-built Phase-2 probe HOME; measurement complete (raw/06, raw/20);
+               holds credential copies. 7 files.
+       removed.
+DELETE /var/lib/wrought/runner-harden/ehome-E
+       reason: hand-built Phase-2 probe HOME; measurement complete (raw/06, raw/20);
+               holds credential copies. 7 files.
+       removed.
+DELETE /var/lib/wrought/runner-harden/ehome-E2
+       reason: hand-built Phase-2 probe HOME; measurement complete (raw/06, raw/20);
+               holds credential copies. 7 files.
+       removed.
+DELETE /var/lib/wrought/runner-harden/ehome-E3
+       reason: hand-built Phase-2 probe HOME; measurement complete (raw/06, raw/20);
+               holds credential copies. 7 files.
+       removed.
+
+--- re-run the three scans, stdin form, to prove the trees are clean ---
+## 1. inference API key
+  0 files — clean
+## 2. git push token
+  0 files — clean
+## 3. OAuth credential strings
+  0 files — clean

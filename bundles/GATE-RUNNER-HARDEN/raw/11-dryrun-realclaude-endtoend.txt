@@ -1,0 +1,47 @@
+# cmd: /home/kalib/foundry/bin/wrought-runner --config /var/lib/wrought/runner-harden/dry/conf-happy.json
+# date: 2026-08-28T14:09:40Z
+# SCENARIO (Phase 5): the END-TO-END regression that matters — a REAL claude gate child,
+#   driven by the runner itself, under the new ephemeral HOME and private runtime dir.
+#   Phase 2 proved the isolated shape works when I launched it by hand; this proves the
+#   RUNNER wires it correctly. PASS requires the MECHANICAL verdict: QUEUE row BUNDLED,
+#   bundle present, sha256sum -c verifies, byte freeze held — the child's own word is not
+#   evidence. Scratch courier, scratch db trio; the real store is frozen (raw/00, raw/99).
+
+[2026-08-28T14:09:40Z] GATE-HAPPY: private HOME /var/lib/wrought/runner-harden/dry/ephemeral-homes/GATE-HAPPY-1787926180 (seeded ['.claude/.credentials.json', '.gitconfig', '.git-credentials']), private runtime dir /var/lib/wrought/runner-harden/dry/ephemeral-homes/GATE-HAPPY-1787926180/xdg-runtime
+[2026-08-28T14:09:41Z] GATE-HAPPY: launching. tools='Bash' add_dirs=['/var/lib/wrought/runner-harden/dry'] budget=$1.5 mode=dontAsk MemoryMax=8G RuntimeMaxSec=900
+[2026-08-28T14:10:23Z] GATE-HAPPY: PASS — bundle present, manifest verifies, byte freeze held
+[2026-08-28T14:10:23Z] GATE-HAPPY: orphan sweep CLEAN — no new guest, domain or listener survived
+[2026-08-28T14:10:23Z] pacing: sleeping 5s before the next gate
+[2026-08-28T14:10:28Z] no APPROVED gates left to run — exiting cleanly
+
+wrought-runner: 1 gate(s); clean exit
+evidence: /var/lib/wrought/runner-harden/dry/state/runs/20260828T140940Z
+RUNNER-EXIT=0
+
+--- the mechanical verdict the runner recorded ---
+{
+  "child_disposition": "COMPLETED",
+  "cost_usd": 0.28143749999999995,
+  "detail": "terminal_reason='completed'",
+  "gate": "GATE-HAPPY",
+  "memory_fence": "unchanged",
+  "postcondition_failures": [],
+  "rc": 0,
+  "verdict": "PASS",
+  "wall_sec": 42.6
+}
+
+--- what the child itself saw of its isolation ---
+# GATE-HAPPY scratch report — the gate child's own view of its isolation
+2026-08-28T14:09:44Z
+HOME=/var/lib/wrought/runner-harden/dry/ephemeral-homes/GATE-HAPPY-1787926180
+XDG_RUNTIME_DIR=/var/lib/wrought/runner-harden/dry/ephemeral-homes/GATE-HAPPY-1787926180/xdg-runtime
+13774.sock
+ls: cannot access '/var/lib/wrought/runner-harden/dry/ephemeral-homes/GATE-HAPPY-1787926180/xdg-runtime/cc-socks/': No such file or directory
+
+--- freeze verdict ---
+HOLD — no change to any frozen path
+--- ephemeral HOME torn down? (must be absent) ---
+# cmd: ls -d /var/lib/wrought/runner-harden/dry/ephemeral-homes/GATE-HAPPY-* 2>&1
+ls: cannot access '/var/lib/wrought/runner-harden/dry/ephemeral-homes/GATE-HAPPY-*': No such file or directory
+(absent — torn down with the gate)

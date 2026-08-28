@@ -1,0 +1,55 @@
+# cmd: HOME=/var/lib/wrought/runner-harden/dry/fakehome /home/kalib/foundry/bin/wrought-runner --config /var/lib/wrought/runner-harden/dry/conf-leak.json
+# date: 2026-08-28T14:06:11Z
+# SCENARIO (Phase 3 proof 1): a stub gate leaks TWO things that ESCAPE its systemd scope --
+#   a guest-shaped process (matching the reaper's qemu_pattern) and a listener on
+#   127.0.0.1:8081, the port J0B's credential-holding auth proxy used -- and cleans up
+#   neither. The child reports is_error=false / terminal_reason=completed. The runner's
+#   post-gate sweep must detect both, enumerate them, kill them, and HALT LATCHED.
+# NOTE: scratch courier, scratch db trio, stub claude_bin, fake HOME with a fake
+#   credential. The REAL store is byte-frozen for the whole session (raw/00, raw/99) and
+#   is not referenced by this config; the real credential is never copied.
+
+--- pre-run ---
+# cmd: systemctl --user is-active harden-leak-guest.service harden-leak-proxy.service
+inactive inactive 
+# cmd: ss -lntH 'sport = :8081' | wc -l
+0
+
+[2026-08-28T14:06:12Z] GATE-LEAKSTUB: private HOME /var/lib/wrought/runner-harden/dry/ephemeral-homes/GATE-LEAKSTUB-1787925972 (seeded ['.claude/.credentials.json', '.gitconfig', '.git-credentials']), private runtime dir /var/lib/wrought/runner-harden/dry/ephemeral-homes/GATE-LEAKSTUB-1787925972/xdg-runtime
+[2026-08-28T14:06:12Z] GATE-LEAKSTUB: launching. tools='Bash' add_dirs=['/var/lib/wrought/runner-harden/dry'] budget=$1.0 mode=dontAsk MemoryMax=8G RuntimeMaxSec=5400
+[2026-08-28T14:06:15Z] GATE-LEAKSTUB: FAIL — child=COMPLETED (terminal_reason='completed'); postconditions: ["QUEUE row for GATE-LEAKSTUB is 'RUNNING', not BUNDLED", '/var/lib/wrought/runner-harden/dry/courier/bundles/GATE-LEAKSTUB does not exist']
+[2026-08-28T14:06:15Z] GATE-LEAKSTUB: REAPED pid 26264 (/bin/bash /var/lib/wrought/runner-harden/dry/qemu-system-x86_64-STUB): terminated by SIGTERM
+[2026-08-28T14:06:15Z] GATE-LEAKSTUB: REAPED pid 26267 (listener on 127.0.0.1:8081): terminated by SIGTERM
+[2026-08-28T14:06:15Z] HALT [gate-residue]: GATE-LEAKSTUB LEFT RESIDUE and was reaped — new qemu pids ['26264']; new domains []; new listeners ['127.0.0.1:8081']. Terminated: ['pid 26264 (/bin/bash /var/lib/wrought/runner-harden/dry/qemu-system-x86_64-STUB): terminated by SIGTERM', 'pid 26267 (listener on 127.0.0.1:8081): terminated by SIGTERM']
+
+wrought-runner: 0 gate(s); STOPPED [gate-residue] GATE-LEAKSTUB LEFT RESIDUE and was reaped — new qemu pids ['26264']; new domains []; new listeners ['127.0.0.1:8081']. Terminated: ['pid 26264 (/bin/bash /var/lib/wrought/runner-harden/dry/qemu-system-x86_64-STUB): terminated by SIGTERM', 'pid 26267 (listener on 127.0.0.1:8081): terminated by SIGTERM']  — BREAKER LATCHED, operator must --reset-breaker
+evidence: /var/lib/wrought/runner-harden/dry/state/runs/20260828T140612Z
+RUNNER-EXIT=2
+
+--- post-run: did the sweep actually kill them? ---
+# cmd: systemctl --user is-active harden-leak-guest.service harden-leak-proxy.service
+inactive inactive 
+# cmd: ss -lntH 'sport = :8081' | wc -l
+0
+# cmd: pgrep -c -f 'STUB$'   (0 = the guest-shaped process was reaped)
+0
+0
+
+--- breaker: must be LATCHED ---
+# cmd: cat /var/lib/wrought/runner-harden/dry/state/breaker.json
+{
+  "at": "2026-08-28T14:06:15Z",
+  "consecutive_failures": 0,
+  "halted": true,
+  "latched": true,
+  "reason": "[gate-residue] GATE-LEAKSTUB LEFT RESIDUE and was reaped \u2014 new qemu pids ['26264']; new domains []; new listeners ['127.0.0.1:8081']. Terminated: ['pid 26264 (/bin/bash /var/lib/wrought/runner-harden/dry/qemu-system-x86_64-STUB): terminated by SIGTERM', 'pid 26267 (listener on 127.0.0.1:8081): terminated by SIGTERM']"
+}
+
+--- the residue evidence the runner wrote ---
+# file: /var/lib/wrought/runner-harden/dry/state/runs/20260828T140612Z/GATE-LEAKSTUB/residue-after.json
+new qemu:      {'26264': '/bin/bash /var/lib/wrought/runner-harden/dry/qemu-system-x86_64-STUB'}
+new domains:   []
+new listeners: {'127.0.0.1:8081': '26267'}
+
+--- and the QUEUE row the runner left ---
+| `GATE-LEAKSTUB` | `HALTED` | scratch dry-run gate: deliberately leaks a guest-shaped process and a listener _(wrought-runner)_ _(wrought-runner: COMPLETED; QUEUE row for GATE-LEAKSTUB is 'RUNNING', 

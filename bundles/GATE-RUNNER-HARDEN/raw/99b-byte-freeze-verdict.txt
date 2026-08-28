@@ -1,0 +1,10 @@
+# cmd: diff <(grep -o '^[0-9a-f]*  .*' raw/00-byte-freeze-baseline.txt) <(grep -o '^[0-9a-f]*  .*' raw/99-byte-freeze-reassert.txt)
+# at:  2026-08-28T14:13:27Z
+
+VERDICT: HOLD — all three frozen paths byte-identical across the session.
+
+# and this gate's own residue check, on the REAL box (not the scratch harness):
+# cmd: pgrep -a -f 'qemu-system' | grep -v claude ; ss -lntH 'sport = :8081' ; systemctl --user list-units 'harden-*'
+  qemu-shaped stubs: none
+  listeners on 8081: 0
+  (the three harden-leak-* transient units were --collect, so they self-remove when inactive)

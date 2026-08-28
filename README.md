@@ -42,7 +42,11 @@ next prompt. When a prompt carries a `PRIOR-ADJUDICATION` block, the box records
 `bundles/<prior-gate>/ADJUDICATION.md` and sets that gate's `QUEUE.md` row to `ADJUDICATED` as its
 **first** courier action. Canonical rule: `docs/EXECUTOR-RAILS.md` §10.
 
-**4. Nothing but text.** No secret, key, image, overlay, or `.zip` is ever committed here.
+**4. A gate runs only when APPROVED, and only if it declares its tools.** `QUEUED` means the prompt exists; `APPROVED` means the advisor and operator agreed at the ferry that it may run — the only status the batch runner starts. Every prompt declares an `ALLOWED-TOOLS:` header; one that does not is halted, not given a default. Canonical: `docs/EXECUTOR-RAILS.md` §12.
+
+**5. Nothing a gate starts may outlive it.** The runner diffs {qemu processes, libvirt domains, listening sockets} across every gate and treats any new survivor as a latching fault — because `GATE-J0B-SURFACE` left a guest running for seven days with an API key in a proxy's memory. Canonical: `docs/EXECUTOR-RAILS.md` §13–14.
+
+**6. Nothing but text.** No secret, key, image, overlay, or `.zip` is ever committed here.
 Bundles are pushed unzipped precisely so the contents are reviewable as text. The push
 credential lives outside every git work tree and is listed in `.gitignore` as a second line of
 defence. This repo is public — treat every commit as permanent and world-readable.

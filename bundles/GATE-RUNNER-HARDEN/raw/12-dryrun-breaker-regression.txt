@@ -1,0 +1,123 @@
+# cmd: three breaker regressions against the hardened runner, scratch courier + scratch db.
+# date: 2026-08-28T14:11:09Z
+# WHY: Phases 2-3 changed run_one_gate's control flow (an ephemeral-HOME wrapper and a
+#   post-gate sweep now surround the core). These re-prove that the breakers GATE-RUNNER
+#   measured still fire, and that the sweep did not swallow or mask any of them.
+
+==================== A. missing ALLOWED-TOOLS header -> halt ====================
+# cmd: wrought-runner --config /var/lib/wrought/runner-harden/dry/conf-notools.json
+[2026-08-28T14:11:09Z] GATE-NOTOOLS: orphan sweep CLEAN — no new guest, domain or listener survived
+[2026-08-28T14:11:09Z] HALT [no-allowed-tools]: GATE-NOTOOLS: prompt GATE-NOTOOLS.md declares no `ALLOWED-TOOLS:` header. A gate that does not declare its own tool surface will NOT be given a default one.
+wrought-runner: 0 gate(s); STOPPED [no-allowed-tools] GATE-NOTOOLS: prompt GATE-NOTOOLS.md declares no `ALLOWED-TOOLS:` header. A gate that does not declare its own tool surface will NOT be given a default one.  — BREAKER LATCHED, operator must --reset-breaker
+breaker: halted=True latched=True
+
+==================== B. byte-freeze tripwire -> halt LATCHED ====================
+# scratch db before: ae474e54f4b18094e96b6e8da9f60a5408d95631583875b192eddcbf68b3bf44  /var/lib/wrought/runner-harden/dry/db/orchestrator.db
+# cmd: wrought-runner --config /var/lib/wrought/runner-harden/dry/conf-dirty.json
+[2026-08-28T14:11:09Z] HALT [queue-parse]: QUEUE row 5 for GATE-NOTOOLS has unknown status 'NOT_RUN'; known: ['ADJUDICATED', 'APPROVED', 'BUNDLED', 'HALTED', 'NOT RUN', 'QUEUED', 'RUNNING']
+wrought-runner: 0 gate(s); STOPPED [queue-parse] QUEUE row 5 for GATE-NOTOOLS has unknown status 'NOT_RUN'; known: ['ADJUDICATED', 'APPROVED', 'BUNDLED', 'HALTED', 'NOT RUN', 'QUEUED', 'RUNNING']  — BREAKER LATCHED, operator must --reset-breaker
+# scratch db after:  ae474e54f4b18094e96b6e8da9f60a5408d95631583875b192eddcbf68b3bf44  /var/lib/wrought/runner-harden/dry/db/orchestrator.db
+breaker: halted=True latched=True
+
+==================== C. consecutive-failure breaker (cap 2) -> halt LATCHED ====================
+# cmd: wrought-runner --config /var/lib/wrought/runner-harden/dry/conf-fail.json
+[2026-08-28T14:11:09Z] HALT [queue-parse]: QUEUE row 5 for GATE-NOTOOLS has unknown status 'NOT_RUN'; known: ['ADJUDICATED', 'APPROVED', 'BUNDLED', 'HALTED', 'NOT RUN', 'QUEUED', 'RUNNING']
+wrought-runner: 0 gate(s); STOPPED [queue-parse] QUEUE row 5 for GATE-NOTOOLS has unknown status 'NOT_RUN'; known: ['ADJUDICATED', 'APPROVED', 'BUNDLED', 'HALTED', 'NOT RUN', 'QUEUED', 'RUNNING']  — BREAKER LATCHED, operator must --reset-breaker
+breaker: halted=True latched=True consecutive=0
+
+==================== D. a LATCHED breaker refuses the next start ====================
+# cmd: wrought-runner --config /var/lib/wrought/runner-harden/dry/conf-fail.json   (breaker still latched from C)
+[2026-08-28T14:11:10Z] BREAKER IS LATCHED ("[queue-parse] QUEUE row 5 for GATE-NOTOOLS has unknown status 'NOT_RUN'; known: ['ADJUDICATED', 'APPROVED', 'BUNDLED', 'HALTED', 'NOT RUN', 'QUEUED', 'RUNNING']" at 2026-08-28T14:11:09Z). Operator must run --reset-breaker.
+exit was: 0
+
+==================== E. operator reset clears it ====================
+# cmd: wrought-runner --config /var/lib/wrought/runner-harden/dry/conf-fail.json --reset-breaker
+breaker reset
+breaker: halted=False reset_by=operator via --reset-breaker
+
+==================== B (re-run). byte-freeze tripwire -> halt LATCHED ====================
+# NOTE: the first attempt at B and C was spoiled by a typo in MY harness — it wrote the
+#   status 'NOT_RUN' where the vocabulary is 'NOT RUN'. The runner REFUSED THE AMBIGUOUS
+#   QUEUE rather than guessing ([queue-parse], latched), which is an unplanned proof of a
+#   fourth breaker and is kept in this file above rather than edited out (rails S4).
+On branch main
+Your branch is up to date with 'origin/main'.
+
+nothing to commit, working tree clean
+# scratch db before: ae474e54f4b18094e96b6e8da9f60a5408d95631583875b192eddcbf68b3bf44
+# cmd: wrought-runner --config /var/lib/wrought/runner-harden/dry/conf-dirty.json
+[2026-08-28T14:11:32Z] HALT [queue-parse]: QUEUE row 5 for GATE-NOTOOLS has unknown status 'NOT_RUN'; known: ['ADJUDICATED', 'APPROVED', 'BUNDLED', 'HALTED', 'NOT RUN', 'QUEUED', 'RUNNING']
+wrought-runner: 0 gate(s); STOPPED [queue-parse] QUEUE row 5 for GATE-NOTOOLS has unknown status 'NOT_RUN'; known: ['ADJUDICATED', 'APPROVED', 'BUNDLED', 'HALTED', 'NOT RUN', 'QUEUED', 'RUNNING']  — BREAKER LATCHED, operator must --reset-breaker
+# scratch db after:  ae474e54f4b18094e96b6e8da9f60a5408d95631583875b192eddcbf68b3bf44
+breaker: halted=True latched=True
+
+==================== C (re-run). consecutive-failure breaker (cap 2) -> halt LATCHED ====================
+On branch main
+Your branch is up to date with 'origin/main'.
+
+nothing to commit, working tree clean
+# cmd: wrought-runner --config /var/lib/wrought/runner-harden/dry/conf-fail.json
+[2026-08-28T14:11:32Z] HALT [queue-parse]: QUEUE row 5 for GATE-NOTOOLS has unknown status 'NOT_RUN'; known: ['ADJUDICATED', 'APPROVED', 'BUNDLED', 'HALTED', 'NOT RUN', 'QUEUED', 'RUNNING']
+wrought-runner: 0 gate(s); STOPPED [queue-parse] QUEUE row 5 for GATE-NOTOOLS has unknown status 'NOT_RUN'; known: ['ADJUDICATED', 'APPROVED', 'BUNDLED', 'HALTED', 'NOT RUN', 'QUEUED', 'RUNNING']  — BREAKER LATCHED, operator must --reset-breaker
+breaker: halted=True latched=True consecutive=0
+
+==================== SUMMARY ====================
+A missing ALLOWED-TOOLS       -> HALT [no-allowed-tools], latched      PASS
+B byte-freeze tripwire        -> HALT [byte-freeze], latched           see above
+C consecutive failures (cap 2)-> HALT [consecutive-failures], latched  see above
+D latched breaker refuses     -> 'BREAKER IS LATCHED', no gate started PASS
+E --reset-breaker clears it   -> halted=False                          PASS
+F queue-parse (unplanned)     -> refused an unknown status, latched    PASS
+G orphan sweep                -> raw/09 (detect+reap+latch), raw/10 (scope) PASS
+H real claude end-to-end      -> raw/11, verdict PASS under the ephemeral HOME PASS
+
+==================== B (2nd re-run). byte-freeze tripwire -> halt LATCHED ====================
+# scratch db before: ae474e54f4b18094e96b6e8da9f60a5408d95631583875b192eddcbf68b3bf44
+# cmd: wrought-runner --config /var/lib/wrought/runner-harden/dry/conf-dirty.json
+[2026-08-28T14:11:47Z] GATE-DIRTY: orphan sweep CLEAN — no new guest, domain or listener survived
+[2026-08-28T14:11:47Z] HALT [byte-freeze]: GATE-DIRTY: BYTE-FREEZE TRIPWIRE — /var/lib/wrought/runner-harden/dry/db/orchestrator.db: ae474e54f4b18094e96b6e8da9f60a5408d95631583875b192eddcbf68b3bf44 -> 7676c41d165dcbafc3752823f1ec2a8142621770547a8d71a50c7965200aef0d
+wrought-runner: 0 gate(s); STOPPED [byte-freeze] GATE-DIRTY: BYTE-FREEZE TRIPWIRE — /var/lib/wrought/runner-harden/dry/db/orchestrator.db: ae474e54f4b18094e96b6e8da9f60a5408d95631583875b192eddcbf68b3bf44 -> 7676c41d165dcbafc3752823f1ec2a8142621770547a8d71a50c7965200aef0d  — BREAKER LATCHED, operator must --reset-breaker
+# scratch db after:  7676c41d165dcbafc3752823f1ec2a8142621770547a8d71a50c7965200aef0d  <- the stub DID change it
+breaker: halted=True latched=True
+
+==================== C (2nd re-run). consecutive-failure breaker (cap 2) ====================
+# cmd: wrought-runner --config /var/lib/wrought/runner-harden/dry/conf-fail.json
+[2026-08-28T14:11:48Z] GATE-FAIL1: FAIL — child=COMPLETED (terminal_reason='completed'); postconditions: ["QUEUE row for GATE-FAIL1 is 'RUNNING', not BUNDLED", '/var/lib/wrought/runner-harden/dry/courier/bundles/GATE-FAIL1 does not exist']
+[2026-08-28T14:11:48Z] GATE-FAIL1: orphan sweep CLEAN — no new guest, domain or listener survived
+[2026-08-28T14:11:54Z] GATE-FAIL2: FAIL — child=COMPLETED (terminal_reason='completed'); postconditions: ["QUEUE row for GATE-FAIL2 is 'RUNNING', not BUNDLED", '/var/lib/wrought/runner-harden/dry/courier/bundles/GATE-FAIL2 does not exist']
+[2026-08-28T14:11:54Z] GATE-FAIL2: orphan sweep CLEAN — no new guest, domain or listener survived
+[2026-08-28T14:11:54Z] HALT [consecutive-failures]: 2 consecutive non-PASS gates (cap 2)
+wrought-runner: 2 gate(s); STOPPED [consecutive-failures] 2 consecutive non-PASS gates (cap 2)  — BREAKER LATCHED, operator must --reset-breaker
+breaker: halted=True latched=True consecutive=2
+
+==================== I. a gate that HALTS *and* LEAKS — neither fault may hide the other ====================
+# cmd: wrought-runner --config /var/lib/wrought/runner-harden/dry/conf-both.json
+# date: 2026-08-28T14:12:14Z
+# The stub trips the byte freeze (an in-flight Halt) AND strands a scope-escaping process.
+# The sweep runs from the wrapper's finally, so it must still fire; and the two reasons must
+# be REPORTED TOGETHER, not one masked by the other.
+[2026-08-28T14:12:59Z] HALT [git]: git pull --rebase failed after retries
+wrought-runner: 0 gate(s); STOPPED [git] git pull --rebase failed after retries  — BREAKER LATCHED, operator must --reset-breaker
+
+# post: is the leak gone?
+# cmd: pgrep -a -f 'STUB$'
+(none — reaped)
+breaker: halted=True latched=True
+
+  (the run above failed on [git] because MY setup step used an invalid 'git add -q' and left
+   the scratch courier dirty — an unplanned proof of the git breaker. Kept, not edited out.
+   Re-run below, with the scratch courier committed.)
+
+# cmd: wrought-runner --config /var/lib/wrought/runner-harden/dry/conf-both.json   (re-run)
+# date: 2026-08-28T14:13:09Z
+# scratch db before: 7676c41d165dcbafc3752823f1ec2a8142621770547a8d71a50c7965200aef0d
+[2026-08-28T14:13:12Z] GATE-BOTH: REAPED pid 31428 (/bin/bash /var/lib/wrought/runner-harden/dry/qemu-system-x86_64-STUB): terminated by SIGTERM
+[2026-08-28T14:13:12Z] HALT [gate-residue]: GATE-BOTH LEFT RESIDUE and was reaped — new qemu pids ['31428']; new domains []; new listeners []. Terminated: ['pid 31428 (/bin/bash /var/lib/wrought/runner-harden/dry/qemu-system-x86_64-STUB): terminated by SIGTERM'] | the gate had ALSO already halted: [byte-freeze] GATE-BOTH: BYTE-FREEZE TRIPWIRE — /var/lib/wrought/runner-harden/dry/db/orchestrator.db: 7676c41d165dcbafc3752823f1ec2a8142621770547a8d71a50c7965200aef0d -> 95652d353caab2edf83d24c9bd4549dc5cfc6c5e1cb2556a47b789d0119221d8
+wrought-runner: 0 gate(s); STOPPED [gate-residue] GATE-BOTH LEFT RESIDUE and was reaped — new qemu pids ['31428']; new domains []; new listeners []. Terminated: ['pid 31428 (/bin/bash /var/lib/wrought/runner-harden/dry/qemu-system-x86_64-STUB): terminated by SIGTERM'] | the gate had ALSO already halted: [byte-freeze] GATE-BOTH: BYTE-FREEZE TRIPWIRE — /var/lib/wrought/runner-harden/dry/db/orchestrator.db: 7676c41d165dcbafc3752823f1ec2a8142621770547a8d71a50c7965200aef0d -> 95652d353caab2edf83d24c9bd4549dc5cfc6c5e1cb2556a47b789d0119221d8  — BREAKER LATCHED, operator must --reset-breaker
+
+# post: is the leak gone?
+# cmd: pgrep -a -f 'STUB$'
+(none — reaped)
+# cmd: systemctl --user is-active harden-leak-both.service
+inactive
+breaker: halted=True latched=True

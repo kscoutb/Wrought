@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-28T14:08:20Z
+updated:  2026-08-28T14:19:42Z
 gate:     GATE-RUNNER-HARDEN
-state:    RUNNING P4
-last:     BLOCKER 1 CLOSED and BLOCKER 2 CLOSED, both measured. P2: the prompt's premise was wrong — discovery is NOT keyed on ~/.claude/daemon/roster.json (that file stayed {} and stale through all six probes). There are TWO surfaces with DIFFERENT keys: the peer LISTING is keyed on $HOME, the addressable SOCKET on $XDG_RUNTIME_DIR/cc-socks/<pid>.sock. Both now fenced per gate. Minimal HOME is THREE files; probe D2 authenticated, ran 7 turns with 0 denials and PUSHED to origin/main from inside the isolated shape. P3: the sweep detected+reaped a leaked guest-shaped process AND a listener on 8081 and HALTED LATCHED; a scope descendant died with the scope at RuntimeMaxSec, sweep clean. Also found: the CLI SELF-UPDATED 2.1.238 -> 2.1.250 today at 12:56Z, under the pin.
-next:     Phase 4 — rails additions (APPROVED status, ALLOWED-TOOLS header, scope-parenting rule) + courier mirrors; then Phase 5 dry-run regression, audit, bundle.
+state:    BUNDLED
+last:     Both unattended-run blockers CLOSED and measured; config ratified (6 keys added, 0 values changed); rails §12-14 added and mirrored; 9/9 dry-run regressions pass incl. a real claude gate end-to-end. Bundle verifies 27/27, byte freeze HELD, both trees clean, foundry commit df5ade0. Blocker 1 was NOT closed by the prompt's stated mechanism — roster.json is not the discovery key; there are TWO surfaces ($HOME for the listing, $XDG_RUNTIME_DIR for the socket) and both are now fenced.
+next:     Advisor adjudication. TWO RULINGS NEEDED BEFORE THE SUPERVISED BATCH: (1) the claude CLI self-updated 2.1.238 -> 2.1.250 at 12:56:04Z today, under its own load-bearing pin — re-pin? set DISABLE_AUTOUPDATER? re-run GATE-RUNNER's Phase-1 matrix? (2) drop DBUS_SESSION_BUS_ADDRESS from the child env allowlist? Then: supervised GATE-J0B (Phases 5-7 + seed rebuild), then ST-1.
 usage:    n/a

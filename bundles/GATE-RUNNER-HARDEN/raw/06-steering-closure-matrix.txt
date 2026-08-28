@@ -1,0 +1,106 @@
+# cmd: six probe children, each launched in the RUNNER'S EXACT SHAPE
+#   (systemd-run --user --scope, MemoryMax=8G, MemorySwapMax=0, RuntimeMaxSec=300,
+#    --setting-sources '' --settings /etc/wrought/runner-hooks.json --permission-mode dontAsk
+#    --output-format json, env built from the runner's allowlist),
+#   varying ONLY $HOME and $XDG_RUNTIME_DIR. Harnesses, verbatim and committed:
+#     probe/probeA.sh   probe/ehome.sh   probe/realhome.sh
+#   Observed from THIS supervising session (a normal session on the real HOME) with ListAgents,
+#   and mechanically by a 2 s poll of both candidate socket directories + roster.json.
+# date: 2026-08-28T13:45Z - 13:59Z
+# CLI: 2.1.250  (NOT the pinned 2.1.238 - see raw/02; the CLI self-updated at 12:56Z today)
+
+=== THE 2x2, MEASURED ===
+
+  PROBE  HOME      XDG_RUNTIME_DIR  child socket landed in            LISTED by a peer session?
+  A      real      real             /run/user/1000/cc-socks/14473.sock   YES  "foundry-50 [fffb9a]"
+  F2     real      real             /run/user/1000/cc-socks/21355.sock   YES  "foundry-e7 [c95b24]"
+  E3     PRIVATE   real             /run/user/1000/cc-socks/18575.sock   NO
+  D2     PRIVATE   PRIVATE          $EPHEMERAL_HOME/xdg-runtime/cc-socks/15576.sock   NO
+
+  Liveness overlap is established for every row, not assumed: the poll files record the child's
+  socket present at the wall-clock second the ListAgents call was issued.
+    A   socket present 13:46:15-13:46:27 ; ListAgents 13:46:15  -> LISTED
+    F2  socket present 13:58:36-        ; ListAgents 13:58:41  -> LISTED
+    E3  socket present 13:55:35-13:55:46 ; ListAgents 13:55:45  -> NOT LISTED
+    D2  socket present 13:49:43-13:50:02 ; ListAgents 13:49:48  -> NOT LISTED
+
+=== WHAT THIS ESTABLISHES, AND WHERE IT CORRECTS THE PROMPT AND raw/16 ===
+
+1. THERE ARE TWO INDEPENDENT SURFACES, NOT ONE, AND THEY HAVE DIFFERENT KEYS.
+   - The PEER LISTING is keyed on $HOME. E3 vs F2 isolates it: identical in every respect
+     except HOME, and only the real-HOME child is listed.
+   - The ADDRESSABLE SOCKET is keyed on $XDG_RUNTIME_DIR. D2 vs E3 isolates it: identical
+     except the runtime dir, and only the private-runtime-dir child's socket leaves the
+     shared /run/user/1000/cc-socks.
+   CLOSING ONE DOES NOT CLOSE THE OTHER. A private HOME alone (E3) removes the child from the
+   listing while LEAVING ITS SOCKET IN THE SHARED DIRECTORY, where it is still addressable by
+   path. NOT LISTED IS NOT THE SAME CLAIM AS NOT ADDRESSABLE.
+
+2. THE PROMPT'S STATED MECHANISM IS WRONG, THOUGH ITS PRESCRIPTION IS HALF RIGHT.
+   The prompt says "raw/16 established discovery is keyed under $HOME
+   (~/.claude/daemon/roster.json)". The $HOME half is CONFIRMED for the listing. The
+   roster.json half is REFUTED: that file read {"workers": {}} with updatedAt 2026-08-20
+   throughout ALL SIX probes, including the two in which the child WAS listed. It is a stale,
+   empty registry for a different mechanism and it carries no gate child.
+
+3. raw/16's TWO REASONS FOR NOT USING A PRIVATE HOME ARE BOTH FALSE ON THIS BUILD.
+   - raw/16: "a private HOME is not available to the runner because the Claude Code credentials
+     live there." MEASURED FALSE. The minimal HOME for authentication is EXACTLY ONE FILE,
+     ~/.claude/.credentials.json, copied in. Level 0 (empty HOME) -> is_error=true,
+     terminal_reason=api_error, result "Not logged in - Please run /login". Level 1
+     (+ .credentials.json) -> terminal_reason=completed. ~/.claude.json is NOT required; the
+     CLI writes a fresh one into the ephemeral HOME.
+   - raw/16 probe 3: "the private directory was left completely empty - no socket was created
+     in it - and the child was still listed. Discovery is therefore not keyed on
+     XDG_RUNTIME_DIR." On 2.1.250 the private runtime dir DOES receive a cc-socks/ directory
+     and the child's socket IS created there (D2). Probe 3's child was still listed because it
+     kept the REAL HOME, which is the listing key - not because the runtime dir did nothing.
+
+4. A PRIVATE XDG_RUNTIME_DIR MUST BE APPLIED TO THE CLAUDE PROCESS ONLY, INSIDE THE SCOPE.
+   Setting it for the whole invocation breaks the launcher, measured (probe C1):
+     stderr: "Failed to connect to user scope bus via local transport: No such file or directory"
+     stdout: 0 bytes, no result JSON
+   `systemd-run --user` needs the REAL runtime dir to reach the user bus. The working form puts
+   the override between the scope and the binary:
+     systemd-run --user --scope ... /usr/bin/env XDG_RUNTIME_DIR=<private> <claude> -p ...
+
+5. AUTH AND THE COURIER PUSH BOTH SURVIVE THE FULLY ISOLATED SHAPE. Probe D2, under a private
+   HOME and a private runtime dir, ran 7 turns with ZERO permission denials, wrote a file into
+   the courier bundle, committed it, and PUSHED IT TO origin/main. Verified from this session,
+   not from the child's self-report:
+     git branch -r --contains bfe3328  ->  origin/main
+     git rev-list --count origin/main..HEAD  ->  0
+   The pushed artifact is bundles/GATE-RUNNER-HARDEN/raw/05-probeD-child-push-proof.txt, and it
+   carries the child's OWN view of both socket directories, which agrees with the poll.
+
+=== THE MINIMAL EPHEMERAL HOME, MEASURED BY INCREMENTAL SEEDING ===
+
+  level 0  (empty)                              -> NOT logged in, api_error
+  level 1  + .claude/.credentials.json          -> AUTHENTICATES, tools run          [auth minimum]
+  level 2  + .claude.json                       -> not required for auth; CLI writes its own
+  level 3  + .gitconfig + .git-credentials      -> the gate's OWN courier push works [push minimum]
+
+  So the shipped set is THREE files, not four: .claude/.credentials.json (auth),
+  .gitconfig and .git-credentials (the gate's own push). .claude.json is deliberately NOT
+  seeded - letting the CLI create a fresh one per gate is the point of the fence.
+
+=== CREDENTIAL HANDLING, AND THE ROTATION HAZARD ===
+
+  The ephemeral HOME holds two live secrets in copies: the OAuth credential and the git token.
+  Rooted under state_dir, mode 0700, torn down with the gate. This bundle carries LISTINGS ONLY,
+  never contents.
+  Rotation hazard, checked: across all eight probe children the real
+  ~/.claude/.credentials.json was UNCHANGED (mtime 2026-08-28 08:55, i.e. before this session)
+  and every ephemeral copy still hashed identical to it (b6f92306439bea9a...). So no child
+  refreshed a token in its copy during these runs. [UNTESTED] whether a LONG-RUNNING child
+  would; if one did, the refresh would land in the ephemeral copy and be discarded at teardown,
+  leaving the real credential stale-but-valid. Recorded, not closed.
+
+=== RESIDUAL, STATED PLAINLY ===
+
+  The isolation is ONE-DIRECTIONAL. A gate child cannot be found or addressed by the operator's
+  sessions. The reverse is not closed: the child's own filesystem view still includes
+  /run/user/1000/cc-socks, so a child that chose to could see the operator's session sockets.
+  Probe D2's step-1 output shows exactly this - it listed 13774.sock, this session. Whether it
+  could USE that is untested and out of this gate's scope; it is recorded because "isolated"
+  without a direction is the kind of claim this project keeps having to retract.

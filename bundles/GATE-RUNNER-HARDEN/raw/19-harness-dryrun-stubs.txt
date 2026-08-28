@@ -1,0 +1,66 @@
+# The Phase-3 dry-run harness: the three stubs and the scratch configs, verbatim.
+# date: 2026-08-28T14:14:33Z
+
+===== claude-stub =====
+#!/bin/bash
+# Stub gate child. Emits a well-formed result envelope claiming success — deliberately, because
+# the point is that the runner must not believe the child's own account of itself.
+#
+# It leaks two things in the shape that ESCAPES the gate's systemd scope: each is a transient
+# systemd --user unit, which re-parents to systemd exactly as a libvirt domain re-parents to
+# libvirtd's machine.slice. A leak the scope already kills would prove nothing about the sweep.
+#
+# NOTE, and this is itself a measured finding: under the new private XDG_RUNTIME_DIR the child
+# CANNOT reach the user bus by the normal path, so the leak has to reach around the fence by
+# naming the real runtime dir explicitly. It can, because DBUS_SESSION_BUS_ADDRESS is still in
+# the runner's env allowlist. That is why this is a sweep test and not a containment claim.
+D=/var/lib/wrought/runner-harden/dry
+XDG_RUNTIME_DIR=/run/user/1000 systemd-run --user --collect --quiet \
+    --unit=harden-leak-guest.service "$D/qemu-system-x86_64-STUB" 2>>"$D/stub.err"
+XDG_RUNTIME_DIR=/run/user/1000 systemd-run --user --collect --quiet \
+    --unit=harden-leak-proxy.service /usr/bin/python3 -m http.server 8081 --bind 127.0.0.1 2>>"$D/stub.err"
+sleep 3
+cat <<'JSON'
+{"is_error":false,"subtype":"success","terminal_reason":"completed","num_turns":1,
+ "total_cost_usd":0.0,"permission_denials":[],"result":"STUB-GATE-DONE — I cleaned up nothing."}
+JSON
+exit 0
+
+===== claude-stub-scope =====
+#!/bin/bash
+# Stub gate child for the SCOPE-PARENTING proof. It spawns a guest-shaped process as a PLAIN
+# BACKGROUND CHILD — a descendant of the gate's systemd scope, NOT a transient unit — and then
+# hangs past RuntimeMaxSec so the kernel scope timeout is what ends the gate.
+# Expected: systemd kills the scope's whole cgroup, the descendant dies WITH it, and the
+# post-gate sweep finds nothing to reap. That is the layer-1 rule docs/EXECUTOR-RAILS now states.
+D=/var/lib/wrought/runner-harden/dry
+"$D/qemu-system-x86_64-STUB" &
+echo "scope-descendant pid $! launched at $(date -u +%FT%TZ)" >> "$D/scope-stub.log"
+sleep 600
+
+===== claude-stub-noop =====
+#!/bin/bash
+sleep 1
+echo '{"is_error":false,"subtype":"success","terminal_reason":"completed","num_turns":1,"total_cost_usd":0.0,"permission_denials":[],"result":"NOOP"}'
+
+===== claude-stub-dirty =====
+#!/bin/bash
+printf 'dirtied-by-stub %s\n' "$(date -u +%FT%TZ)" >> /var/lib/wrought/runner-harden/dry/db/orchestrator.db
+sleep 1
+echo '{"is_error":false,"subtype":"success","terminal_reason":"completed","num_turns":1,"total_cost_usd":0.0,"permission_denials":[],"result":"I quietly changed the frozen store."}'
+
+===== claude-stub-both =====
+#!/bin/bash
+# Leaks AND trips the byte freeze: the gate halts mid-flight *and* strands a process.
+# Neither fault may hide the other.
+D=/var/lib/wrought/runner-harden/dry
+XDG_RUNTIME_DIR=/run/user/1000 systemd-run --user --collect --quiet \
+    --unit=harden-leak-both.service "$D/qemu-system-x86_64-STUB" 2>/dev/null
+printf 'dirtied-by-both-stub %s\n' "$(date -u +%FT%TZ)" >> "$D/db/orchestrator.db"
+sleep 2
+echo '{"is_error":false,"subtype":"success","terminal_reason":"completed","num_turns":1,"total_cost_usd":0.0,"permission_denials":[],"result":"BOTH"}'
+
+===== qemu-system-x86_64-STUB =====
+#!/bin/bash
+# Stands in for a disposable guest. Sleeps; holds nothing; exists only to be reaped.
+sleep 900

@@ -1,0 +1,20 @@
+# cmd: python3 semantic leaf-diff of the two configs
+# date: 2026-08-28T14:14:20Z
+# THE CLAIM UNDER TEST: Phase 4 annotated the config and added two sections, and CHANGED NO
+#   RATIFIED VALUE. This is that claim, checked mechanically rather than asserted.
+
+CHANGED values: NONE
+REMOVED keys:   NONE
+ADDED keys:
+   + ephemeral_home.enabled = True
+   + ephemeral_home.root = '/var/lib/wrought/runner-state/ephemeral-homes'
+   + ephemeral_home.seed = ['.claude/.credentials.json', '.gitconfig', '.git-credentials']
+   + reaper.enabled = True
+   + reaper.qemu_pattern = 'qemu-system'
+   + reaper.terminate_grace_sec = 5
+
+RATIFIED values, re-read from the installed file:
+   permission_mode          = dontAsk
+   limits.memory_swap_max   = 0
+   course_check.enabled     = False
+   breakers.missing_allowed_tools = halt

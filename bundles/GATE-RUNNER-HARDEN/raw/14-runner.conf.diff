@@ -1,0 +1,109 @@
+# cmd: diff -u raw/08-runner.conf.BEFORE.json /etc/wrought/runner.conf
+# date: 2026-08-28T14:14:20Z
+# NOTE: the SEMANTIC diff (every non-underscore leaf) is the one that matters and is in the
+#   report: SIX keys ADDED (ephemeral_home.*, reaper.*), ZERO values changed.
+
+--- /var/lib/wrought/runner-harden/raw/08-runner.conf.BEFORE.json	2026-08-28 10:03:09.545019756 -0400
++++ /etc/wrought/runner.conf	2026-08-28 10:03:17.146041566 -0400
+@@ -1,11 +1,15 @@
+ {
+   "_README": [
+-    "wrought-runner configuration. Written by GATE-RUNNER, 2026-08-21.",
+-    "EVERY NUMBER BELOW IS PROPOSED-UNRATIFIED. CLAUDE.md's first hard rule forbids inventing",
+-    "thresholds; these are candidates listed in build-evidence/runner/PROPOSED-PINS-DELTA.md for",
+-    "operator ratification. Once ratified they belong in pins.lock and this file references them.",
+-    "Strictly JSON-parsed by the runner and never sourced: a config that does not parse is a",
+-    "refusal to start, not a silent fallback to defaults (see raw/07 c4 for why that matters)."
++    "wrought-runner configuration. Written by GATE-RUNNER 2026-08-21; ratified and extended by",
++    "GATE-RUNNER-HARDEN 2026-08-28.",
++    "EVERY SETTING IS NOW MARKED. Read the _ratified_* / _provisional_* keys beside each block:",
++    "  RATIFIED   = the operator ruled on it at the 2026-08-28 ferry. DO NOT CHANGE IT.",
++    "  PROVISIONAL= a candidate number that the FIRST SUPERVISED BATCH is meant to set. It is",
++    "               here because the runner cannot start without a value, not because anyone",
++    "               measured it. CLAUDE.md's first hard rule forbids inventing thresholds, so an",
++    "               unmeasured number must say so in the file that carries it.",
++    "Strictly JSON-parsed and never sourced: a config that does not parse is a refusal to start,",
++    "not a silent fallback to defaults (GATE-RUNNER raw/07 c4 for why that matters)."
+   ],
+   "schema_version": 1,
+   "courier_dir": "/home/kalib/courier/Wrought",
+@@ -22,14 +26,27 @@
+   ],
+   "_memory_dir_note": "Per-project auto-memory for gate_cwd. raw/05 measured this as a live",
+   "_memory_dir_note2": "cross-invocation channel; the runner snapshots and restores it per gate.",
++  "_memory_dir_note3": "GATE-RUNNER-HARDEN: the ephemeral HOME now closes this channel BY",
++  "_memory_dir_note4": "CONSTRUCTION (the child's memory dir is inside its private HOME). This",
++  "_memory_dir_note5": "fence is kept as the second layer, not removed \u2014 it is what catches the",
++  "_memory_dir_note6": "case where ephemeral_home.enabled is turned off.",
+   "memory_dir": "/home/kalib/.claude/projects/-home-kalib-foundry/memory",
+   "claude_bin": "/home/kalib/.local/bin/claude",
+   "hook_settings": "/etc/wrought/runner-hooks.json",
+   "_permission_mode_note": "raw/06: acceptEdits and auto SILENTLY RAN an un-allowlisted Bash call.",
+   "_permission_mode_note2": "dontAsk and manual are the only measured default-deny-with-allowlist",
+-  "_permission_mode_note3": "modes on claude 2.1.238. The runner refuses to start on any other.",
++  "_permission_mode_note3": "modes. The runner refuses to start on any other.",
++  "_ratified_permission_mode": "RATIFIED 2026-08-28 (advisor Fable + operator). DO NOT CHANGE.",
+   "permission_mode": "dontAsk",
+   "limits": {
++    "_provisional": "PROVISIONAL \u2014 every number in this block is a candidate to be SET BY THE FIRST SUPERVISED BATCH, except memory_swap_max which is RATIFIED.",
++    "_provisional_keys": [
++      "memory_max",
++      "runtime_max_sec",
++      "max_output_tokens",
++      "bash_default_timeout_ms",
++      "max_budget_usd_per_gate"
++    ],
+     "memory_max": "8G",
+     "runtime_max_sec": 5400,
+     "max_output_tokens": 32000,
+@@ -41,22 +58,49 @@
+     "max_budget_usd_per_gate": 8.0,
+     "_memory_swap_note": "raw/11: MemoryMax alone does NOT cap memory here \u2014 the overrun goes to swap.",
+     "_memory_swap_note2": "MemorySwapMax=0 is what makes the cap a kill (rc=137). Do not remove it.",
++    "_ratified_memory_swap_max": "RATIFIED 2026-08-28. DO NOT REMOVE \u2014 without it the cap is not a cap.",
+     "memory_swap_max": "0"
+   },
+   "pacing": {
++    "_provisional": "PROVISIONAL \u2014 inter_gate_sleep_sec is set by the first supervised batch.",
+     "inter_gate_sleep_sec": 300,
+     "api_retry_max": 4,
+     "api_backoff_base_sec": 60,
+     "api_backoff_cap_sec": 1800
+   },
+   "breakers": {
++    "_provisional": "PROVISIONAL \u2014 every max_* below is a scale number the first supervised batch sets.",
++    "_ratified_latch_semantics": "RATIFIED 2026-08-28: only REAL FAULTS latch. The gate cap and the wall-clock budget stop the run WITHOUT latching (wrought-runner NON_LATCHING), because a batch that merely reached its own cap must not poison the next morning's manual start. gate-residue DOES latch \u2014 a gate that leaks a process is a defect, treated loud.",
+     "max_consecutive_failures": 2,
+     "max_gates_per_run": 6,
+     "max_wall_clock_sec": 72000,
+     "deadman_no_progress_sec": 3600,
+-    "missing_allowed_tools": "halt"
++    "missing_allowed_tools": "halt",
++    "_ratified_missing_allowed_tools": "RATIFIED 2026-08-28: the ALLOWED-TOOLS: prompt header is MANDATORY. A gate that does not declare its own tool surface is not given a default one."
++  },
++  "ephemeral_home": {
++    "_note": "BLOCKER 1, the cross-session steering breaker, closed by GATE-RUNNER-HARDEN and measured in build-evidence/runner-harden/raw/06.",
++    "_note2": "TWO surfaces with DIFFERENT keys: the peer LISTING is keyed on $HOME, the ADDRESSABLE SOCKET on $XDG_RUNTIME_DIR/cc-socks/<pid>.sock. Closing one does not close the other, so the runner gives each gate BOTH a private HOME and a private runtime dir. Turning this off puts gate children back on the shared socket.",
++    "_note3": "seed is the MEASURED minimum: .credentials.json is auth (without it the child reports 'Not logged in'), the two git files are the gate's OWN courier push. `.claude.json` is deliberately absent \u2014 the CLI writes a fresh one per gate.",
++    "_ratified": "RATIFIED 2026-08-28 as a structure; enabled=true is the safe default.",
++    "enabled": true,
++    "root": "/var/lib/wrought/runner-state/ephemeral-homes",
++    "seed": [
++      ".claude/.credentials.json",
++      ".gitconfig",
++      ".git-credentials"
++    ]
++  },
++  "reaper": {
++    "_note": "BLOCKER 2, the post-gate orphan sweep. GATE-J0B-SURFACE left a guest running for SEVEN DAYS with the inference API key held in a proxy's memory, because a dead gate reaps nothing. The sweep diffs {qemu processes, libvirt domains, listening sockets} across the gate and treats any NEW survivor as a latching fault.",
++    "_note2": "The domain probe runs ONLY if libvirtd is already active \u2014 `virsh list` would otherwise socket-activate it, and a sweep that starts a daemon every gate is the side effect the sweep exists to prevent. Nothing is lost: a libvirt domain always has a qemu-system process, which the PID scan sees regardless of its parent.",
++    "_provisional_terminate_grace_sec": "PROVISIONAL \u2014 the SIGTERM-to-SIGKILL grace, unmeasured.",
++    "enabled": true,
++    "qemu_pattern": "qemu-system",
++    "terminate_grace_sec": 5
+   },
+   "course_check": {
++    "_ratified": "RATIFIED 2026-08-28: enabled STAYS false. The operator HELD the credential decision \u2014 pointing the sealed docs/05 \u00a713 escalation credential at a new purpose is not approved, and the enabled path would also need passwordless sudo. DO NOT ENABLE without a fresh operator ruling.",
+     "_note": "OFF BY DEFAULT. Using the sealed escalation credential for a course-check is NEW",
+     "_note2": "and needs operator ratification before this may be turned on. The enabled path",
+     "_note3": "also requires passwordless sudo for systemd-run LoadCredentialEncrypted.",
