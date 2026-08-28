@@ -135,13 +135,21 @@ Every long-hex hit is a sha256 digest of a file; every `api_key`/`secret`/`token
 variable name, never a value. The proxy source reads its key from **stdin** into a variable and
 redacts it from its own logs.
 
+> **Correction, same session — the scans that produced these results were themselves defective.**
+> They did `KEY=$(sudo cat …)` then `grep -rlF "$KEY"`, which expands the secret into grep's
+> **argv** — precisely what rails §5 forbids. The **results above stand and were re-confirmed by
+> the correct method** (`sudo cat <cred> | grep -rlFf -`, patterns from stdin): still **0** and
+> **0**. Exposure was runtime-only and no secret reached any artifact — the shipped `raw/12` holds
+> the *unexpanded* `"$KEY"` text. Recorded by **addition** in `raw/20`, never by overwriting
+> `raw/12`. See audit item 9.
+
 ---
 
 ## Audit counts
 
 | Metric | Count |
 |---|---|
-| Raw captures produced | **22** (`raw/00`–`raw/19`, `raw/99`, `raw/99b`) |
+| Raw captures produced | **23** (`raw/00`–`raw/20`, `raw/99`, `raw/99b`) |
 | Prompt premises checked | 3 |
 | Prompt premises that failed against the box | **3** — all reported, none executed |
 | Destructive commands the prompt specified | 5 (`pkill`, `apt purge`, 2×`rm -f`, `rm -rf`) |
@@ -184,5 +192,12 @@ Run before shipping, per rails §6. Its job is to find what a reviewer would cha
 7. **The `RESET` status is new and unratified.** This session defined it in the QUEUE status table
    because the prompt dictated the row content and no existing status fit. **It needs the advisor's
    blessing** like `APPROVED` does.
-8. **Nothing was measured about the model.** No token was generated. **Escalation rate — P1, the
+8. **This gate's own secret scans violated rails §5.** They passed the key in `argv`
+   (`grep -rlF "$KEY"`) rather than on stdin. The **findings are unaffected** — re-run correctly
+   via `grep -rlFf -`, the answer is still 0 files in the bundle and 0 in either tree — and no
+   secret reached any artifact. But the report's "Secret discipline" section presented these scans
+   as clean practice, and they were not. **Found by the advisor, not by this audit's first pass** —
+   which is itself the finding: the audit checked what the scans *concluded* and never checked how
+   they *ran*. Corrected by addition in `raw/20`.
+9. **Nothing was measured about the model.** No token was generated. **Escalation rate — P1, the
    governing metric — is not measured here**, as in every Phase-J session so far.

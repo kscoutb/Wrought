@@ -11,6 +11,7 @@ One row per gate, newest at the bottom. See `README.md` for the loop.
 | `BUNDLED` | Box has pushed `bundles/<GATE-NAME>/` and the gate is awaiting review. | box |
 | `ADJUDICATED` | Advisor has reviewed the bundle; the gate is closed and the next one queued. | advisor |
 | `RESET` | Gate started but produced no bundle. Partial evidence preserved, residue cleaned; it must be **re-dispatched fresh**. A terminal status — never left `RUNNING`. | box |
+| `FOLDED INTO <gate>` | Gate never ran as its own session; its items were completed inside another gate, which names it. Terminal. | box |
 
 **Dispatch**
 
