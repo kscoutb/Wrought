@@ -1,0 +1,4 @@
+# raw/99b — mechanical diff of the byte-freeze captures
+# command: diff <(grep -v '^# taken' 00-byte-freeze-baseline.txt) <(grep -v '^# taken' 99-byte-freeze-reassert.txt)
+EMPTY DIFF — BYTE FREEZE HELD. Hashes, sizes and mtimes all identical.
+VERDICT: this session wrote nothing under /var/lib/wrought/state/.

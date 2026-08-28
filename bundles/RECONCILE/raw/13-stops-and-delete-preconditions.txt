@@ -1,0 +1,37 @@
+# raw/13 — Phase 2.3 enumerated stops and deletes
+# taken: 2026-08-28T13:06:08Z
+
+### STOP 1 — kill the authproxy.  EVIDENCE-BACKED NO-OP.
+## command: for p in $(cat authproxy.pid authproxy2.pid); do ps -p $p; done
+  authproxy.pid: pid 298991 NOT RUNNING (no process) — nothing to kill
+  authproxy2.pid: pid 300319 NOT RUNNING (no process) — nothing to kill
+  qemu-p3c.pid: pid 300360 NOT RUNNING (no process) — nothing to kill
+## RESULT: all three PIDs dead. The box rebooted 2026-08-28 08:50 (raw/09), which reaped them.
+## No kill issued: there was no process to kill. (rails §3 — report, do not act on an absent target)
+
+### STOP 2 — virsh destroy + undefine any j0b guest.  EVIDENCE-BACKED NO-OP.
+## command: sudo virsh list --all
+ Id   Name   State
+--------------------
+
+## RESULT: NO domains defined at all. The J0B guest was plain QEMU (raw/10 shows J0A's
+## qemu invocations; J0B used the same unprivileged pattern), never libvirt-defined.
+## No destroy and no undefine issued: there is no domain. Nothing invented.
+
+### DELETE PRECONDITIONS (J0B's own 04-deletes.txt pattern, re-applied)
+## command: sudo fuser -v <both targets>
+fuser: NO process holds either file open
+## command: identity of both targets, recorded BEFORE deletion
+dabad79affe9f9d8fa8bcaa06505e76493049d567bb4094743bc1b7e6937191e  /var/lib/wrought/j0b/j0b-overlay.qcow2
+700f639818c00788fa9fb3c411f9c234d11f55a05307630dbd086c5470f848e4  /var/lib/wrought/j0b/seed.img
+-rw-r--r-- 1 kalib kalib 1160052736 2026-08-27 19:58:09.659443053 -0400 /var/lib/wrought/j0b/j0b-overlay.qcow2
+-rw-rw-r-- 1 kalib kalib     374784 2026-08-10 22:14:10.279862652 -0400 /var/lib/wrought/j0b/seed.img
+## command: qemu-img info (overlay) — confirm it is a scratch overlay on the KEPT base
+virtual size: 20 GiB (21474836480 bytes)
+disk size: 1.08 GiB
+backing file: /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+backing file format: qcow2
+    disk size: 1.08 GiB
+## SEED REBUILD PATH VERIFIED BEFORE DELETING THE LAST COPY (raw/08):
+##   cloud-localds present: /usr/bin/cloud-localds  pkg: 0.33-1build1
+##   source survives: /var/lib/wrought/j0a/user-data  sha256=51fbe0df8e82c698321c0d0a9ad636428282b22ca3b790e218656749e221ecd5

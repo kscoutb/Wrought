@@ -1,0 +1,29 @@
+# raw/11 — guest lifetime: the evidence and its LIMIT
+# taken: 2026-08-28T13:04:13Z
+## WHY THE JOURNAL CANNOT SETTLE THIS: J0A launched qemu under sudo (journal-logged, raw/10);
+## J0B launched it as plain kalib (in group kvm since 2026-08-10), so NO journal record exists.
+## command: journalctl -b -1 --since '2026-08-20' --until '2026-08-21' --no-pager | grep -c qemu
+1
+
+## command: tail -6 /var/lib/wrought/j0b/serial-p3c.log   (did the p3c guest ever power off?)
+[^[[0;32m  OK  ^[[0m] Finished ^[[0;1;39mcloud-final.service^[[0m - Cloud-init: Final Stage.^M^M
+[^[[0;32m  OK  ^[[0m] Reached target ^[[0;1;39mcloud-init.target^[[0m - Cloud-init target.^M^M
+^M^M
+Ubuntu 24.04.4 LTS j0a-probe ttyS0^M
+^M
+j0a-probe login: ^M                                                   ^M
+## contrast — serial-p2.log DID reach poweroff (that guest was shut down cleanly):
+## command: tail -2 /var/lib/wrought/j0b/serial-p2.log
+[^[[0;32m  OK  ^[[0m] Reached target ^[[0;1;39mpoweroff.target^[[0m - System Power Off.^M^M
+[  157.882563] reboot: Power down^M
+
+## command: grep -c 'reboot: Power down' serial-p2.log serial-p3.log serial-p3b.log serial-p3c.log
+serial-p2.log:1
+serial-p3.log:1
+serial-p3b.log:1
+serial-p3c.log:0
+
+## mtimes, full precision — the p3c serial log stops at 20:21, the overlay moves again 7 days later:
+-rw-rw-r-- 1 kalib kalib        767 2026-08-20 20:23:33.977684667 -0400 /var/lib/wrought/j0b/apicalls.log
+-rw-r--r-- 1 kalib kalib 1160052736 2026-08-27 19:58:09.659443053 -0400 /var/lib/wrought/j0b/j0b-overlay.qcow2
+-rw-r----- 1 kalib kalib      63975 2026-08-20 20:21:21.066311104 -0400 /var/lib/wrought/j0b/serial-p3c.log

@@ -1,0 +1,74 @@
+# raw/07 — delete preconditions: is j0b/seed.img reproducible, and what is the overlay?
+# taken: 2026-08-28T12:59:45Z
+## Is j0b/seed.img the LAST copy on the box?
+## command: sudo find /var/lib/wrought /home/kalib -name 'seed.img' -o -name '*seed*.img' 2>/dev/null
+  /var/lib/wrought/j0b/seed.img  700f639818c00788  374784
+
+## Is the seed's GENERATOR recorded anywhere? (cloud-localds / user-data provenance)
+## command: grep -rl -E 'cloud-localds|seed\.img' /home/kalib/foundry/build-evidence/ /var/lib/wrought/j0a/ 2>/dev/null | head -20
+/home/kalib/foundry/build-evidence/j0a/ACCEPTANCE-2026-08-11.md
+/home/kalib/foundry/build-evidence/j0a/round2/raw/32-P2a-boot1.txt
+/home/kalib/foundry/build-evidence/j0a/REPORT-J0A.md
+/home/kalib/foundry/build-evidence/j0a/round2/PROPOSED-COTS-J0A.md
+/home/kalib/foundry/build-evidence/j0a/PROPOSED-COTS-J0A.md
+/home/kalib/foundry/build-evidence/j0a/round2/REPORT-J0A2.md
+/home/kalib/foundry/build-evidence/j0a/round2/raw/70-AUDIT-remeasurements.txt
+/home/kalib/foundry/build-evidence/j0a/round2/raw/62-P2b-virt-install.txt
+/home/kalib/foundry/build-evidence/j0a/raw/29-P1-NOT-ESTABLISHED.txt
+/home/kalib/foundry/build-evidence/j0a/round2/raw/31-P2a-seed-and-overlay.txt
+/home/kalib/foundry/build-evidence/j0a/round2/raw/71-bundle-preflight.txt
+/home/kalib/foundry/build-evidence/j0a/round2/raw/65-P2b-teardown.txt
+/var/lib/wrought/j0a/user-data
+/var/lib/wrought/j0a/REPORT-J0A.md
+/var/lib/wrought/j0a/PROPOSED-COTS-J0A.md
+/var/lib/wrought/j0a/round2/PROPOSED-COTS-J0A.md
+/var/lib/wrought/j0a/round2/REPORT-J0A2.md
+/var/lib/wrought/j0a/round2/raw/62-P2b-virt-install.txt
+/var/lib/wrought/j0a/round2/raw/70-AUDIT-remeasurements.txt
+/var/lib/wrought/j0a/round2/raw/31-P2a-seed-and-overlay.txt
+
+## command: grep -rh -E 'cloud-localds' /home/kalib/foundry/build-evidence/ /var/lib/wrought/j0a/ 2>/dev/null | head -10
+| `cloud-image-utils` | `0.33-1build1` | resolute / main | `cloud-localds` — builds the cloud-init seed image that injects the probe user and its ssh key. |
+$ for b in qemu-system-x86_64 qemu-img virsh virt-install kvm-ok cloud-localds libvirtd; do printf '%-18s ' "$b"; command -v $b || echo '(not on PATH)'; done
+cloud-localds      (not on PATH)
+$ (cd /var/lib/wrought/j0a/round2 && cloud-localds seed.img /var/lib/wrought/j0a/user-data && echo 'cloud-localds OK' && ls -l seed.img)
+cloud-localds OK
+| `cloud-image-utils` | `0.33-1build1` | resolute / main | `cloud-localds`. **Exercised**: built `seed.img`, which provisioned the probe user and key. |
+`virt-install`, `kvm-ok`, `cloud-localds`, `libvirtd` are all still absent from PATH; `/etc/libvirt`
+**`user-data` was written but never used.** `cloud-localds` ships in `cloud-image-utils`, which is
+$ for b in qemu-system-x86_64 qemu-img virsh virt-install kvm-ok cloud-localds libvirtd; do printf '%-18s ' "$b"; command -v $b || echo '(not on PATH)'; done
+cloud-localds      (not on PATH)
+
+## The j0a_key (to be KEPT) and the base image (to be KEPT):
+total 609832
+drwxr-xr-x  4 kalib        kalib      4096 Aug 10 22:04 .
+drwxr-xr-x 46 root         root       4096 Aug 28 08:57 ..
+-rw-rw-r--  1 kalib        kalib      5151 Aug 10 19:30 PROPOSED-COTS-J0A.md
+-rw-rw-r--  1 kalib        kalib      6582 Aug 10 19:36 PROPOSED-PINS-DELTA.md
+-rw-rw-r--  1 kalib        kalib     28595 Aug 10 19:37 REPORT-J0A.md
+-rw-rw-r--  1 kalib        kalib    123326 Aug 10 19:37 REVIEW-BUNDLE-J0A.zip
+-rw-rw-r--  1 kalib        kalib      3328 Aug 10 19:37 SHA256SUMS
+-rw-rw-r--  1 kalib        kalib       921 Aug 10 19:16 cap.sh
+-rw-rw-r--  1 kalib        kalib      7381 Aug 10 19:29 cloudimg-SHA256SUMS
+-rw-rw-r--  1 kalib        kalib       833 Aug 10 19:29 cloudimg-SHA256SUMS.gpg
+-rw-------  1 kalib        kalib       399 Aug 10 19:29 j0a_key
+-rw-r--r--  1 kalib        kalib        91 Aug 10 19:29 j0a_key.pub
+-rw-rw-r--  1 libvirt-qemu kvm   624239616 Aug 10 19:29 noble-server-cloudimg-amd64.img
+drwxr-xr-x  2 kalib        kalib      4096 Aug 10 19:35 raw
+drwxr-xr-x  3 kalib        kalib      4096 Aug 20 20:08 round2
+-rw-rw-r--  1 kalib        kalib      1353 Aug 10 19:29 user-data
+
+## The j0b overlay: mtime is 2026-08-27, a week AFTER the J0B session (2026-08-20). Size vs P2:
+## command: ls -l --time-style=full-iso /var/lib/wrought/j0b/j0b-overlay.qcow2 ; qemu-img info
+-rw-r--r-- 1 kalib kalib 1160052736 2026-08-27 19:58:09.659443053 -0400 /var/lib/wrought/j0b/j0b-overlay.qcow2
+image: /var/lib/wrought/j0b/j0b-overlay.qcow2
+file format: qcow2
+virtual size: 20 GiB (21474836480 bytes)
+disk size: 1.08 GiB
+cluster_size: 65536
+backing file: /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+backing file format: qcow2
+Format specific information:
+## recorded at P2 poweroff (raw/24): 1064239104 bytes, 2026-08-20 20:15
+## now: 1160052736 bytes, 2026-08-27 19:58:09.659443053 -0400
+## CAUSE OF THE 2026-08-27 GROWTH: UNKNOWN (no session is recorded for that date; not guessed)

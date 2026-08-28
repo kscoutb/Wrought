@@ -1,0 +1,58 @@
+# raw/02 — Phase 1 inventory, GATE-RECONCILE (prompt block 1, verbatim)
+# taken: 2026-08-28T12:57:42Z
+## command: pgrep -a -f 'authproxy|qemu-system|x11vnc|Xvfb|claude-desktop'
+10561 /bin/bash -c source /home/kalib/.claude/shell-snapshots/snapshot-bash-1787921734253-hfzber.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'W=/var/lib/wrought/reconcile/raw { echo "# raw/02 — Phase 1 inventory, GATE-RECONCILE (prompt block 1, verbatim)"   echo "# taken: $(date -u +%Y-%m-%dT%H:%M:%SZ)"   echo "## command: pgrep -a -f '"'"'authproxy|qemu-system|x11vnc|Xvfb|claude-desktop'"'"'"   pgrep -a -f '"'"'authproxy|qemu-system|x11vnc|Xvfb|claude-desktop'"'"' ; echo "--- (rc=$?)"   echo "## command: ss -lntp | grep -E '"'"':8081|:5900|:2222'"'"'"   sudo ss -lntp | grep -E '"'"':8081|:5900|:2222'"'"' ; echo "--- (rc=$?)"   echo "## command: sudo virsh list --all"   sudo virsh list --all 2>/dev/null ; echo "--- (rc=$?)"   echo "## command: ls -la /var/lib/wrought/j0b/ ; ls -la /var/lib/wrought/j0a/round2/"   sudo ls -la /var/lib/wrought/j0b/ 2>/dev/null ; sudo ls -la /var/lib/wrought/j0a/round2/ 2>/dev/null ; echo "--- (rc=$?)"   echo "## command: dpkg -l | grep -E '"'"'claude-desktop|xvfb|x11vnc|libvncserver|virtiofsd|libtk8|libxss1|^ii  tk '"'"'"   dpkg -l | grep -E '"'"'claude-desktop|xvfb|x11vnc|libvncserver|virtiofsd|libtk8|libxss1|^ii  tk '"'"' ; echo "--- (rc=$?)"   echo "## command: git -C /home/kalib/foundry status --porcelain ; git log --oneline -5"   git -C /home/kalib/foundry status --porcelain ; git -C /home/kalib/foundry log --oneline -5 } 2>&1 | tee $W/02-inventory.txt' < /dev/null && pwd -P >| /tmp/claude-49c1-cwd
+10584 /bin/bash -c source /home/kalib/.claude/shell-snapshots/snapshot-bash-1787921734253-hfzber.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'W=/var/lib/wrought/reconcile/raw { echo "# raw/02 — Phase 1 inventory, GATE-RECONCILE (prompt block 1, verbatim)"   echo "# taken: $(date -u +%Y-%m-%dT%H:%M:%SZ)"   echo "## command: pgrep -a -f '"'"'authproxy|qemu-system|x11vnc|Xvfb|claude-desktop'"'"'"   pgrep -a -f '"'"'authproxy|qemu-system|x11vnc|Xvfb|claude-desktop'"'"' ; echo "--- (rc=$?)"   echo "## command: ss -lntp | grep -E '"'"':8081|:5900|:2222'"'"'"   sudo ss -lntp | grep -E '"'"':8081|:5900|:2222'"'"' ; echo "--- (rc=$?)"   echo "## command: sudo virsh list --all"   sudo virsh list --all 2>/dev/null ; echo "--- (rc=$?)"   echo "## command: ls -la /var/lib/wrought/j0b/ ; ls -la /var/lib/wrought/j0a/round2/"   sudo ls -la /var/lib/wrought/j0b/ 2>/dev/null ; sudo ls -la /var/lib/wrought/j0a/round2/ 2>/dev/null ; echo "--- (rc=$?)"   echo "## command: dpkg -l | grep -E '"'"'claude-desktop|xvfb|x11vnc|libvncserver|virtiofsd|libtk8|libxss1|^ii  tk '"'"'"   dpkg -l | grep -E '"'"'claude-desktop|xvfb|x11vnc|libvncserver|virtiofsd|libtk8|libxss1|^ii  tk '"'"' ; echo "--- (rc=$?)"   echo "## command: git -C /home/kalib/foundry status --porcelain ; git log --oneline -5"   git -C /home/kalib/foundry status --porcelain ; git -C /home/kalib/foundry log --oneline -5 } 2>&1 | tee $W/02-inventory.txt' < /dev/null && pwd -P >| /tmp/claude-49c1-cwd
+--- (rc=0)
+## command: ss -lntp | grep -E ':8081|:5900|:2222'
+--- (rc=1)
+## command: sudo virsh list --all
+ Id   Name   State
+--------------------
+
+--- (rc=0)
+## command: ls -la /var/lib/wrought/j0b/ ; ls -la /var/lib/wrought/j0a/round2/
+total 1133548
+drwxr-xr-x  4 kalib kalib       4096 Aug 20 20:20 .
+drwxr-xr-x 46 root  root        4096 Aug 28 08:57 ..
+drwxrwxr-x  2 kalib kalib       4096 Aug 20 20:19 __pycache__
+-rw-rw-r--  1 kalib kalib        767 Aug 20 20:23 apicalls.log
+-rw-rw-r--  1 kalib kalib        273 Aug 20 20:20 authproxy.out
+-rw-rw-r--  1 kalib kalib          7 Aug 20 20:11 authproxy.pid
+-rw-rw-r--  1 kalib kalib      12825 Aug 20 20:11 authproxy.py
+-rw-rw-r--  1 kalib kalib        279 Aug 20 20:20 authproxy2.out
+-rw-rw-r--  1 kalib kalib          7 Aug 20 20:20 authproxy2.pid
+-rw-rw-r--  1 kalib kalib      11727 Aug 20 20:19 authproxy2.py
+-rw-rw-r--  1 kalib kalib        946 Aug 20 20:07 cap.sh
+-rw-r--r--  1 kalib kalib 1160052736 Aug 27 19:58 j0b-overlay.qcow2
+-rw-rw-r--  1 kalib kalib          0 Aug 20 20:17 qemu-p3b.err
+-rw-------  1 kalib kalib          7 Aug 20 20:20 qemu-p3c.pid
+drwxr-xr-x  2 kalib kalib       4096 Aug 20 20:22 raw
+-rw-rw-r--  1 kalib kalib     374784 Aug 10 22:14 seed.img
+-rw-r-----  1 kalib kalib      84309 Aug 20 20:15 serial-p2.log
+-rw-r-----  1 kalib kalib      77548 Aug 20 20:17 serial-p3.log
+-rw-rw-r--  1 kalib kalib      76389 Aug 20 20:20 serial-p3b.log
+-rw-r-----  1 kalib kalib      63975 Aug 20 20:21 serial-p3c.log
+total 452
+drwxr-xr-x 3 kalib kalib   4096 Aug 20 20:08 .
+drwxr-xr-x 4 kalib kalib   4096 Aug 10 22:04 ..
+-rw-rw-r-- 1 kalib kalib   9894 Aug 10 22:55 PROPOSED-COTS-J0A.md
+-rw-rw-r-- 1 kalib kalib   9731 Aug 10 22:55 PROPOSED-PINS-DELTA.md
+-rw-rw-r-- 1 kalib kalib  37879 Aug 10 22:56 REPORT-J0A2.md
+-rw-rw-r-- 1 kalib kalib 200373 Aug 10 22:56 REVIEW-BUNDLE-J0A2.zip
+-rw-rw-r-- 1 kalib kalib   4579 Aug 10 22:56 SHA256SUMS
+-rw-rw-r-- 1 kalib kalib   1097 Aug 10 22:05 cap.sh
+drwxr-xr-x 2 kalib kalib   4096 Aug 10 22:55 raw
+-rw-r----- 1 kalib kvm    84309 Aug 10 22:15 serial-1.log
+-rw-r----- 1 kalib kvm    84529 Aug 10 22:16 serial-2.log
+--- (rc=0)
+## command: dpkg -l | grep -E 'claude-desktop|xvfb|x11vnc|libvncserver|virtiofsd|libtk8|libxss1|^ii  tk '
+--- (rc=1)
+## command: git -C /home/kalib/foundry status --porcelain ; git log --oneline -5
+?? GATEHJ2HEARTBEATv1.0.md
+?? GATEJ0BSURFACEv1.2.md
+b935676 GATE-RUNNER correction: the probe messages were never delivered (raw/18)
+ec593be GATE-RUNNER: the day-long batch runner, built and dry-run (J-159)
+bc27359 docs: executor rails + phase-j state, journal J-157 (GATE-HJ1)
+624f1b9 pins: virtualization substrate ratified (GATE-J0A); goose selected pending J0B
+af92ff0 GATE-J0A acceptance: the round-2 manifest verifies 48/48, not 50/50

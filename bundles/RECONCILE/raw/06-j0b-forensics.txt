@@ -1,0 +1,98 @@
+# raw/06 — J0B workdir forensics
+# taken: 2026-08-28T12:58:59Z
+## command: ls -la /var/lib/wrought/j0b/raw/
+total 196
+drwxr-xr-x 2 kalib kalib  4096 Aug 20 20:22 .
+drwxr-xr-x 4 kalib kalib  4096 Aug 20 20:20 ..
+-rw-rw-r-- 1 kalib kalib  1577 Aug 20 20:07 00-baseline-orchestrator-db.txt
+-rw-rw-r-- 1 kalib kalib   323 Aug 20 20:07 00-hashes.txt
+-rw-rw-r-- 1 kalib kalib  5792 Aug 20 20:07 00a-EXECUTOR-RAILS.md
+-rw-rw-r-- 1 kalib kalib  6850 Aug 20 20:07 00b-PHASE-J-STATE.md
+-rw-rw-r-- 1 kalib kalib  3261 Aug 20 20:07 01-premise-and-transport.txt
+-rw-rw-r-- 1 kalib kalib  1287 Aug 20 20:07 02-V1-native-kvm.txt
+-rw-rw-r-- 1 kalib kalib  1726 Aug 20 20:08 03-health.txt
+-rw-rw-r-- 1 kalib kalib  5760 Aug 20 20:08 04-deletes.txt
+-rw-rw-r-- 1 kalib kalib  1462 Aug 20 20:08 05-base-image-pin.txt
+-rw-rw-r-- 1 kalib kalib  2237 Aug 20 20:11 10-P1-proxy-launch.txt
+-rw-rw-r-- 1 kalib kalib 25237 Aug 20 20:11 11-P1-proxy-proof.txt
+-rw-rw-r-- 1 kalib kalib  3936 Aug 20 20:12 20-P2-overlay-and-boot.txt
+-rw-rw-r-- 1 kalib kalib  4382 Aug 20 20:13 21-P2-goose-release.txt
+-rw-rw-r-- 1 kalib kalib  9314 Aug 20 20:14 22-P2-goose-install.txt
+-rw-rw-r-- 1 kalib kalib  6678 Aug 20 20:15 23-P2-c5-baseline.txt
+-rw-rw-r-- 1 kalib kalib  3258 Aug 20 20:15 24-P2-poweroff.txt
+-rw-rw-r-- 1 kalib kalib  2098 Aug 20 20:16 30-P3-locked-boot.txt
+-rw-rw-r-- 1 kalib kalib  2881 Aug 20 20:16 31-P3-egress-measurement.txt
+-rw-rw-r-- 1 kalib kalib  9158 Aug 20 20:19 32-P3-pinhole-diagnosis.txt
+-rw-rw-r-- 1 kalib kalib  4081 Aug 20 20:20 33-P3-retry-with-v2.txt
+-rw-rw-r-- 1 kalib kalib  2667 Aug 20 20:20 34-P3-egress-FINAL.txt
+-rw-rw-r-- 1 kalib kalib 10080 Aug 20 20:22 35-P3-egress-adversarial.txt
+-rw-rw-r-- 1 kalib kalib  6237 Aug 20 20:22 40-P4-goose-cli-surface.txt
+-rw-rw-r-- 1 kalib kalib  2181 Aug 20 20:22 41-P4-config-route-a.txt
+-rw-rw-r-- 1 kalib kalib 16654 Aug 20 20:25 42-P4-c5-exposure-map.txt
+
+## command: cat /var/lib/wrought/j0b/apicalls.log
+2026-08-21T00:11:29Z GET /props 200
+2026-08-21T00:11:29Z GET /props 200
+2026-08-21T00:11:29Z GET /props 200
+2026-08-21T00:11:29Z GET /props 200
+2026-08-21T00:11:29Z GET /props 200
+2026-08-21T00:11:29Z POST /v1/chat/completions 200
+2026-08-21T00:16:55Z GET /health 200
+2026-08-21T00:20:27Z GET /props 200
+2026-08-21T00:20:54Z GET /health 200
+2026-08-21T00:20:55Z GET /health 200
+2026-08-21T00:20:55Z GET /health 200
+2026-08-21T00:20:55Z GET /props 200
+2026-08-21T00:21:49Z GET /props 200
+2026-08-21T00:21:49Z GET /props 200
+2026-08-21T00:22:51Z GET /v1/models 200
+2026-08-21T00:22:51Z POST /v1/chat/completions 200
+2026-08-21T00:23:13Z POST /v1/chat/completions 200
+2026-08-21T00:23:23Z POST /v1/chat/completions 200
+2026-08-21T00:23:33Z POST /v1/chat/completions 200
+
+## command: cat /var/lib/wrought/j0b/authproxy.out ; cat authproxy2.out
+-- authproxy.out --
+authproxy: key read from stdin (64 bytes), held in memory only
+authproxy: listening on 127.0.0.1:8081 -> 127.0.0.1:8080  pid=298991
+Terminated                 sudo cat /run/credentials/wrought-inference.service/inference-api-key | python3 /var/lib/wrought/j0b/authproxy.py
+-- authproxy2.out --
+authproxy2: key read from stdin (64 bytes), held in memory only
+authproxy2: listening on 127.0.0.1:8081 -> 127.0.0.1:8080  pid=300319
+authproxy2: stream 1 opened from 127.0.0.1:55374
+authproxy2: stream 1 closed after 1 request(s)
+authproxy2: stream 2 opened from 127.0.0.1:54304
+
+## command: cat authproxy.pid authproxy2.pid qemu-p3c.pid  (are these PIDs alive?)
+  authproxy.pid    pid=298991   -> DEAD
+  authproxy2.pid   pid=300319   -> DEAD
+  qemu-p3c.pid     pid=300360   -> DEAD
+
+## command: cat /var/lib/wrought/j0b/cap.sh
+# GATE-J0B-SURFACE — capture helper. Sourced by each step.
+# Adapted from /var/lib/wrought/j0a/round2/cap.sh (itself from j0a/cap.sh, from j0-recon/cap.sh).
+# THE ONLY ADAPTATION: J0=/var/lib/wrought/j0b. Function bodies are byte-identical.
+# Every finding in the report is a command + its output + its exit code (J-95).
+J0=/var/lib/wrought/j0b
+
+hdr() {  # hdr <outfile> <title>
+  local out="$J0/raw/$1"; shift
+  {
+    echo "###############################################################################"
+    echo "# $*"
+    echo "# host=$(hostname)  utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)  user=$(id -un)"
+    echo "###############################################################################"
+    echo
+  } > "$out"
+}
+
+cap() {  # cap <outfile> <command string...>
+  local out="$J0/raw/$1"; shift
+  local cmd="$*"
+  echo "\$ $cmd" >> "$out"
+  eval "$cmd" >> "$out" 2>&1
+  local rc=$?
+  echo "[exit=$rc]" >> "$out"
+  echo >> "$out"
+  return 0
+}

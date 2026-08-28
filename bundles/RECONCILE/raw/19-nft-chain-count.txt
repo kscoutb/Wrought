@@ -1,0 +1,21 @@
+# raw/19 — nftables LIBVIRT chain count, done precisely (raw/18's grep counted mentions, not chains)
+# taken: 2026-08-28T13:09:12Z
+## command: sudo nft -a list ruleset | grep -E '^\s*chain ' | wc -l   (total chains)
+  total chains:    34
+## command: chains whose NAME contains LIBVIRT
+  LIBVIRT_ chains: 14
+    	chain LIBVIRT_INP {
+    	chain LIBVIRT_OUT {
+    	chain LIBVIRT_FWO {
+    	chain LIBVIRT_FWI {
+    	chain LIBVIRT_FWX {
+    	chain LIBVIRT_PRT {
+    	chain LIBVIRT_PRT {
+    	chain LIBVIRT_INP {
+    	chain LIBVIRT_OUT {
+    	chain LIBVIRT_FWO {
+    	chain LIBVIRT_FWI {
+    	chain LIBVIRT_FWX {
+    	chain LIBVIRT_PRT {
+    	chain LIBVIRT_PRT {
+## (raw/18's '28' counted every LINE mentioning LIBVIRT_, including jump targets — corrected here.)

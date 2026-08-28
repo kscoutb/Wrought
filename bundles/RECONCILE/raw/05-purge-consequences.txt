@@ -1,0 +1,38 @@
+# raw/05 — consequences of the 2026-08-20 purge; pins-vs-reality
+# taken: 2026-08-28T12:58:47Z
+## command: grep -n -E 'virtiofsd|uidmap|libsubid|x11vnc|xvfb|libtk|libxss|libvncserver|claude-desktop' /home/kalib/foundry/pins.lock
+--- (rc=1  1=none of the purged pkgs are pinned)
+
+## command: grep -n -E 'kernel|linux-image|7\.0\.0' /home/kalib/foundry/pins.lock | head -20
+474:  kernel: 7.0.0-28-generic
+492:  # A grub or kernel update that drops it silently returns the machine to a wedge-capable
+494:  kernel_cmdline_params: "amdgpu.runpm=0"
+495:  kernel_cmdline_full: "BOOT_IMAGE=/boot/vmlinuz-7.0.0-28-generic root=UUID=d05b8e41-3ced-4c77-83e0-b1fbf56589c6 ro amdgpu.runpm=0 quiet splash crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M"
+499:  # kernel_cmdline_params above, recorded so it is auditable rather than looking invented.
+521:    # only in the gate that re-measures it; for a kernel bump that gate is ST-1. Editing
+522:    # substrate.kernel here instead would mark ST-1 satisfied by typing.
+524:      - "2026-08-12 kernel: running 7.0.0-29-generic vs pinned 7.0.0-28-generic (`uname -r`, /var/lib/wrought/hj1/raw/05-drift-check.txt). ST-1 TRIGGER, UNSATISFIED. mesa unchanged at 26.0.3-1ubuntu1."
+525:      - "2026-08-11 apparmor + libapparmor1: 5.0.0~beta1-0ubuntu7 -> 5.0.2-0ubuntu1~26.04.1 (GATE-J0A round 2, SURPRISE S-1). Smoke-tested only: kernel.apparmor_restrict_unprivileged_userns = 1 and bwrap --unshare-all still builds a clean netns; the exit-code taxonomy of GATE-23/25 was NOT re-classified. ST-1 TRIGGER, UNSATISFIED."
+530:# (J-155). Provenance is recorded per the substrate.kernel_cmdline_params precedent above.
+714:  # disguise and its ordering is unstable across Mesa/kernel/BIOS updates, so serve-model
+719:  host: 127.0.0.1                                  # loopback; D17 scope fix (J-32)
+1155:  # signalled, and the kernel SIGKILLs the contents regardless of what they masked. Arm 2b runs
+
+## command: sudo apt-get check  (broken dependencies after the purge?)
+Reading package lists...
+Building dependency tree...
+Reading state information...
+
+## command: sudo apt-get -s autoremove  (what apt still considers orphaned)
+Reading package lists...
+Building dependency tree...
+Reading state information...
+Solving dependencies...
+0 upgraded, 0 newly installed, 0 to remove and 72 not upgraded.
+
+## command: dpkg -l | grep -c '^ii'   (total installed packages now)
+1868
+## command: dpkg -l | grep -E '^ii.*(qemu-system-x86|libvirt-daemon-system|bubblewrap)' | awk '{print $2, $3}'
+bubblewrap 0.11.1-1ubuntu0.1
+libvirt-daemon-system 12.0.0-1ubuntu5.3
+qemu-system-x86 1:10.2.1+ds-1ubuntu3.2

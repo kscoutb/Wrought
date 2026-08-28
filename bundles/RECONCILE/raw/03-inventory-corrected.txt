@@ -1,0 +1,40 @@
+# raw/03 — Phase 1 corrections + per-package check, GATE-RECONCILE
+# taken: 2026-08-28T12:58:09Z
+## NOTE: raw/02's pgrep matched ONLY this session's own shell (the pattern appears in the
+## command line). Re-run with a self-excluding form to get the truth.
+## command: pgrep -a -f 'authproxy|qemu-system|x11vnc|Xvfb|claude-desktop' | grep -v 'shell-snapshots'
+--- (rc=1  1=no real matches)
+## command: pgrep -a -x qemu-system-x86_64 ; pgrep -a -x Xvfb ; pgrep -a -x x11vnc
+pgrep: pattern that searches for process name longer than 15 characters will result in zero matches
+Try `pgrep -f' option to match against the complete command line.
+  qemu rc=1
+  Xvfb rc=1
+  x11vnc rc=1
+## command: ps -eo pid,user,etimes,comm --sort=-etimes | grep -Ei 'qemu|vnc|xvfb|claude' | grep -v grep
+   9662 kalib        164 claude
+--- (rc=0)
+
+## PER-PACKAGE CHECK of the Phase-4 purge list (dpkg-query -W, one by one)
+  claude-desktop   -> dpkg-query: no packages found matching claude-desktop
+  xvfb             -> dpkg-query: no packages found matching xvfb
+  x11vnc           -> dpkg-query: no packages found matching x11vnc
+  libsubid5        -> dpkg-query: no packages found matching libsubid5
+  uidmap           -> dpkg-query: no packages found matching uidmap
+  virtiofsd        -> dpkg-query: no packages found matching virtiofsd
+  libtk8.6         -> dpkg-query: no packages found matching libtk8.6
+  libvncserver1    -> dpkg-query: no packages found matching libvncserver1
+  libxss1          -> dpkg-query: no packages found matching libxss1
+  tk               -> un  
+  tk8.6            -> dpkg-query: no packages found matching tk8.6
+
+## command: ls -la /etc/apt/sources.list.d/ ; ls -la /usr/share/keyrings/ | grep -i claude
+total 20
+drwxr-xr-x 2 root root 4096 Aug 20 21:12 .
+drwxr-xr-x 9 root root 4096 Jul 29 20:59 ..
+-rw-r--r-- 1 root root  162 Jul 30 19:07 tailscale.list
+-rw-r--r-- 1 root root  398 Jul 29 20:55 ubuntu.sources
+-rw-r--r-- 1 root root 2564 Apr 22 21:22 ubuntu.sources.curtin.orig
+  (keyring grep rc=1)
+## command: ls -lad ~/.config/Claude ~/.vnc
+ls: cannot access '/home/kalib/.config/Claude': No such file or directory
+ls: cannot access '/home/kalib/.vnc': No such file or directory

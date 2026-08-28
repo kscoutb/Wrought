@@ -1,0 +1,16 @@
+# raw/08 — can the seed be rebuilt without an install? (delete precondition for j0b/seed.img)
+# taken: 2026-08-28T13:00:00Z
+## command: dpkg-query -W -f='${db:Status-Abbrev} ${Version}\n' cloud-image-utils ; command -v cloud-localds
+ii  0.33-1build1
+/usr/bin/cloud-localds
+
+## command: grep -n 'cloud-image-utils' /home/kalib/foundry/pins.lock
+(rc=1)
+
+## the seed SOURCE survives independently of the seed:
+## command: ls -l /var/lib/wrought/j0a/user-data ; sha256sum
+-rw-rw-r-- 1 kalib kalib 1353 Aug 10 19:29 /var/lib/wrought/j0a/user-data
+51fbe0df8e82c698321c0d0a9ad636428282b22ca3b790e218656749e221ecd5  /var/lib/wrought/j0a/user-data
+
+## command: sha256sum /var/lib/wrought/j0b/seed.img  (the LAST copy on the box)
+700f639818c00788fa9fb3c411f9c234d11f55a05307630dbd086c5470f848e4  /var/lib/wrought/j0b/seed.img

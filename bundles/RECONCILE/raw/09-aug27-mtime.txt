@@ -1,0 +1,31 @@
+# raw/09 — the Aug-27 overlay mtime: was a J0B guest left running for 7 days?
+# taken: 2026-08-28T13:03:19Z
+## command: last -x reboot shutdown | head -12
+/bin/bash: line 5: last: command not found
+
+## command: journalctl --list-boots | tail -8
+ -7 23b3b87dc8fb447d8efcecc8f35e1d0c Thu 2026-07-30 20:31:49 EDT Thu 2026-07-30 21:13:29 EDT
+ -6 b99ae8f0471a407e9ad95989931d219b Thu 2026-07-30 21:15:41 EDT Thu 2026-07-30 21:15:45 EDT
+ -5 03be455d2cee4f5fbf1e68fc576e5e53 Thu 2026-07-30 21:24:15 EDT Sun 2026-08-02 13:35:48 EDT
+ -4 3ace46d0341646bab28c9938f39fdbb0 Sun 2026-08-02 13:35:59 EDT Sun 2026-08-02 14:24:45 EDT
+ -3 b9ad6808ece74f84918a75355fe9c5b1 Sun 2026-08-02 14:24:57 EDT Mon 2026-08-10 21:29:38 EDT
+ -2 e032ec5ea1a14e2da60f97241606126f Mon 2026-08-10 21:29:50 EDT Mon 2026-08-10 21:32:06 EDT
+ -1 4e00bfc625ee4d7292abd3c796b5dc30 Mon 2026-08-10 21:32:18 EDT Thu 2026-08-27 19:50:11 EDT
+  0 be1467d2419c407193c130fba253a3e2 Fri 2026-08-28 08:50:37 EDT Fri 2026-08-28 09:03:19 EDT
+
+## command: journalctl -b -1 -n 15 --no-pager  (tail of the PREVIOUS boot = how it ended)
+Aug 27 19:47:13 forge-mini systemd[1]: fwupd-refresh.service: Deactivated successfully.
+Aug 27 19:47:13 forge-mini systemd[1]: Finished fwupd-refresh.service - Refresh fwupd metadata and update motd.
+Aug 27 19:50:00 forge-mini systemd[1]: Starting sysstat-collect.service - system activity accounting tool...
+Aug 27 19:50:00 forge-mini systemd[1]: sysstat-collect.service: Deactivated successfully.
+Aug 27 19:50:00 forge-mini systemd[1]: Finished sysstat-collect.service - system activity accounting tool.
+Aug 27 19:50:06 forge-mini systemd[1]: Starting wrought-secret-watch.service - Wrought: scan for sealed-credential plaintext where it must never appear (J-92, D24)...
+Aug 27 19:50:11 forge-mini wrought-secret-watch[543447]:   inference-api-key: 1 exposure(s)
+Aug 27 19:50:11 forge-mini wrought-secret-watch[543447]:   openrouter-api-key: 0 exposure(s)
+Aug 27 19:50:11 forge-mini wrought-secret-watch[543447]:   installed-drift | installed files      : 19
+Aug 27 19:50:11 forge-mini wrought-secret-watch[543447]:   installed-drift | DRIFT              : 0
+Aug 27 19:50:11 forge-mini wrought-secret-watch[543447]:   installed-drift | UNACCOUNTED        : 0   (in neither the repo nor the COTS table)
+Aug 27 19:50:11 forge-mini wrought-secret-watch[543447]:   installed-drift | known but UNPINNED : 0   (COTS we recognise, with no binary_sha256 pinned)
+Aug 27 19:50:11 forge-mini systemd[1]: wrought-secret-watch.service: Deactivated successfully.
+Aug 27 19:50:11 forge-mini systemd[1]: Finished wrought-secret-watch.service - Wrought: scan for sealed-credential plaintext where it must never appear (J-92, D24).
+Aug 27 19:50:11 forge-mini systemd[1]: wrought-secret-watch.service: Consumed 4.018s CPU time over 5.164s wall clock time, 1.5G memory peak.

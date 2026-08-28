@@ -1,0 +1,21 @@
+# raw/01 — health baseline, GATE-RECONCILE
+# taken: 2026-08-28T12:57:32Z
+## command: systemctl is-active wrought-inference.service
+active
+## command: systemctl show wrought-inference.service -p ActiveState,SubState,ExecMainStartTimestamp,NRestarts
+ActiveState=active
+SubState=running
+NRestarts=0
+ExecMainStartTimestamp=Fri 2026-08-28 08:50:48 EDT
+## command: curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8080/health
+200
+## command: cat /sys/class/drm/card*/device/power/runtime_status + runpm
+dGPU 0x744c at /sys/bus/pci/devices/0000:c7:00.0/
+  runtime_status: active
+  runtime_enabled: forbidden
+  mem_info_vram_total: 25753026560
+  mem_info_vram_used:  19619987456
+## command: cat /sys/module/amdgpu/parameters/runpm
+0
+## command: uname -r
+7.0.0-30-generic

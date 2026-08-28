@@ -1,0 +1,105 @@
+# raw/04 — apt history: did the desktop-bridge packages ever exist here?
+# taken: 2026-08-28T12:58:23Z
+## command: zgrep -h -E 'claude-desktop|xvfb|x11vnc|libvncserver|virtiofsd|libtk8|libxss1|uidmap|libsubid' /var/log/apt/history.log*
+Commandline: apt install claude-desktop
+Install: libsubid5:amd64 (1:4.17.4-2ubuntu3, automatic), claude-desktop:amd64 (1.32885.1), virtiofsd:amd64 (1.13.2-6ubuntu0.1, automatic), uidmap:amd64 (1:4.17.4-2ubuntu3, automatic)
+Commandline: apt install xvfb
+Install: xvfb:amd64 (2:21.1.22-1ubuntu1)
+Commandline: apt install x11vnc
+Install: libtk8.6:amd64 (8.6.17-1build1, automatic), libxss1:amd64 (1:1.2.3-1build4, automatic), libvncserver1:amd64 (0.9.15+dfsg-3ubuntu0.2, automatic), x11vnc:amd64 (0.9.17-2), tk:amd64 (8.6.16build1, automatic), tk8.6:amd64 (8.6.17-1build1, automatic)
+Commandline: apt purge claude-desktop xvfb x11vnc libsubid5 uidmap virtiofsd libtk8.6 libvncserver1 libxss1 tk tk8.6
+Purge: libsubid5:amd64 (1:4.17.4-2ubuntu3), libtk8.6:amd64 (8.6.17-1build1), libxss1:amd64 (1:1.2.3-1build4), claude-desktop:amd64 (1.32885.1), virtiofsd:amd64 (1.13.2-6ubuntu0.1), libvncserver1:amd64 (0.9.15+dfsg-3ubuntu0.2), xvfb:amd64 (2:21.1.22-1ubuntu1), uidmap:amd64 (1:4.17.4-2ubuntu3), x11vnc:amd64 (0.9.17-2), tk:amd64 (8.6.16build1), tk8.6:amd64 (8.6.17-1build1)
+--- (rc=0)
+
+## command: apt history entries from 2026-08-20 onward (Start-Date blocks)
+Start-Date: 2026-08-20  06:55:09
+Commandline: /usr/bin/unattended-upgrade
+Upgrade: libheif1:amd64 (1.21.2-3ubuntu0.3, 1.21.2-3ubuntu0.4), libheif-plugin-libde265:amd64 (1.21.2-3ubuntu0.3, 1.21.2-3ubuntu0.4), heif-thumbnailer:amd64 (1.21.2-3ubuntu0.3, 1.21.2-3ubuntu0.4), libheif-plugin-aomdec:amd64 (1.21.2-3ubuntu0.3, 1.21.2-3ubuntu0.4), libheif-plugin-aomenc:amd64 (1.21.2-3ubuntu0.3, 1.21.2-3ubuntu0.4), heif-gdk-pixbuf:amd64 (1.21.2-3ubuntu0.3, 1.21.2-3ubuntu0.4)
+End-Date: 2026-08-20  06:55:10
+
+Start-Date: 2026-08-20  06:55:12
+Commandline: /usr/bin/unattended-upgrade
+Upgrade: bind9-host:amd64 (1:9.20.24-1ubuntu0.1, 1:9.20.24-1ubuntu0.2), bind9-dnsutils:amd64 (1:9.20.24-1ubuntu0.1, 1:9.20.24-1ubuntu0.2), bind9-libs:amd64 (1:9.20.24-1ubuntu0.1, 1:9.20.24-1ubuntu0.2)
+End-Date: 2026-08-20  06:55:13
+
+Start-Date: 2026-08-20  06:55:15
+Commandline: /usr/bin/unattended-upgrade
+Upgrade: libvirt-common:amd64 (12.0.0-1ubuntu5.2, 12.0.0-1ubuntu5.3), libvirt-daemon-config-nwfilter:amd64 (12.0.0-1ubuntu5.2, 12.0.0-1ubuntu5.3), libvirt-daemon:amd64 (12.0.0-1ubuntu5.2, 12.0.0-1ubuntu5.3), libvirt-daemon-driver-nodedev:amd64 (12.0.0-1ubuntu5.2, 12.0.0-1ubuntu5.3), libvirt0:amd64 (12.0.0-1ubuntu5.2, 12.0.0-1ubuntu5.3), libvirt-daemon-driver-storage:amd64 (12.0.0-1ubuntu5.2, 12.0.0-1ubuntu5.3), libvirt-daemon-driver-nwfilter:amd64 (12.0.0-1ubuntu5.2, 12.0.0-1ubuntu5.3), libvirt-daemon-driver-qemu:amd64 (12.0.0-1ubuntu5.2, 12.0.0-1ubuntu5.3), libvirt-clients:amd64 (12.0.0-1ubuntu5.2, 12.0.0-1ubuntu5.3), libvirt-daemon-common:amd64 (12.0.0-1ubuntu5.2, 12.0.0-1ubuntu5.3), libvirt-daemon-log:amd64 (12.0.0-1ubuntu5.2, 12.0.0-1ubuntu5.3), libvirt-daemon-driver-secret:amd64 (12.0.0-1ubuntu5.2, 12.0.0-1ubuntu5.3), libvirt-daemon-config-network:amd64 (12.0.0-1ubuntu5.2, 12.0.0-1ubuntu5.3), libvirt-daemon-driver-network:amd64 (12.0.0-1ubuntu5.2, 12.0.0-1ubuntu5.3), libvirt-daemon-system:amd64 (12.0.0-1ubuntu5.2, 12.0.0-1ubuntu5.3)
+End-Date: 2026-08-20  06:55:21
+
+Start-Date: 2026-08-20  06:55:23
+Commandline: /usr/bin/unattended-upgrade
+Upgrade: libcurl3t64-gnutls:amd64 (8.18.0-1ubuntu2.3, 8.18.0-1ubuntu2.4), libcurl4t64:amd64 (8.18.0-1ubuntu2.3, 8.18.0-1ubuntu2.4), curl:amd64 (8.18.0-1ubuntu2.3, 8.18.0-1ubuntu2.4)
+End-Date: 2026-08-20  06:55:24
+
+Start-Date: 2026-08-20  06:55:26
+Commandline: /usr/bin/unattended-upgrade
+Upgrade: libtiff6:amd64 (4.7.0-3ubuntu4, 4.7.0-3ubuntu5)
+End-Date: 2026-08-20  06:55:26
+
+Start-Date: 2026-08-20  06:55:28
+Commandline: /usr/bin/unattended-upgrade
+Upgrade: libssh-4:amd64 (0.11.3-1ubuntu1, 0.11.3-1ubuntu2)
+End-Date: 2026-08-20  06:55:28
+
+Start-Date: 2026-08-20  20:26:16
+Commandline: apt install claude-desktop
+Requested-By: kalib (1000)
+Install: libsubid5:amd64 (1:4.17.4-2ubuntu3, automatic), claude-desktop:amd64 (1.32885.1), virtiofsd:amd64 (1.13.2-6ubuntu0.1, automatic), uidmap:amd64 (1:4.17.4-2ubuntu3, automatic)
+End-Date: 2026-08-20  20:26:18
+
+Start-Date: 2026-08-20  20:35:59
+Commandline: apt install xvfb
+Requested-By: kalib (1000)
+Install: xvfb:amd64 (2:21.1.22-1ubuntu1)
+End-Date: 2026-08-20  20:35:59
+
+Start-Date: 2026-08-20  20:42:00
+Commandline: apt install x11vnc
+Requested-By: kalib (1000)
+Install: libtk8.6:amd64 (8.6.17-1build1, automatic), libxss1:amd64 (1:1.2.3-1build4, automatic), libvncserver1:amd64 (0.9.15+dfsg-3ubuntu0.2, automatic), x11vnc:amd64 (0.9.17-2), tk:amd64 (8.6.16build1, automatic), tk8.6:amd64 (8.6.17-1build1, automatic)
+End-Date: 2026-08-20  20:42:01
+
+Start-Date: 2026-08-20  21:12:37
+Commandline: apt purge claude-desktop xvfb x11vnc libsubid5 uidmap virtiofsd libtk8.6 libvncserver1 libxss1 tk tk8.6
+Requested-By: kalib (1000)
+Purge: libsubid5:amd64 (1:4.17.4-2ubuntu3), libtk8.6:amd64 (8.6.17-1build1), libxss1:amd64 (1:1.2.3-1build4), claude-desktop:amd64 (1.32885.1), virtiofsd:amd64 (1.13.2-6ubuntu0.1), libvncserver1:amd64 (0.9.15+dfsg-3ubuntu0.2), xvfb:amd64 (2:21.1.22-1ubuntu1), uidmap:amd64 (1:4.17.4-2ubuntu3), x11vnc:amd64 (0.9.17-2), tk:amd64 (8.6.16build1), tk8.6:amd64 (8.6.17-1build1)
+End-Date: 2026-08-20  21:12:38
+
+Start-Date: 2026-08-21  06:40:02
+Commandline: /usr/bin/unattended-upgrade
+Upgrade: vim:amd64 (2:9.1.2141-1ubuntu4.7, 2:9.1.2141-1ubuntu4.8), xxd:amd64 (2:9.1.2141-1ubuntu4.7, 2:9.1.2141-1ubuntu4.8), vim-common:amd64 (2:9.1.2141-1ubuntu4.7, 2:9.1.2141-1ubuntu4.8), vim-tiny:amd64 (2:9.1.2141-1ubuntu4.7, 2:9.1.2141-1ubuntu4.8), vim-runtime:amd64 (2:9.1.2141-1ubuntu4.7, 2:9.1.2141-1ubuntu4.8)
+End-Date: 2026-08-21  06:40:03
+
+Start-Date: 2026-08-21  06:40:06
+Commandline: /usr/bin/unattended-upgrade
+Upgrade: linux-tools-common:amd64 (7.0.0-29.29, 7.0.0-30.30), linux-perf:amd64 (7.0.0-29.29, 7.0.0-30.30), bpftool:amd64 (7.7.0+7.0.0-29.29, 7.7.0+7.0.0-30.30), linux-libc-dev:amd64 (7.0.0-29.29, 7.0.0-30.30)
+End-Date: 2026-08-21  06:40:06
+
+Start-Date: 2026-08-21  06:40:09
+Commandline: /usr/bin/unattended-upgrade
+Install: linux-main-modules-zfs-7.0.0-30-generic:amd64 (7.0.0-30.30, automatic), linux-modules-7.0.0-30-generic:amd64 (7.0.0-30.30, automatic), linux-image-7.0.0-30-generic:amd64 (7.0.0-30.30, automatic), linux-headers-7.0.0-30-generic:amd64 (7.0.0-30.30, automatic), linux-tools-7.0.0-30:amd64 (7.0.0-30.30, automatic), linux-headers-7.0.0-30:amd64 (7.0.0-30.30, automatic), linux-tools-7.0.0-30-generic:amd64 (7.0.0-30.30, automatic)
+Upgrade: linux-generic-hwe-24.04:amd64 (7.0.0-29.29, 7.0.0-30.30), linux-image-generic-hwe-26.04:amd64 (7.0.0-29.29, 7.0.0-30.30), linux-headers-generic-hwe-26.04:amd64 (7.0.0-29.29, 7.0.0-30.30), linux-generic-hwe-26.04:amd64 (7.0.0-29.29, 7.0.0-30.30)
+End-Date: 2026-08-21  06:40:27
+
+Start-Date: 2026-08-21  06:40:29
+Commandline: /usr/bin/unattended-upgrade
+Upgrade: wget:amd64 (1.25.0-2ubuntu4.3, 1.25.0-2ubuntu4.4)
+End-Date: 2026-08-21  06:40:30
+
+Start-Date: 2026-08-21  06:40:32
+Commandline: /usr/bin/unattended-upgrade
+Remove: linux-headers-7.0.0-28-generic:amd64 (7.0.0-28.28), linux-headers-7.0.0-28:amd64 (7.0.0-28.28)
+End-Date: 2026-08-21  06:40:33
+
+--- end
+
+## command: ls -la /var/log/apt/
+total 224
+drwxr-xr-x  2 root root    4096 Aug 26 06:22 .
+drwxrwxr-x 19 root syslog  4096 Aug 28 08:50 ..
+-rw-r--r--  1 root root   67264 Aug 26 06:22 eipp.log.xz
+-rw-r--r--  1 root root   16202 Aug 26 06:22 history.log
+-rw-r--r--  1 root root   34785 Jul 30 20:30 history.log.1.gz
+-rw-r-----  1 root adm    85140 Aug 26 06:22 term.log
+-rw-r-----  1 root adm     5741 Jul 30 20:30 term.log.1.gz

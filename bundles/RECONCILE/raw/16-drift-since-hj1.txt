@@ -1,0 +1,37 @@
+# raw/16 — drift since GATE-HJ1 ratified the pins (2026-08-12)
+# taken: 2026-08-28T13:08:07Z
+## policy: substrate.os_update_policy tracks resolute-security; drift is RECORDED per gate,
+## NOT fought and NOT silently re-pinned (U-1, and the HJ1 verdict endorses exactly this).
+
+### KERNEL
+## command: uname -r ; grep 'kernel:' pins.lock
+7.0.0-30-generic
+474:  kernel: 7.0.0-28-generic
+## HJ1 (2026-08-12) recorded: running -29 vs pinned -28.
+## NOW: running 7.0.0-30-generic. The bump happened 2026-08-21 06:40 by unattended-upgrade,
+## and the SAME transaction REMOVED the pinned -28 headers (raw/04):
+##   Remove: linux-headers-7.0.0-28-generic:amd64 (7.0.0-28.28), linux-headers-7.0.0-28:amd64
+## command: ls /boot/vmlinuz-* ; dpkg -l | grep -c 'linux-image-7.0.0-28'
+/boot/vmlinuz-7.0.0-29-generic
+/boot/vmlinuz-7.0.0-30-generic
+  linux-image-7.0.0-28 packages still installed: 1
+
+### LIBVIRT — was it in HJ1's ratified 51?
+## command: grep -n 'libvirt' pins.lock | head
+547:# own capture shows generic egress from the libvirt guest SUCCEEDS (204 from
+552:  # libvirt-daemon-driver-qemu carries `Depends: systemd-container | sysvinit-core`, and
+566:    libvirt_daemon_system: "12.0.0-1ubuntu5.2"     # resolute-updates/main — system libvirtd + `default` net
+567:    libvirt_clients: "12.0.0-1ubuntu5.2"           # resolute-updates/main — virsh
+595:    - "libvirt-common 12.0.0-1ubuntu5.2"
+596:    - "libvirt-daemon 12.0.0-1ubuntu5.2"
+597:    - "libvirt-daemon-common 12.0.0-1ubuntu5.2"
+598:    - "libvirt-daemon-config-network 12.0.0-1ubuntu5.2"
+599:    - "libvirt-daemon-config-nwfilter 12.0.0-1ubuntu5.2"
+600:    - "libvirt-daemon-driver-network 12.0.0-1ubuntu5.2"
+## running version:
+  libvirt-daemon-system 12.0.0-1ubuntu5.3
+## bumped 12.0.0-1ubuntu5.2 -> 5.3 on 2026-08-20 06:55 by unattended-upgrade (raw/04)
+
+### PENDING, not applied
+## command: apt list --upgradable 2>/dev/null | wc -l
+72

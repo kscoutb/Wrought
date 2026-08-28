@@ -1,0 +1,75 @@
+# raw/18 — box surface now: libvirt residue, listeners, nftables, disk
+# taken: 2026-08-28T13:09:02Z
+## command: sudo virsh net-list --all
+ Name      State    Autostart   Persistent
+--------------------------------------------
+ default   active   yes         yes
+
+## command: ip -br link show virbr0
+virbr0           DOWN           52:54:00:9f:af:a2 <NO-CARRIER,BROADCAST,MULTICAST,UP> 
+## command: sudo nft list ruleset | wc -l ; count tables/chains/hooks
+# Warning: table ip filter is managed by iptables-nft, do not touch!
+# Warning: table ip nat is managed by iptables-nft, do not touch!
+# Warning: table ip mangle is managed by iptables-nft, do not touch!
+# Warning: table ip6 filter is managed by iptables-nft, do not touch!
+# Warning: table ip6 nat is managed by iptables-nft, do not touch!
+# Warning: XT target MASQUERADE not found
+# Warning: table ip6 mangle is managed by iptables-nft, do not touch!
+  ruleset lines: 182
+  tables:        6
+# Warning: table ip filter is managed by iptables-nft, do not touch!
+# Warning: table ip nat is managed by iptables-nft, do not touch!
+# Warning: table ip mangle is managed by iptables-nft, do not touch!
+# Warning: table ip6 filter is managed by iptables-nft, do not touch!
+# Warning: table ip6 nat is managed by iptables-nft, do not touch!
+# Warning: XT target MASQUERADE not found
+# Warning: table ip6 mangle is managed by iptables-nft, do not touch!
+  base chains (with hooks): 14
+# Warning: table ip filter is managed by iptables-nft, do not touch!
+# Warning: table ip nat is managed by iptables-nft, do not touch!
+# Warning: table ip mangle is managed by iptables-nft, do not touch!
+# Warning: table ip6 filter is managed by iptables-nft, do not touch!
+# Warning: table ip6 nat is managed by iptables-nft, do not touch!
+# Warning: XT target MASQUERADE not found
+# Warning: table ip6 mangle is managed by iptables-nft, do not touch!
+  LIBVIRT_* chains: 28
+## command: sudo ss -lntup | grep -vE '127.0.0.1|::1' | head -20   (non-loopback listeners)
+Netid State  Recv-Q Send-Q               Local Address:Port  Peer Address:PortProcess                                                 
+udp   UNCONN 0      0                          0.0.0.0:41641      0.0.0.0:*    users:(("tailscaled",pid=7258,fd=18))                  
+udp   UNCONN 0      0                    192.168.122.1:53         0.0.0.0:*    users:(("dnsmasq",pid=7454,fd=5))                      
+udp   UNCONN 0      0                       127.0.0.54:53         0.0.0.0:*    users:(("systemd-resolve",pid=645,fd=18))              
+udp   UNCONN 0      0                    127.0.0.53%lo:53         0.0.0.0:*    users:(("systemd-resolve",pid=645,fd=16))              
+udp   UNCONN 0      0                   0.0.0.0%virbr0:67         0.0.0.0:*    users:(("dnsmasq",pid=7454,fd=3))                      
+udp   UNCONN 0      0                          0.0.0.0:5353       0.0.0.0:*    users:(("avahi-daemon",pid=6929,fd=12))                
+udp   UNCONN 0      0                             [::]:41641         [::]:*    users:(("tailscaled",pid=7258,fd=17))                  
+udp   UNCONN 0      0                             [::]:5353          [::]:*    users:(("avahi-daemon",pid=6929,fd=13))                
+tcp   LISTEN 0      4096                    127.0.0.54:53         0.0.0.0:*    users:(("systemd-resolve",pid=645,fd=19))              
+tcp   LISTEN 0      32                   192.168.122.1:53         0.0.0.0:*    users:(("dnsmasq",pid=7454,fd=6))                      
+tcp   LISTEN 0      4096                 127.0.0.53%lo:53         0.0.0.0:*    users:(("systemd-resolve",pid=645,fd=17))              
+tcp   LISTEN 0      4096                       0.0.0.0:22         0.0.0.0:*    users:(("sshd",pid=7284,fd=3),("systemd",pid=1,fd=103))
+tcp   LISTEN 0      4096               100.111.169.112:41875      0.0.0.0:*    users:(("tailscaled",pid=7258,fd=19))                  
+tcp   LISTEN 0      4096                          [::]:22            [::]:*    users:(("sshd",pid=7284,fd=4),("systemd",pid=1,fd=105))
+tcp   LISTEN 0      4096   [fd7a:115c:a1e0::c133:a971]:50385         [::]:*    users:(("tailscaled",pid=7258,fd=20))                  
+## command: systemctl is-enabled libvirtd.service libvirt-guests.service
+enabled
+enabled
+## command: systemctl list-units 'wrought-*' --no-legend --no-pager
+  wrought-alert-receiver.service                       loaded active   running Wrought: Alertmanager local webhook receiver (D20 local-only destination)
+  wrought-alert@wrought-alert-receiver.service.service loaded inactive dead    Wrought: alert on failure of wrought-alert-receiver.service
+  wrought-alert@wrought-alertmanager.service.service   loaded inactive dead    Wrought: alert on failure of wrought-alertmanager.service
+  wrought-alert@wrought-inference.service.service      loaded inactive dead    Wrought: alert on failure of wrought-inference.service
+  wrought-alert@wrought-node-metrics.service.service   loaded inactive dead    Wrought: alert on failure of wrought-node-metrics.service
+  wrought-alert@wrought-prometheus.service.service     loaded inactive dead    Wrought: alert on failure of wrought-prometheus.service
+  wrought-alert@wrought-secret-watch.service.service   loaded inactive dead    Wrought: alert on failure of wrought-secret-watch.service
+  wrought-alertmanager.service                         loaded active   running Wrought: Alertmanager 0.33.1 (pinned; D20 local-only routing)
+  wrought-inference.service                            loaded active   running Wrought Foundry inference (llama-server via serve-model, Vulkan, RX 7900 XTX)
+  wrought-nft-restore.service                          loaded inactive dead    Wrought: restore known-good nftables policy at boot
+  wrought-node-metrics.service                         loaded active   running Wrought: node/amdgpu metrics collector (D23 textfile collector, GATE-31 target 2)
+  wrought-prometheus.service                           loaded active   running Wrought: Prometheus 3.13.2 (pinned; GATE-31 / §18-GAP1)
+  wrought-secret-watch.service                         loaded inactive dead    Wrought: scan for sealed-credential plaintext where it must never appear (J-92, D24)
+  wrought-secret-watch.timer                           loaded active   waiting Wrought: periodic sealed-credential exposure scan (J-92, D24)
+## command: df -h /var/lib/wrought
+/dev/nvme0n1p2  1.8T   63G  1.7T   4% /
+## command: du -sh /var/lib/wrought/j0a /var/lib/wrought/j0b
+598M	/var/lib/wrought/j0a
+596K	/var/lib/wrought/j0b

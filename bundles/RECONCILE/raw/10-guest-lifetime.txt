@@ -1,0 +1,40 @@
+# raw/10 — did a J0B qemu guest survive from 2026-08-20 to the 2026-08-27 shutdown?
+# taken: 2026-08-28T13:03:44Z
+## boot -1 spanned Mon 2026-08-10 21:32:18 -> Thu 2026-08-27 19:50:11 EDT (raw/09).
+## The J0B session ran 2026-08-20 20:07-20:25 EDT — INSIDE that single boot.
+## The overlay mtime is 2026-08-27 19:58:09 EDT — inside that boot's shutdown window.
+
+## command: journalctl -b -1 --grep='qemu|kvm' --no-pager | tail -20
+Aug 10 22:12:18 forge-mini sudo[10607]: kalib :  PWD=/var/lib/wrought/j0a/round2 ; USER=root ; COMMAND=/usr/sbin/kvm-ok
+Aug 10 22:12:55 forge-mini sudo[10750]: kalib :  PWD=/var/lib/wrought/j0a/round2 ; USER=root ; COMMAND=/usr/sbin/usermod -aG kvm,libvirt kalib
+Aug 10 22:12:55 forge-mini usermod[10752]: add 'kalib' to group 'kvm'
+Aug 10 22:12:55 forge-mini usermod[10752]: add 'kalib' to shadow group 'kvm'
+Aug 10 22:13:37 forge-mini sudo[10841]: kalib :  PWD=/var/lib/wrought/j0a/round2 ; USER=kalib ; COMMAND=/usr/bin/python3 -c import os; os.close(os.open(\"/dev/kvm\", os.O_RDWR)); print(\"KVM OPEN OK\")
+Aug 10 22:14:21 forge-mini sudo[10975]: kalib :  PWD=/var/lib/wrought/j0a/round2 ; USER=kalib ; COMMAND=/usr/bin/qemu-system-x86_64 -machine q35,accel=kvm -cpu host -smp 4 -m 8192 -drive file=overlay.qcow2,if=virtio,format=qcow2 -drive file=seed.img,if=virtio,format=raw -netdev user,id=n0,hostfwd=tcp:127.0.0.1:2222-:22 -device virtio-net-pci,netdev=n0 -display none -serial file:serial-1.log -daemonize -pidfile qemu-1.pid
+Aug 10 22:15:38 forge-mini sudo[11218]: kalib :  PWD=/var/lib/wrought/j0a/round2 ; USER=kalib ; COMMAND=/usr/bin/qemu-system-x86_64 -machine q35,accel=kvm -cpu host -smp 4 -m 8192 -drive file=overlay.qcow2,if=virtio,format=qcow2 -drive file=seed.img,if=virtio,format=raw -netdev user,id=n0,hostfwd=tcp:127.0.0.1:2222-:22 -device virtio-net-pci,netdev=n0 -display none -serial file:serial-2.log -daemonize -pidfile qemu-2.pid
+Aug 10 22:18:17 forge-mini sudo[11660]: pam_unix(sudo:session): session opened for user libvirt-qemu(uid=64055) by kalib(uid=1000)
+Aug 10 22:18:17 forge-mini sudo[11660]: kalib :  PWD=/var/lib/wrought/j0a/round2 ; USER=libvirt-qemu ; COMMAND=/usr/bin/head -c1 /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+Aug 10 22:18:17 forge-mini sudo[11660]: pam_unix(sudo:session): session closed for user libvirt-qemu
+Aug 10 22:18:30 forge-mini sudo[11717]: kalib :  PWD=/var/lib/wrought/j0a/round2 ; USER=root ; COMMAND=/usr/bin/virt-install --connect qemu:///system --name j0a-libvirt --memory 4096 --vcpus 2 --disk path=/var/lib/wrought/j0a/round2/lv-overlay.qcow2,format=qcow2 --disk path=/var/lib/wrought/j0a/round2/seed.img,format=raw --import --network network=default --graphics none --noautoconsole --osinfo ubuntu24.04
+Aug 10 22:18:32 forge-mini systemd-machined[9745]: New machine qemu-1-j0a-libvirt.
+Aug 10 22:18:32 forge-mini systemd[1]: Started machine-qemu\x2d1\x2dj0a\x2dlibvirt.scope - Virtual Machine qemu-1-j0a-libvirt.
+Aug 10 22:19:22 forge-mini systemd[1]: machine-qemu\x2d1\x2dj0a\x2dlibvirt.scope: Deactivated successfully.
+Aug 10 22:19:22 forge-mini systemd[1]: machine-qemu\x2d1\x2dj0a\x2dlibvirt.scope: Consumed 12.258s CPU time over 49.744s wall clock time, 945.3M memory peak.
+Aug 10 22:19:22 forge-mini systemd-machined[9745]: Machine qemu-1-j0a-libvirt terminated.
+Aug 11 20:41:37 forge-mini sudo[45063]: kalib : TTY=/dev/pts/4 ; PWD=/home/kalib ; USER=root ; COMMAND=/usr/bin/apt-get install -s --no-install-recommends qemu-system-x86 qemu-utils libvirt-daemon-system libvirt-clients virtinst ovmf cloud-image-utils cpu-checker
+Aug 11 20:41:38 forge-mini sudo[45228]: kalib : TTY=/dev/pts/4 ; PWD=/home/kalib ; USER=root ; COMMAND=/usr/sbin/usermod -aG kvm,libvirt kalib
+Aug 11 20:41:52 forge-mini sudo[45944]: kalib : TTY=/dev/pts/4 ; PWD=/home/kalib ; USER=root ; COMMAND=/usr/bin/virt-install --connect qemu:///system --name j0a-libvirt --memory 4096 --vcpus 2 --disk path=/var/lib/wrought/j0a/round2/lv-overlay.qcow2,format=qcow2 --disk path=/var/lib/wrought/j0a/round2/seed.img,format=raw --import --network network=default --graphics none --noautoconsole --osinfo ubuntu24.04
+Aug 20 06:55:18 forge-mini kernel: audit: type=1400 audit(1787223318.154:1228): apparmor="STATUS" operation="profile_replace" info="same as current profile, skipping" profile="unconfined" name="libvirtd//qemu_bridge_helper" pid=281518 comm="apparmor_parser"
+(rc=0)
+
+## command: journalctl -b -1 --since '2026-08-20 20:00' --until '2026-08-20 20:30' --no-pager | grep -iE 'qemu|tap|slirp' | head
+(rc=0)
+
+## Was the Aug-27 shutdown clean? last 3 lines of boot -1 vs first of boot 0:
+Aug 27 19:50:11 forge-mini systemd[1]: wrought-secret-watch.service: Deactivated successfully.
+Aug 27 19:50:11 forge-mini systemd[1]: Finished wrought-secret-watch.service - Wrought: scan for sealed-credential plaintext where it must never appear (J-92, D24).
+Aug 27 19:50:11 forge-mini systemd[1]: wrought-secret-watch.service: Consumed 4.018s CPU time over 5.164s wall clock time, 1.5G memory peak.
+  --- boot 0 start ---
+Aug 28 08:50:37 forge-mini kernel: Linux version 7.0.0-30-generic (buildd@lcy02-amd64-048) (x86_64-linux-gnu-gcc (Ubuntu 15.2.0-16ubuntu1) 15.2.0, GNU ld (GNU Binutils for Ubuntu) 2.46) #30-Ubuntu SMP PREEMPT_DYNAMIC Fri Jul 31 18:22:54 UTC 2026 (Ubuntu 7.0.0-30.30-generic 7.0.12)
+Aug 28 08:50:37 forge-mini kernel: Command line: BOOT_IMAGE=/boot/vmlinuz-7.0.0-30-generic root=UUID=d05b8e41-3ced-4c77-83e0-b1fbf56589c6 ro amdgpu.runpm=0 quiet splash crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M
+Aug 28 08:50:37 forge-mini kernel: KERNEL supported cpus:

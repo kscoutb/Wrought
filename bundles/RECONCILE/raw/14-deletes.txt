@@ -1,0 +1,50 @@
+# raw/14 — Phase 2.3 THE DELETES (enumerated, by name, two paths only)
+# taken: 2026-08-28T13:06:24Z
+# preconditions checked in raw/13: no process holds either file; identities recorded;
+# the seed's rebuild path (cloud-localds + surviving user-data) verified FIRST.
+
+## DELETE 1: /var/lib/wrought/j0b/j0b-overlay.qcow2
+##   reason: J0B scratch overlay on the pinned base. A re-dispatch rebuilds it in ~15 s
+##   (J0A's measured discard-and-revert cycle). The base image it backs onto is KEPT.
+removed '/var/lib/wrought/j0b/j0b-overlay.qcow2'
+  CONFIRMED GONE: j0b-overlay.qcow2
+
+## DELETE 2: /var/lib/wrought/j0b/seed.img
+##   reason: J0B scratch cloud-init seed. Rebuildable with cloud-localds from the surviving
+##   /var/lib/wrought/j0a/user-data. NOTE: this is the LAST seed copy on the box.
+removed '/var/lib/wrought/j0b/seed.img'
+  CONFIRMED GONE: seed.img
+
+## NOT DELETED, deliberately KEPT (the prompt says keep; both verified present):
+-rw------- 1 kalib        kalib       399 Aug 10 19:29 /var/lib/wrought/j0a/j0a_key
+-rw-rw-r-- 1 libvirt-qemu kvm   624239616 Aug 10 19:29 /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+-rw-rw-r-- 1 kalib        kalib      1353 Aug 10 19:29 /var/lib/wrought/j0a/user-data
+  base image sha256 (unchanged, still matches the pin):
+0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe  /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+
+## NOT DELETED, out of scope — NOT enumerated by the prompt, so left in place and REPORTED:
+##   /home/kalib/overlay.qcow2 (2026-08-11, J0A-era stray at the home root)
+-rw-r--r-- 1 kalib kalib 196928 Aug 11 20:41 /home/kalib/overlay.qcow2
+##   /var/lib/wrought/j0b/__pycache__/ and the three *.pid files (harmless; not listed by the prompt)
+total 372
+drwxr-xr-x  4 kalib kalib  4096 Aug 28 09:06 .
+drwxr-xr-x 46 root  root   4096 Aug 28 08:57 ..
+drwxrwxr-x  2 kalib kalib  4096 Aug 20 20:19 __pycache__
+-rw-rw-r--  1 kalib kalib   767 Aug 20 20:23 apicalls.log
+-rw-rw-r--  1 kalib kalib   273 Aug 20 20:20 authproxy.out
+-rw-rw-r--  1 kalib kalib     7 Aug 20 20:11 authproxy.pid
+-rw-rw-r--  1 kalib kalib 12825 Aug 20 20:11 authproxy.py
+-rw-rw-r--  1 kalib kalib   279 Aug 20 20:20 authproxy2.out
+-rw-rw-r--  1 kalib kalib     7 Aug 20 20:20 authproxy2.pid
+-rw-rw-r--  1 kalib kalib 11727 Aug 20 20:19 authproxy2.py
+-rw-rw-r--  1 kalib kalib   946 Aug 20 20:07 cap.sh
+-rw-rw-r--  1 kalib kalib     0 Aug 20 20:17 qemu-p3b.err
+-rw-------  1 kalib kalib     7 Aug 20 20:20 qemu-p3c.pid
+drwxr-xr-x  2 kalib kalib  4096 Aug 20 20:22 raw
+-rw-r-----  1 kalib kalib 84309 Aug 20 20:15 serial-p2.log
+-rw-r-----  1 kalib kalib 77548 Aug 20 20:17 serial-p3.log
+-rw-rw-r--  1 kalib kalib 76389 Aug 20 20:20 serial-p3b.log
+-rw-r-----  1 kalib kalib 63975 Aug 20 20:21 serial-p3c.log
+
+## POST-STATE of the J0B workdir — exactly two paths removed, no glob, nothing else touched:
+   text evidence retained on-box AND copied to the courier PARTIAL bundle.

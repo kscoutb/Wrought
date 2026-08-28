@@ -1,0 +1,61 @@
+# raw/15 — Phase 4 desktop-bridge back-out: PRIOR-COMPLETED, NOT RE-RUN
+# taken: 2026-08-28T13:07:54Z
+
+## THE PROMPT'S PREMISE: 'The failed bridge experiment left GUI packages on the lean box.'
+## THE BOX SAYS OTHERWISE. The back-out was already performed by the OPERATOR on
+## 2026-08-20 21:12:37, with the BYTE-IDENTICAL command line (raw/04, /var/log/apt/history.log):
+
+     Start-Date: 2026-08-20  21:12:37
+     Commandline: apt purge claude-desktop xvfb x11vnc libsubid5 uidmap virtiofsd libtk8.6 libvncserver1 libxss1 tk tk8.6
+     Requested-By: kalib (1000)
+
+## Re-running it would have manufactured false history — this session would appear in the
+## apt log to have removed packages that were already gone. NOT RUN. Verified instead:
+
+### (a) every package in the purge list, checked individually
+    claude-desktop   not-in-dpkg
+    xvfb             not-in-dpkg
+    x11vnc           not-in-dpkg
+    libsubid5        not-in-dpkg
+    uidmap           not-in-dpkg
+    virtiofsd        not-in-dpkg
+    libtk8.6         not-in-dpkg
+    libvncserver1    not-in-dpkg
+    libxss1          not-in-dpkg
+    tk               un 
+    tk8.6            not-in-dpkg
+    ('un' = known to dpkg as a dependency name only, never installed. 'not-in-dpkg' = absent entirely.)
+    NONE is in state 'ii'. The prompt's own escape hatch applies: report, do not purge.
+
+### (b) the confirmation command the prompt asked for
+## command: dpkg -l | grep -E 'claude-desktop|x11vnc|xvfb'
+    (empty — rc=1, 1 = clean, as required)
+
+### (c) the two rm -f targets — ABSENT, so per rails §3: report, do not delete
+    already absent: /etc/apt/sources.list.d/claude-desktop.list
+    already absent: /usr/share/keyrings/claude-desktop-archive-keyring.asc
+## command: ls /etc/apt/sources.list.d/
+tailscale.list
+ubuntu.sources
+ubuntu.sources.curtin.orig
+
+### (d) the two rm -rf targets — ABSENT
+    already absent: /home/kalib/.config/Claude
+    already absent: /home/kalib/.vnc
+
+### (e) pkill targets — nothing matching was running (raw/03: comm-based ps found only 'claude')
+### (f) 'sudo apt update' NOT run: its purpose was to refresh after removing the vendor apt
+###     source, and no such source exists to remove.
+
+### (g) DID THE PURGE BREAK ANYTHING? (the reason to check, not assume)
+## command: sudo apt-get check ; sudo apt-get -s autoremove
+    -> no broken dependencies
+0 upgraded, 0 newly installed, 0 to remove and 72 not upgraded.
+    -> nothing orphaned
+## command: are any purged packages named in pins.lock?
+0
+    -> 0 pinned packages were affected. The virtualization substrate is intact:
+       bubblewrap                 0.11.1-1ubuntu0.1
+       cloud-image-utils          0.33-1build1
+       libvirt-daemon-system      12.0.0-1ubuntu5.3
+       qemu-system-x86            1:10.2.1+ds-1ubuntu3.2
