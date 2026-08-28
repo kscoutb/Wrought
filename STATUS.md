@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-28T22:01:45Z
+updated:  2026-08-28T18:05:00Z
 gate:     GATE-J0B-RESUME
-state:    RUNNING P-gate
-last:     wrought-runner started GATE-J0B-RESUME (1/6 this run)
-next:     gate execution, then byte-freeze re-assert and manifest verify
-usage:    n/a (wrought-runner)
+state:    RECEIVED
+last:     gate child started under wrought-runner; prompt v2.1 read
+next:     transport check (exactly TWO indented blocks), then byte-freeze baseline raw/00
+usage:    n/a (wrought-runner gate child)
