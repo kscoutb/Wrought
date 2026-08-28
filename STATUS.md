@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-28T18:36:43Z
+updated:  2026-08-28T18:46:08Z
 gate:     GATE-RUNNER-ARM
-state:    RUNNING P3
-last:     Phase 2 CLOSED, and it found the ROOT CAUSE of the self-update: `autoUpdates: false` WAS ALREADY SET in ~/.claude.json and did NOT stop it — the resolver's config arm is VOID on a native install when autoUpdatesProtectedForNative=true, so `claude doctor` reported "Auto-updates: enabled" with the preference in place. Only the ENV arm is reachable. Fixed at BOTH surfaces, and both are required: HARDEN's ephemeral HOME (the steering fix) RE-OPENED autoupdate for gate children, measured — ephemeral HOME + nothing in env => "enabled". Child: hardcoded in build_child_env(). Interactive: ~/.claude/settings.json env block. Both measured honoured via `claude doctor`, which names the var. pins.lock: supervisor_toolchain added (2.1.250, commit 2f71b9f41af6) + drift entry, YAML parses.
-next:     Phase 3 — re-verify the four safety properties (b)(c)(d)(a) on 2.1.250 against HARDEN/RUNNER's own harnesses. If any changed, STOP and do not clear the runner.
+state:    RUNNING P4
+last:     Phase 3 CLOSED — ALL FOUR SAFETY PROPERTIES HOLD ON 2.1.250, the runner is NOT blocked. (b) dontAsk still denies un-allowlisted Bash and still honours a granular allowlist; the acceptEdits/auto TRAP still holds, still silent. (c) hooks still fire under -p (2 payloads, canary blocked); c4 still SILENT — malformed settings, rc=0, ZERO bytes stderr, hook gone, canary ran => the json.load guard is still required. (d) BASH_DEFAULT_TIMEOUT_MS still BACKGROUNDS not kills; budget still a soft ceiling with the same signature. (a) fresh context holds; two-surface isolation holds and is STRONGER in the runner's real seed shape — the child created NO socket anywhere, control arm proved the probe sees children. TWO benign-but-real changes reported: the model can now RAISE the per-call Bash timeout over the env default (strengthens 'kernel is the only stop'), and the budget overshoot measured 6.94x vs 4.6x (2 samples, not a trend). Version bracket held across the whole phase.
+next:     Phase 4 — drop DBUS_SESSION_BUS_ADDRESS from the CHILD env allowlist and prove a gate child still runs without it.
 usage:    n/a
