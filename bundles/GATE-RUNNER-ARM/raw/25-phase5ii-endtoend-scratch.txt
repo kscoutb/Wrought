@@ -1,0 +1,117 @@
+# GATE-RUNNER-ARM Phase 5, SUB-PROOF (ii) — ONE REAL claude GATE, END TO END, THROUGH THE FULL
+# ARMED PATH, on a SCRATCH courier + SCRATCH state. Never the real store.
+# date: 2026-08-28T18:57:00Z
+# Config: build-evidence/runner-arm/raw/26-runner.scratch.conf.json
+# Prompt: build-evidence/runner-arm/raw/27-scratch-probe-prompt.md
+
+## WHY A DERIVED CONFIG AND NOT THE INSTALLED ONE: the prompt asks for both "starts on the
+## INSTALLED config" and "never the real store". Those cannot both hold in ONE run — the installed
+## config's freeze_paths ARE the real store and its courier_dir IS the real courier. So Phase 5 is
+## split: (i) the startup proof runs the INSTALLED file verbatim (raw/23); (ii) the end-to-end
+## proof runs a byte-copy of it with ONLY paths redirected. Stated rather than silently resolved.
+
+## THE DERIVATION IS MECHANICAL, NOT ASSERTED.
+## cmd: python3 -c '<flatten both configs to leaf paths; diff>'
+  total leaves:   103
+  CHANGED leaves: 8
+    .courier_dir      /home/kalib/courier/Wrought              -> <S>/courier
+    .add_dirs[0]      /home/kalib/courier/Wrought              -> <S>/courier
+    .state_dir        /var/lib/wrought/runner-state            -> <S>/state
+    .gate_cwd         /home/kalib/foundry                      -> <S>/gatecwd
+    .memory_dir       ~/.claude/projects/-home-kalib-foundry/memory -> <S>/memory
+    .freeze_paths[0]  /var/lib/wrought/state/orchestrator.db      -> <S>/frozen/orchestrator.db
+    .freeze_paths[1]  /var/lib/wrought/state/orchestrator.db-wal  -> <S>/frozen/orchestrator.db-wal
+    .freeze_paths[2]  /var/lib/wrought/state/orchestrator.db-shm  -> <S>/frozen/orchestrator.db-shm
+  distinct top-level keys changed: ['add_dirs','courier_dir','freeze_paths','gate_cwd','memory_dir','state_dir']
+  MATCH against the intended swap set: True
+  => EVERY threshold, permission mode, breaker, limit, ephemeral_home and reaper setting is
+     BYTE-IDENTICAL to the installed file. Six path keys were redirected; nothing else moved.
+     add_dirs/gate_cwd/memory_dir are redirected beyond the prompt's three because a gate child
+     must be able to write its bundle into the SCRATCH courier, must not run loose in the foundry
+     work tree, and must not have the real auto-memory dir snapshotted/restored under it.
+
+## NOTE, recorded because it is NOT redirected: ephemeral_home.root is an ABSOLUTE path in the
+## config (/var/lib/wrought/runner-state/ephemeral-homes), not derived from state_dir. So this
+## scratch run created its ephemeral HOME under the REAL state dir — which is correct and is in
+## fact a bonus: the directory Phase 1's operator action created was exercised for real.
+
+## cmd: timeout 900 /usr/bin/python3 bin/wrought-runner --config <S>/runner.scratch.conf
+[2026-08-28T18:54:34Z] GATE-SCRATCH-PROBE: private HOME /var/lib/wrought/runner-state/ephemeral-homes/GATE-SCRATCH-PROBE-1787943274 (seeded ['.claude/.credentials.json', '.gitconfig', '.git-credentials']), private runtime dir <same>/xdg-runtime
+[2026-08-28T18:54:34Z] GATE-SCRATCH-PROBE: launching. tools='Bash' add_dirs=['<S>/courier'] budget=$2.0 mode=dontAsk MemoryMax=8G RuntimeMaxSec=5400
+[2026-08-28T18:55:01Z] GATE-SCRATCH-PROBE: PASS — bundle present, manifest verifies, byte freeze held
+[2026-08-28T18:55:01Z] GATE-SCRATCH-PROBE: orphan sweep CLEAN — no new guest, domain or listener survived
+[2026-08-28T18:55:01Z] pacing: sleeping 300s before the next gate
+  (the runner was then SIGTERMed by the harness's own 2-minute timeout DURING the 300s pacing
+   sleep — after the gate had completed. rc=143 is the harness's kill, not a gate failure.
+   Orphan check after that kill: `pgrep -af 'wrought-runner|qemu-system'` -> none.)
+
+## THE CHILD — the answers the prompt asks for by name.
+## cmd: python3 -c '<read runs/*/GATE-SCRATCH-PROBE/child.stdout.json>'
+  session_id      = 'feee78d7-7ea4-4e97-b23a-7650f79a6ae1'
+  is_error        = False
+  subtype         = 'success'
+  terminal_reason = 'completed'
+  num_turns       = 5
+  total_cost_usd  = 0.17784650000000002      (cap was $2.0 from the prompt's MAX-BUDGET-USD header)
+  permission_denials = (none)
+  child.stderr.txt = 0 bytes
+
+## THE VERDICT — MECHANICAL, not the child's word for it.
+## cmd: cat runs/*/GATE-SCRATCH-PROBE/verdict.json
+  {"child_disposition":"COMPLETED","cost_usd":0.1778465,"detail":"terminal_reason='completed'",
+   "gate":"GATE-SCRATCH-PROBE","memory_fence":"unchanged","postcondition_failures":[],"rc":0,
+   "verdict":"PASS","wall_sec":27.1}
+## cmd: cat runs/*/GATE-SCRATCH-PROBE/freeze-verdict.txt
+  HOLD — no change to any frozen path
+## The three postconditions verified independently by the box:
+##   cmd: grep 'GATE-SCRATCH-PROBE' <S>/courier/QUEUE.md
+     | `GATE-SCRATCH-PROBE` | `BUNDLED` | trivial end-to-end probe ... _(wrought-runner)_ |
+##   cmd: ls <S>/courier/bundles/GATE-SCRATCH-PROBE/   -> REPORT.md, SHA256SUMS
+##   cmd: (cd <bundle> && sha256sum -c SHA256SUMS)     -> REPORT.md: OK
+
+## THE ORPHAN SWEEP: "orphan sweep CLEAN — no new guest, domain or listener survived".
+
+## THE CHILD PUSHED TO THE SCRATCH COURIER — proving the seeded git credentials work end to end.
+## cmd: git --git-dir=<S>/origin.git log --oneline
+  a4219be courier: status — wrought-runner GATE-SCRATCH-PROBE RUNNING P-paced
+  040a7af scratch probe bundle                 <<< THE CHILD'S OWN COMMIT
+  8fd2f00 courier: wrought-runner starting GATE-SCRATCH-PROBE
+  30927c7 courier: status — wrought-runner GATE-SCRATCH-PROBE RUNNING P-gate
+  6769793 init
+
+## THE ARMED LAUNCH SHAPE, as the runner itself recorded it (prompt body redacted by the runner):
+## cmd: cat runs/*/GATE-SCRATCH-PROBE/child-cmd.txt
+  systemd-run --user --scope --quiet --unit=wrought-gate-gate-scratch-probe-1787943274-1.scope
+    -p MemoryMax=8G -p MemorySwapMax=0 -p RuntimeMaxSec=5400
+    /usr/bin/env XDG_RUNTIME_DIR=<ephemeral-home>/xdg-runtime
+    /home/kalib/.local/bin/claude -p <prompt text: see prompt.md>
+    --setting-sources '' --settings /etc/wrought/runner-hooks.json
+    --permission-mode dontAsk --allowedTools Bash --output-format json
+    --max-budget-usd 2.0 --add-dir <S>/courier
+
+## TEARDOWN — the ephemeral HOME holds live credential copies, so this matters.
+## cmd: ls -la /var/lib/wrought/runner-state/ephemeral-homes/
+  total 8 ... (EMPTY — the per-gate home was removed with the gate)
+## cmd: find /var/lib/wrought/runner-state -name '.credentials.json' -o -name '.git-credentials'
+  (nothing)
+
+## CLEAN-EXIT PATH, second run with the ledger already populated:
+## cmd: timeout 200 /usr/bin/python3 bin/wrought-runner --config <S>/runner.scratch.conf
+  [2026-08-28T18:57:14Z] no APPROVED gates left to run — exiting cleanly
+  wrought-runner: 0 gate(s); clean exit
+  rc=0
+## and it CONFIRMS the corollary from raw/23's correction — the CLEAN path writes STATUS.md too:
+  <S>/courier/STATUS.md  ->  gate: NONE  state: IDLE  last: "finished cleanly after 0 gate(s)"
+  => a wrought-runner start is NEVER read-only with respect to the courier, on ANY exit path.
+
+## HONEST NOTE ON THE CHILD'S OWN BEHAVIOUR: the child reported a real discrepancy in its prompt
+## rather than glossing it — "step 4 said the row would read APPROVED, but it was actually RUNNING
+## (set by the two prior commits). I transitioned RUNNING -> BUNDLED, which matches the intent."
+## It was right: the runner sets the row to RUNNING before launching. The prompt was mine and was
+## slightly wrong; the child handled it correctly and said so.
+
+=== VERDICT Phase 5(ii): PASS. The hardened runner drove a real claude child through the complete
+=== armed path — private HOME + private runtime dir, kernel scope with MemoryMax/MemorySwapMax/
+=== RuntimeMaxSec, dontAsk with a declared allowlist, validated hook settings, mechanical
+=== postcondition verdict, byte-freeze HOLD, clean orphan sweep, credential teardown, and the
+=== gate's own push — with zero denials and zero stderr, for $0.178 in 27.1 seconds.

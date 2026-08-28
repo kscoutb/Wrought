@@ -1,0 +1,62 @@
+# GATE-RUNNER-ARM Phase 2 — how the CLI RESOLVES 'is autoupdate disabled?', read out of the binary
+# date: 2026-08-28T18:30:40Z
+
+## The resolver. cmd: grep -aoE '.{300}if\(Pe\(process.env.DISABLE_AUTOUPDATER\)\).{300}' $B | head -1
+{return zq()!==null}function D4(){return L4()&&!a.FORCE_AUTOUPDATE_PLUGINS}function hSe(e){switch(e.type){case"development":return"development build";case"env":return`set by env: ${e.envVar}`;case"config":return"config"}}function zq(){if(a.DISABLE_UPDATES)return{type:"env",envVar:"DISABLE_UPDATES"};if(Pe(process.env.DISABLE_AUTOUPDATER))return{type:"env",envVar:"DISABLE_AUTOUPDATER"};let e=Zwe();if(e)return{type:"env",envVar:e};let t=oe();if(t.autoUpdates===!1&&(t.installMethod!=="native"||t.autoUpdatesProtectedForNative!==!0))return{type:"config"};return null}var Tp=/^[0-9a-f]{64}$/;function K0(e){let t=oe();if(typeof t.userID==="
+
+
+## The documented precedence string. cmd: grep -aoE '.{200}autoUpdates. is .false. in.{400}' $B | head -1
+>\` build-metadata suffix. Up to date (or ahead, e.g. a pre-release build) \u2192 one healthy line. Behind \u2192 propose running \`claude update\` (after confirmation, like every other action). If \`autoUpdates\` is \`false\` in \`~/.claude.json\` or \`DISABLE_AUTOUPDATER\` is set \u2014 including via the \`env\` block of the user's own \`~/.claude/settings.json\`, where the legacy \`autoUpdates: false\` preference gets migrated \u2014 that turns off BACKGROUND auto-updates only and is usually the user's own choice, not an admin lock: say that's why it went stale, mention the tradeoff rather than silently re-enabling any
+
+## What counts as truthy — the Pe() coercion. cmd: grep -aoE 'function Pe\(.{0,220}' $B | sort -u | head -5
+function Pe(a){let o;if(a.scope){if(!$e(a.scope))gn(`Invalid scope "${a.scope}". Valid scopes: ${sF.join(", ")}`);o=a.scope}if(a.cowork&&o!==void 0&&o!=="user")gn("--cowork can only be used with user scope");if(a.cowork&&o===void 0)
+function Pe(e){if(!e)return!1;if(typeof e==="boolean")return e;let n=String(e).toLowerCase().trim();return["1","true","yes","on"].includes(n)}function Eo(e){if(e===void 0)return!1;if(typeof e==="boolean")return!e;let n=String(e).toL
+function Pe(e){if(!Hx())return;let t;try{t=await srt(e.storageV5)}catch(a){f("mcp_task_restore","list_failed"),n(`restoreMcpTasks list failed: ${String(a)}`);return}for(let a of t){if(a.protocol==="sep2663"){n(`restoreMcpTasks: sep2
+function Pe(e){let{attested:o,feedback:t,permission_updates:r,...s}=e;return{...s,...t!==void 0&&{feedback:CE(t)},...r!==void 0&&{permission_updates:r.slice(0,Z)}}}function Y0n(e){switch(e){case"bubble":return"default";case"bypassPe
+function Pe(E){let{config:Ze}=E;return h(Ze.errors,"warning").length>0}function Re(E){let{scope:ue,config:ve}=E;return e(O,{scope:ue,parsingErrors:h(ve.errors,"fatal"),warnings:h(ve.errors,"warning")},ue)}function xe(oe,_e){return r
+
+## The third env source, Zwe(). cmd: grep -aoE 'function Zwe\(\).{0,300}' $B | head -2
+function Zwe(){if(process.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC)return"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC";return null}function UGt(){if(process.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC)return"CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC";if(process.env.DISABLE_TELEMETRY)return"DISABLE_TELEMETRY";if(P
+
+## THE TRAP: does the config path even apply on THIS install?
+## cmd: python3 -c '<read ~/.claude.json, print only the three keys the resolver reads>'
+{'autoUpdates': False, 'installMethod': 'native', 'autoUpdatesProtectedForNative': True}
+
+## cmd: cat /home/kalib/.claude/settings.json  (the interactive surface, BEFORE)
+{
+  "effortLevel": "xhigh",
+  "advisorModel": "fable",
+  "tui": "fullscreen",
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "dark"
+}
+
+## cmd: env | grep -E '^(DISABLE_AUTOUPDATER|DISABLE_UPDATES)=' ; echo "rc=$?"  (this session's env, BEFORE)
+rc=1 (1 = not set)
+
+## ===== THE ROOT CAUSE OF THE 2026-08-28 SELF-UPDATE =====
+## The resolver's config arm, from the extract above:
+##   if(t.autoUpdates===!1 && (t.installMethod!=="native" || t.autoUpdatesProtectedForNative!==!0)) return{type:"config"};
+## Substituting the THREE MEASURED values on this box (autoUpdates=False, installMethod='native',
+## autoUpdatesProtectedForNative=True):
+##   t.autoUpdates===false                  -> TRUE
+##   t.installMethod!=="native"             -> FALSE
+##   t.autoUpdatesProtectedForNative!==true -> FALSE
+##   TRUE && (FALSE || FALSE)               -> FALSE   => the config arm DOES NOT FIRE
+## zq() therefore falls through to 'return null' = AUTOUPDATE IS ENABLED.
+##
+## => The preference 'autoUpdates: false' WAS ALREADY SET on this box and was SILENTLY
+##    VOIDED by 'autoUpdatesProtectedForNative: true'. That is why the CLI self-updated
+##    2.1.238 -> 2.1.250 at 12:56:04Z under its own load-bearing pin. Setting the config
+##    preference is NOT a fix here; only the ENV arm of zq() is reachable on a native install.
+
+## Pe() truthiness (the coercion the env arm uses):
+##   ["1","true","yes","on"] (lowercased, trimmed) => DISABLE_AUTOUPDATER=1 is truthy.
+
+## cmd: /home/kalib/.local/bin/claude --help 2>&1 | grep -iE 'doctor|update|version' 
+  -v, --version                         Output the version number
+  doctor                                Check the health of your Claude Code
+                                        fix issues, run /doctor in a session.
+                                        [target] to specify version (stable,
+                                        latest, or specific version)
+  update|upgrade                        Check for updates and install if

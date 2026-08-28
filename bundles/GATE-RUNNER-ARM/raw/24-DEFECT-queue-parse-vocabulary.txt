@@ -1,0 +1,104 @@
+# GATE-RUNNER-ARM Phase 5 — DEFECT FOUND, UNASKED, AND IT IS A HARD BLOCKER FOR THE BATCH.
+# The runner cannot parse the REAL QUEUE.md. It halts with a LATCHING breaker on its first start,
+# every time, against the actual courier.
+# date: 2026-08-28T18:49:00Z
+# Found by: the Phase 5 sub-proof (i) full start on the INSTALLED config. This is the first time
+# wrought-runner has ever been pointed at the REAL courier — every dry run in GATE-RUNNER and
+# GATE-RUNNER-HARDEN used a SCRATCH courier with a synthetic QUEUE.md, so no synthetic queue ever
+# contained the two statuses the real one uses. Same class as HARDEN raw/23's finding: the thing
+# was never exercised against its production input.
+
+## cmd: /usr/bin/python3 bin/wrought-runner        (installed config, no flags)
+[2026-08-28T18:48:40Z] HALT [queue-parse]: QUEUE row 22 for GATE-HJ2-HEARTBEAT has unknown status
+  'FOLDED INTO GATE-RECONCILE'; known: ['ADJUDICATED','APPROVED','BUNDLED','HALTED','NOT RUN','QUEUED','RUNNING']
+wrought-runner: 0 gate(s); STOPPED [queue-parse] ... — BREAKER LATCHED, operator must --reset-breaker
+evidence: /var/lib/wrought/runner-state/runs/20260828T184840Z
+   rc=2
+
+## THE SCOPE OF THE MISMATCH — every row of the real queue, classified mechanically.
+## cmd: python3 -c '<SourceFileLoader bin/wrought-runner; walk the real QUEUE.md with the runner's
+##       OWN ROW_RE / GATE_RE / QUEUE_STATUSES and mark each row OK or REJECT>'
+  runner knows: ['ADJUDICATED', 'APPROVED', 'BUNDLED', 'HALTED', 'NOT RUN', 'QUEUED', 'RUNNING']
+  row  21 OK      GATE-HJ1-HYGIENE           'ADJUDICATED'
+  row  22 REJECT  GATE-HJ2-HEARTBEAT         'FOLDED INTO GATE-RECONCILE'
+  row  23 REJECT  GATE-J0B-SURFACE           'RESET'
+  row  24 OK      GATE-RUNNER                'ADJUDICATED'
+  row  25 OK      GATE-RECONCILE             'ADJUDICATED'
+  row  26 OK      GATE-RUNNER-HARDEN         'ADJUDICATED'
+  row  27 OK      GATE-RUNNER-ARM            'RUNNING'
+  rows the runner REFUSES to parse: 2
+
+## THE VOCABULARY IS RATIFIED, AND THE CODE IS THE THING THAT IS WRONG.
+## bin/wrought-runner:65
+##   QUEUE_STATUSES = {"QUEUED","APPROVED","RUNNING","BUNDLED","ADJUDICATED","NOT RUN","HALTED"}
+## docs/EXECUTOR-RAILS.md §12.1 (ratified by the advisor + operator at the 2026-08-28 ferry):
+##   "The vocabulary is QUEUED -> APPROVED -> RUNNING -> BUNDLED -> ADJUDICATED, with RESET,
+##    FOLDED INTO <gate> and HALTED as terminal side-exits."
+## The same legend is in the courier README.md and in QUEUE.md's own status table.
+## Three-way mismatch:
+##   MISSING  'RESET'                — ratified terminal side-exit; used by GATE-J0B-SURFACE
+##   MISSING  'FOLDED INTO <gate>'   — ratified terminal side-exit; used by GATE-HJ2-HEARTBEAT.
+##                                     NOTE it is PARAMETRIC: it carries a gate name, so it needs a
+##                                     PREFIX match, not set membership. A fix that adds the bare
+##                                     string "FOLDED INTO" to the set would still reject the row.
+##   EXTRA    'NOT RUN'              — in the code, defined in NO document this gate could find.
+##
+## => This is not a policy question about which statuses should exist. The vocabulary was already
+##    settled in the rails; the parser was never updated to match it. It is a straight defect.
+
+## SEVERITY: the runner is UNSTARTABLE against the real courier. parse_queue() is reached on
+## EVERY loop iteration, before any gate is selected, so no queue edit short of removing the two
+## rows would get past it — and those rows are legitimate history that must not be rewritten.
+## `--reset-breaker` does not help: the condition is permanent, so the next start re-latches.
+
+## NOT FIXED IN THIS GATE, DELIBERATELY. The prompt's authorized change set is "pins.lock (CLI pin
+## + drift), the runner env allowlist, docs; the ONE operator root action in Phase 1; a scratch
+## end-to-end runner start." The queue parser is none of those. Reported, with the fix specified
+## below, rather than applied — CLAUDE.md's fail-loudly rule, and rails' "a prompt may narrow a
+## rail; nothing may widen one."
+
+## PROPOSED FIX (one constant + one comparison), for the advisor to rule on:
+##   TERMINAL_PREFIXES = ("FOLDED INTO",)
+##   QUEUE_STATUSES = {"QUEUED","APPROVED","RUNNING","BUNDLED","ADJUDICATED","HALTED","RESET"}
+##   ... in parse_queue():
+##       if status not in QUEUE_STATUSES and not status.startswith(TERMINAL_PREFIXES):
+##           raise Halt(...)
+## and a ruling on whether 'NOT RUN' should be deleted from the set or written into the rails.
+## Neither RESET nor FOLDED INTO is RUNNABLE_STATUS, so nothing about which gates run changes:
+## the fix only stops the parser refusing rows the vocabulary already blesses.
+
+## cmd: /usr/bin/python3 bin/wrought-runner --reset-breaker   (installed config)
+##   WHY: the latch is real but it was produced by THIS GATE'S probe, not by a batch. Leaving
+##   it would masquerade as a production fault in the operator's state dir. The UNDERLYING
+##   DEFECT IS NOT FIXED, so the next start against the real courier WILL latch again — that is
+##   the point of raw/24, and resetting the flag does not soften it.
+breaker reset
+   rc=0
+## cmd: cat /var/lib/wrought/runner-state/breaker.json
+{
+  "at": "2026-08-28T18:50:24Z",
+  "consecutive_failures": 0,
+  "halted": false,
+  "reason": null,
+  "reset_by": "operator via --reset-breaker"
+}
+
+## ================= OPERATOR RULING, recorded verbatim on arrival =================
+## date: 2026-08-28T19:05:00Z
+## Carried in by the operator in the attended session, after the box HALTED and asked (rails §9(d);
+## the halt is at courier STATUS.md commit "STATUS HALTED — Phase 5(ii) PASS; one operator ruling
+## needed on the queue-parse fix"). Quoted, not paraphrased:
+##
+##   "Authorized (advisor + operator): apply the additive queue-parse fix — add RESET to the
+##    recognized terminal set and a prefix match for "FOLDED INTO <gate>", leaving RUNNABLE_STATUS
+##    untouched. Then finish Phase 5 (prove the installed-config start), wind down, and push."
+##
+## SCOPE OF THE AUTHORIZATION, stated so it is not read wider than it is:
+##   IN  — RESET added to QUEUE_STATUSES; a prefix match for "FOLDED INTO"; RUNNABLE_STATUS
+##         untouched (so no gate becomes runnable that was not runnable before).
+##   OUT — the 'NOT RUN' question. The ruling does not mention it, so it is NOT touched: it stays
+##         in the set and remains the OPEN ruling from this gate. Checked first, per the advisor:
+##         `grep -n 'NOT RUN' bin/wrought-runner` returns ONLY line 65 (the parse set), and the two
+##         set_queue_status() call sites write 'RUNNING' and 'HALTED' only — so the runner never
+##         WRITES 'NOT RUN' and deleting it later cannot break a round-trip. Deleting it vs.
+##         writing it into rails §12.1 is a documentation decision, not a code one.

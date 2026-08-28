@@ -1,0 +1,76 @@
+# GATE-RUNNER-ARM Phase 3, PROPERTY (a) — fresh context per invocation, AND HARDEN's two-surface
+# (private HOME + private XDG_RUNTIME_DIR) isolation.
+# RE-VERIFIED ON THE INSTALLED 2.1.250.
+# Originals: fresh context = build-evidence/runner/raw/04 (2.1.238);
+#            two-surface isolation = build-evidence/runner-harden/raw/06 (2.1.238).
+# date: 2026-08-28T18:45:00Z
+
+## ============ PART 1: fresh context per invocation ============
+## cmd: two independent invocations, same cwd, NO -c/--continue and NO -r/--resume, env scrubbed
+##   of the 9 CLAUDE_CODE_* vars, DISABLE_AUTOUPDATER=1:
+##     timeout 300 env <scrub> DISABLE_AUTOUPDATER=1 /home/kalib/.local/bin/claude -p <prompt> \
+##       --setting-sources '' --tools "" --output-format json </dev/null
+##   inv1 prompt: 'Remember this token for later: PHOENIX-7734. Reply with exactly: OK'
+##   inv2 prompt: 'What token did I ask you to remember earlier in this conversation? If you have
+##                 no record of any earlier message from me, reply with exactly: NONE'
+
+  inv1 session_id = a18872ad-858d-4d46-9354-0e9c4de60fb9   result = 'OK'
+  inv2 session_id = d0e96309-8328-41d0-b886-78fcafb7e5e5
+  inv2 result (opening): 'I have no earlier message from you in this conversation. ...'
+  session_ids distinct?              YES
+  'PHOENIX' anywhere in inv2 output? NO  -> CONTEXT NOT SHARED
+
+  VERDICT part 1: PASS, unchanged from 2.1.238. Fresh `claude -p` invocations share no
+  conversational memory.
+
+  INCIDENTAL, not a containment finding, recorded because it was observed: inv2 ran with
+  `--tools ""` (no tools at all) and its TEXT output nevertheless contained literal
+  tool-invocation syntax for a Bash call, along with plausible-looking output for it. Nothing
+  ran — there was no Bash tool to run it — so this is text mimicry, not an escape. It matters
+  only as a reminder that the runner must classify on the RESULT JSON's structured fields
+  (is_error / terminal_reason / permission_denials), never by pattern-matching the model's prose.
+
+## ============ PART 2: the two-surface isolation ============
+## harness saved verbatim at build-evidence/runner-arm/raw/19-harness-a-isolation.sh
+## cmd: bash raw/19-harness-a-isolation.sh <label> <isolated|control>
+##   Both arms launch a real child under a systemd --user --scope with a `sleep 40` Bash call, and
+##   poll BOTH candidate discovery locations every 2s for the child's lifetime:
+##     shared  = /run/user/1000/cc-socks        (THIS supervising session owns 79855.sock)
+##     private = $EPHEMERAL_HOME/xdg-runtime/cc-socks
+##   ISOLATED = private ephemeral HOME seeded to the runner's MEASURED MINIMUM
+##              (.claude/.credentials.json, .gitconfig, .git-credentials — `.claude.json`
+##              deliberately absent, per /etc/wrought/runner.conf ephemeral_home.seed)
+##              + private XDG_RUNTIME_DIR applied INNER, as an `env` prefix on the claude argv
+##              AFTER systemd-run (the launcher itself keeps the real runtime dir).
+##   CONTROL  = real HOME + the shared /run/user/1000.
+
+  --- CONTROL arm (proves the probe can actually SEE a child) ---
+  distinct shared_MINUS_self values observed: []  and  [83585.sock]
+  => the control child DID appear in the shared cc-socks directory. The probe is not blind.
+  child: is_error=False  session_id=4eda6f69-b6eb-455c-bbdb-99812a18ce15
+
+  --- ISOLATED arm (the runner's actual shape) ---
+  distinct shared_MINUS_self values observed: []          <- ONLY ever empty
+  distinct private values observed:           []
+  post-run `find $EPHEMERAL_HOME -type s`:    (no sockets at all)
+  post-run shared cc-socks:                   only 79855.sock, this session's own
+  child: is_error=False  session_id=b0b2d5a7-c816-4302-ac0a-520171730f84, ran its Bash call
+
+  VERDICT part 2: PASS — the isolation holds on 2.1.250, and in the runner's real seed shape it
+  is STRONGER than the 2.1.238 measurement rather than merely equal.
+
+  PRECISION, because the difference from HARDEN's raw/06 is real and must not be papered over:
+  HARDEN measured the child's socket MOVING into the private runtime dir. Here the isolated child
+  created NO SOCKET ANYWHERE — not shared, not private, not anywhere under the ephemeral HOME.
+  The likely reason is the seed: this arm used the runner's shipping minimum, which OMITS
+  `.claude.json`, whereas HARDEN's probe matrix included arms seeded with it. The claim this gate
+  makes is therefore the narrow, measured one:
+    **in the exact shape the runner launches gates, the child is neither listed on nor
+      addressable at the shared surface, and creates no socket of its own.**
+  It does NOT claim "a private runtime dir always suppresses socket creation" — that was not
+  measured, and the weaker HARDEN result is the safe one to design against. Both surfaces stay.
+
+  COROLLARY, visible in the post-run tree: the child's auto-memory directory materialised at
+  $EPHEMERAL_HOME/.claude/projects/-home-kalib-foundry/memory — i.e. INSIDE the ephemeral HOME.
+  The cross-invocation memory channel is closed by construction, as runner.conf's
+  _memory_dir_note3 claims. The config's separate memory_dir fence remains as the second layer.

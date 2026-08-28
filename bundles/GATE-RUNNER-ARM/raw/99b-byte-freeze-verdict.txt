@@ -1,0 +1,12 @@
+# cmd: diff <(grep -A4 '^6600\|^e3b0\|^fd4c' raw/00) <(same from raw/99)  — mechanical, not eyeballed
+# date: 2026-08-28T19:18:59Z
+
+## cmd: diff <(grep -E '^[0-9a-f]{64}' raw/00-byte-freeze-baseline.txt) <(grep -E '^[0-9a-f]{64}' raw/99-byte-freeze-reassert.txt)
+(no output = identical)
+
+VERDICT: BYTE FREEZE HELD. All three orchestrator store files are byte-identical to the
+session baseline. This session did not touch production state.
+
+## Corroborating, the size+mtime capture:
+## cmd: diff <(grep '^/var/lib' raw/00...) <(grep '^/var/lib' raw/99...)
+(no output = identical, mtimes included)

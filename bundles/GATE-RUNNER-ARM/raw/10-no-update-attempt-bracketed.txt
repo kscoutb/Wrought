@@ -1,0 +1,32 @@
+# GATE-RUNNER-ARM Phase 2 — confirmation that a FRESH invocation attempts no update, bracketed
+# date: 2026-08-28T18:36:29Z
+
+## cmd: bracket = readlink -f <bin>; sha256sum ~/.claude/.last-update-result.json; ls versions/ | wc -l
+## BEFORE:
+  link=/home/kalib/.local/share/claude/versions/2.1.250
+  upd_sha=58026cd95247f2b83da21f6e5af27477e58c97304f525a38e2bf06c65cdaae13
+  versions=3
+
+## cmd: timeout 180 env -u DISABLE_AUTOUPDATER -u DISABLE_UPDATES /home/kalib/.local/bin/claude -p 'Reply with exactly: PINCHECK2' --output-format json --tools "" </dev/null
+##   (NOTHING in the shell env — so anything that stops the update must come from the
+##    ~/.claude/settings.json env block installed this phase. This is the INTERACTIVE surface.)
+  result= 'PINCHECK2'
+  is_error= False
+  session_id= 44b62747-7f51-43bf-8d89-1354222a42fb
+  terminal_reason= completed
+  total_cost_usd= 0.0066760000000000005
+
+## AFTER:
+  link=/home/kalib/.local/share/claude/versions/2.1.250
+  upd_sha=58026cd95247f2b83da21f6e5af27477e58c97304f525a38e2bf06c65cdaae13
+  versions=3
+
+## VERDICT: NO UPDATE ATTEMPTED. Symlink, update-result file and version count all UNCHANGED.
+
+## HONEST LIMIT OF THIS NEGATIVE, stated rather than left for the reviewer:
+##   'no update happened' is a WEAK negative on its own — if no build newer than 2.1.250 is
+##   published, nothing would have happened either way, and this box cannot see the upstream
+##   channel to prove otherwise. The LOAD-BEARING evidence is not this negative: it is the
+##   resolver's own verdict in raw/05 ('Auto-updates: disabled (set by env: DISABLE_AUTOUPDATER)'
+##   vs the control's 'Auto-updates: enabled'), which is a positive, direct reading of the
+##   switch the CLI itself consults. This bracket corroborates; it does not carry the claim.

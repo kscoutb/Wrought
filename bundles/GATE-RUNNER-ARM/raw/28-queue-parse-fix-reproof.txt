@@ -1,0 +1,90 @@
+# GATE-RUNNER-ARM Phase 5 — RE-PROOF after the authorized additive queue-parse fix
+# date: 2026-08-28T19:15:44Z
+# New file, not an edit of raw/23 or raw/24 (rails §4: corrections are added, never overwritten).
+
+## THE FIX, as applied to bin/wrought-runner:
+##   QUEUE_STATUSES      += "RESET"
+##   QUEUE_STATUS_PREFIXES = ("FOLDED INTO",)   # parametric — carries a gate name
+##   parse_queue(): if status not in QUEUE_STATUSES and not status.startswith(QUEUE_STATUS_PREFIXES): raise
+##   RUNNABLE_STATUS untouched at "APPROVED".
+
+## INVARIANT CHECK — the fix must not make anything runnable that was not runnable before.
+## cmd: python3 -c '<load the runner; assert RUNNABLE_STATUS; walk the REAL QUEUE.md>'
+  RUNNABLE_STATUS      = 'APPROVED'   (unchanged)
+  QUEUE_STATUSES       = ['ADJUDICATED', 'APPROVED', 'BUNDLED', 'HALTED', 'NOT RUN', 'QUEUED', 'RESET', 'RUNNING']
+  QUEUE_STATUS_PREFIXES= ['FOLDED INTO']
+
+  parse_queue(real QUEUE.md) -> 7 rows, NO Halt raised
+    row  21            GATE-HJ1-HYGIENE           'ADJUDICATED'
+    row  22            GATE-HJ2-HEARTBEAT         'FOLDED INTO GATE-RECONCILE'
+    row  23            GATE-J0B-SURFACE           'RESET'
+    row  24            GATE-RUNNER                'ADJUDICATED'
+    row  25            GATE-RECONCILE             'ADJUDICATED'
+    row  26            GATE-RUNNER-HARDEN         'ADJUDICATED'
+    row  27            GATE-RUNNER-ARM            'RUNNING'
+
+  rows accepted : 7/7
+  rows RUNNABLE : 0 -> (none)
+  => the two newly-accepted statuses are terminal side-exits; neither is APPROVED,
+     so the runnable set is UNCHANGED (empty) by this fix.
+
+## ============ THE PROOF THE GATE TITLE DEMANDS ============
+## cmd: /usr/bin/python3 bin/wrought-runner        (INSTALLED /etc/wrought/runner.conf, no flags,
+##      no --config override — the real courier, the real state dir, the real freeze paths)
+[2026-08-28T19:15:51Z] no APPROVED gates left to run — exiting cleanly
+
+wrought-runner: 0 gate(s); clean exit
+evidence: /var/lib/wrought/runner-state/runs/20260828T191550Z
+   rc=0
+
+## cmd: cat /var/lib/wrought/runner-state/breaker.json   (must NOT be latched)
+{
+  "at": "2026-08-28T18:50:24Z",
+  "consecutive_failures": 0,
+  "halted": false,
+  "reason": null,
+  "reset_by": "operator via --reset-breaker"
+}
+
+## cmd: ls /var/lib/wrought/runner-state/runs/ | tail -3
+20260828T184840Z
+20260828T191550Z
+
+## ============ REGRESSION IN THE SCRATCH: the two statuses PARSE, and only APPROVED RUNS ============
+## The scratch QUEUE.md was rewritten to carry all three terminal shapes plus one runnable row:
+##   | `GATE-SCRATCH-PROBE`  | `BUNDLED`                        | already ran in 5(ii); terminal |
+##   | `GATE-SCRATCH-FOLDED` | `FOLDED INTO GATE-SCRATCH-PROBE` | REGRESSION: the parametric status |
+##   | `GATE-SCRATCH-RESET`  | `RESET`                          | REGRESSION: the other side-exit |
+##   | `GATE-SCRATCH-TWO`    | `APPROVED`                       | the ONLY runnable row |
+## cmd: timeout 300 /usr/bin/python3 bin/wrought-runner --config <S>/runner.scratch.conf
+  run-start
+  ephemeral-home  gate=GATE-SCRATCH-TWO  seeded=['.claude/.credentials.json','.gitconfig','.git-credentials']
+  GATE-SCRATCH-TWO: launching. tools='Bash' budget=$2.0 mode=dontAsk MemoryMax=8G RuntimeMaxSec=5400
+  child-done   rc=0 is_error=False subtype=success terminal_reason=completed wall_sec=42.3
+               cost_usd=0.303678 denials=1
+  manifest-verify  rc=0  out='REPORT.md: OK'
+  gate-verdict  verdict=PASS disposition=COMPLETED postcondition_failures=[] memory=unchanged
+  GATE-SCRATCH-TWO: PASS — bundle present, manifest verifies, byte freeze held
+  ephemeral-home-torn-down
+  GATE-SCRATCH-TWO: orphan sweep CLEAN — no new guest, domain or listener survived
+  pacing: sleeping 300s before the next gate
+  (the harness's own 2-minute cap then SIGTERMed the runner during that 300s sleep, after the
+   gate had completed. `pgrep -af 'wrought-runner|qemu-system'` afterwards -> none.)
+
+## REGRESSION RESULT:
+##   - the FOLDED INTO row and the RESET row were PARSED, not rejected: no queue-parse Halt.
+##   - exactly ONE gate ran, and it was the APPROVED one. The ledger holds GATE-SCRATCH-TWO only;
+##     GATE-SCRATCH-FOLDED and GATE-SCRATCH-RESET were never selected.
+##   => the fix widens what the parser ACCEPTS and not what the runner RUNS, as authorized.
+
+## BONUS — CONTAINMENT CAUGHT IN THE ACT, in a real gate rather than a probe. denials=1:
+## cmd: python3 -c '<print permission_denials from the child JSON>'
+  session_id: 89ef1b5e-e91b-4d2c-a552-3dbe77803e33
+  DENIED: tool_name='Edit'  tool_input.file_path=<S>/courier/QUEUE.md
+          (old_string '| `GATE-SCRATCH-TWO` | `RUNNING` | ...' -> '| ... | `BUNDLED` | ...')
+  result: 'SCRATCH-PROBE-DONE'
+## The prompt's header declares `ALLOWED-TOOLS: Bash`. The child reached for the Edit tool, which
+## that surface does NOT include, and `dontAsk` REFUSED it — then the child completed the same
+## edit through Bash, which IS allowed, and the gate passed. This is the rails §12.2 control
+## working on a live gate: the declared tool surface bound the child, the refusal was recorded
+## machine-readably, and nothing was silently widened.

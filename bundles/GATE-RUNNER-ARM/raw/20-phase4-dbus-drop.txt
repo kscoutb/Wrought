@@ -1,0 +1,82 @@
+# GATE-RUNNER-ARM Phase 4 — DBUS_SESSION_BUS_ADDRESS dropped from the gate-child env allowlist
+# date: 2026-08-28T18:50:00Z
+
+## WHY THIS IS NOT COSMETIC — the hole HARDEN's isolation left open.
+## Measured at the start of this gate (raw/08, the build_child_env dump): a gate child was handed
+##     DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+## i.e. THE REAL SESSION BUS, even though HARDEN gives it a private $HOME and a private
+## $XDG_RUNTIME_DIR. The steering fix moved the cc-socks surface and left the bus surface
+## untouched. The session bus is a cross-session vector; a child that holds its address can
+## reach services on it regardless of what its runtime dir says.
+
+## ---- STEP 1: does the RUNNER PARENT need it? (deciding total drop vs child-only strip) ----
+## cmd: env -i HOME=/home/kalib PATH=/usr/bin:/bin USER=kalib LOGNAME=kalib \
+##        XDG_RUNTIME_DIR=/run/user/1000 TERM=dumb \
+##        systemd-run --user --scope --quiet --unit=arm-dbustest-$$.scope -p RuntimeMaxSec=30 \
+##        /bin/echo "SCOPE-RAN-WITHOUT-DBUS"
+  SCOPE-RAN-WITHOUT-DBUS
+  rc=0        <<< the launcher does NOT need it
+
+## cmd (CONTROL): the same with XDG_RUNTIME_DIR ALSO removed
+  Failed to connect to user scope bus via local transport: $DBUS_SESSION_BUS_ADDRESS and
+  $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user ...)
+  rc=1        <<< and this is the exact failure HARDEN's probe C1 hit
+
+## => sd-bus DERIVES the bus socket path from XDG_RUNTIME_DIR. Because the parent does not need
+##    the variable, the drop is TOTAL (removed from the `keep` allowlist outright) rather than a
+##    child-only strip via the argv `env` prefix. That is the tighter of the two surfaces the
+##    prompt allowed, and it needs no conditional logic that could silently stop applying.
+
+## ---- STEP 2: the edit ----
+## bin/wrought-runner, build_child_env(): DBUS_SESSION_BUS_ADDRESS removed from `keep`.
+## Verified by calling the runner's OWN function (not a re-implementation):
+##   cmd: python3 -c '<SourceFileLoader bin/wrought-runner; build_child_env(installed cfg, child_home=...)>'
+  child env keys now: ['BASH_DEFAULT_TIMEOUT_MS', 'CI', 'CLAUDE_CODE_MAX_OUTPUT_TOKENS',
+                       'DISABLE_AUTOUPDATER', 'HOME', 'LANG', 'LOGNAME', 'PATH', 'SHELL',
+                       'TERM', 'USER', 'XDG_RUNTIME_DIR']
+  DBUS_SESSION_BUS_ADDRESS present: False
+  XDG_RUNTIME_DIR still present:    /run/user/1000
+  DISABLE_AUTOUPDATER still present: 1
+
+## ---- STEP 3: PROVE A GATE CHILD STILL RUNS WITH IT ABSENT ----
+## Full runner launch shape: ephemeral HOME seeded to the shipping minimum, private runtime dir
+## applied INNER, systemd --user --scope with MemoryMax/MemorySwapMax/RuntimeMaxSec, dontAsk,
+## /etc/wrought/runner-hooks.json, --add-dir the courier.
+## cmd: env -i HOME=<ephemeral> PATH=... USER=kalib LOGNAME=kalib SHELL=/bin/bash LANG=en_US.UTF-8 \
+##        XDG_RUNTIME_DIR=/run/user/1000 TERM=dumb CI=1 DISABLE_AUTOUPDATER=1 \
+##        CLAUDE_CODE_MAX_OUTPUT_TOKENS=32000 BASH_DEFAULT_TIMEOUT_MS=600000 \
+##        systemd-run --user --scope --quiet --unit=arm-dbusdrop-$$.scope \
+##          -p MemoryMax=8G -p MemorySwapMax=0 -p RuntimeMaxSec=300 \
+##          /usr/bin/env XDG_RUNTIME_DIR=<private> /home/kalib/.local/bin/claude \
+##          -p '<run: env | grep -c DBUS...; run: git --version; reply DBUS-DROP-OK>' \
+##          --setting-sources '' --settings /etc/wrought/runner-hooks.json \
+##          --permission-mode dontAsk --allowedTools "Bash(env:*) Bash(git *) Bash(grep:*)" \
+##          --output-format json --max-budget-usd 1.0 --add-dir /home/kalib/courier/Wrought </dev/null
+  launcher rc=0
+  is_error=False  terminal_reason='completed'  num_turns=3  permission_denials=(none)
+  session_id=4cf2195c-5a48-4754-b25b-14790b2ffa53
+  result: "DBUS-DROP-OK ..."
+  stderr: 0 bytes
+  >>> `git --version` ran INSIDE the child without the bus. git is what a gate needs for its own
+      courier push, and it is unaffected.
+
+## ---- STEP 4: GROUND TRUTH FROM INSIDE THE CHILD (not from its prose) ----
+## The child was made to WRITE the facts to a file, which the box then read.
+## cmd: <same launch shape, --working-directory=<scratch work>>, prompt:
+##   "Use the Bash tool to run exactly this one command, in this directory:
+##    { echo \"DBUS_SESSION_BUS_ADDRESS=[${DBUS_SESSION_BUS_ADDRESS:-<UNSET>}]\";
+##      echo \"XDG_RUNTIME_DIR=[$XDG_RUNTIME_DIR]\";
+##      echo \"DISABLE_AUTOUPDATER=[${DISABLE_AUTOUPDATER:-<UNSET>}]\"; env | wc -l; } > envfacts.txt
+##    Then reply with exactly: WROTE"
+## cmd: cat <scratch work>/envfacts.txt
+  DBUS_SESSION_BUS_ADDRESS=[<UNSET>]
+  XDG_RUNTIME_DIR=[<...>/dbus-home/xdg-runtime]      <- the PRIVATE one, not /run/user/1000
+  DISABLE_AUTOUPDATER=[1]
+  29                                                  <- total env vars in the child
+
+=== VERDICT (Phase 4): PASS. DBUS_SESSION_BUS_ADDRESS is gone from the gate-child environment,
+=== confirmed from inside a real child; the launcher is unaffected because sd-bus derives the bus
+=== from XDG_RUNTIME_DIR; a gate child still completes multi-turn work with zero denials and git
+=== still works. NO gate operation was found that needs the variable, so nothing was re-added.
+=== The same file also confirms Phase 2 from inside the child: DISABLE_AUTOUPDATER=1 is present,
+=== which is the surface the ~/.claude/settings.json fix provably cannot reach (raw/08).

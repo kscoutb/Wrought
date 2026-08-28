@@ -1,0 +1,55 @@
+# GATE-RUNNER-ARM Phase 2 — the TWO surfaces, and why ONE PLACE IS NOT ENOUGH
+# date: 2026-08-28T18:35:13Z
+# All four arms: 'claude doctor', stdin </dev/null, timeout 120, cwd the session scratchpad.
+
+## SURFACE 1 (interactive) — ~/.claude/settings.json env block. The binary documents this as
+## the supported persistent path ('including via the env block of the user's own
+## ~/.claude/settings.json', raw/04). Edit applied; BEFORE copy at raw/07.
+## cmd: timeout 120 env -u DISABLE_AUTOUPDATER -u DISABLE_UPDATES claude doctor </dev/null
+  ARM A (real HOME, NOTHING in the shell):
+    Running: native (2.1.250)
+    Auto-updates: disabled (set by env: DISABLE_AUTOUPDATER)   <<< the settings env block IS honoured
+
+## SURFACE 2 (gate child) — hardcoded in build_child_env(). THE ASYMMETRY, MEASURED:
+## cmd: timeout 120 env -u DISABLE_AUTOUPDATER -u DISABLE_UPDATES HOME=<empty ephemeral dir> claude doctor </dev/null
+  ARM C (EPHEMERAL HOME, nothing in the shell — THE GATE-CHILD SHAPE):
+    Running: native (2.1.250)
+    Config install method: not set
+    Auto-updates: ENABLED                                       <<< settings block CANNOT REACH IT
+    - Running native installation but config install method is 'not set'
+
+## cmd: timeout 120 env -u DISABLE_UPDATES HOME=<same ephemeral dir> DISABLE_AUTOUPDATER=1 claude doctor </dev/null
+  ARM D (ephemeral HOME + the runner's hardcoded child env var):
+    Auto-updates: disabled (set by env: DISABLE_AUTOUPDATER)   <<< closed
+
+## ===== THE LOAD-BEARING CONSEQUENCE =====
+## HARDEN's ephemeral HOME — the fix for the cross-session STEERING breaker — RE-OPENED the
+## autoupdate exposure for gate children, because it moves the child away from the very file
+## the interactive fix lives in. Three independent reasons the settings block cannot reach a
+## gate child: (1) HOME is the ephemeral dir, so ~/.claude/settings.json is not there; (2) the
+## launch passes --setting-sources '' ; (3) the child env is an ALLOWLIST — nothing is inherited.
+## => BOTH places are required. Neither is redundant. Fixing only one leaves a live hole,
+##    and the child hole is the one that matters for an unattended batch.
+
+## VERIFICATION AT THE SOURCE — the runner's OWN function, not a re-implementation.
+## cmd: python3 -c '<SourceFileLoader bin/wrought-runner; build_child_env(json.load(/etc/wrought/runner.conf), child_home=...)>'
+  BASH_DEFAULT_TIMEOUT_MS=600000
+  CI=1
+  CLAUDE_CODE_MAX_OUTPUT_TOKENS=32000
+  DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+  DISABLE_AUTOUPDATER=1
+  HOME=/var/lib/wrought/runner-state/ephemeral-homes/EXAMPLE
+  LANG=en_US.UTF-8
+  LOGNAME=kalib
+  PATH=/home/kalib/.local/bin:/home/kalib/.local/bin:/home/kalib/.local/bin:/home/kalib/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin
+  SHELL=/bin/bash
+  TERM=dumb
+  USER=kalib
+  XDG_RUNTIME_DIR=/run/user/1000
+
+DISABLE_AUTOUPDATER present: True value: '1'
+HOME is the ephemeral one: /var/lib/wrought/runner-state/ephemeral-homes/EXAMPLE
+
+## NOTE for Phase 4, visible in the dump above: the child currently receives
+##   DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
+## i.e. the REAL session bus, even though its XDG_RUNTIME_DIR is made private at launch.

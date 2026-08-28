@@ -1,0 +1,53 @@
+# GATE-RUNNER-ARM Phase 5, SUB-PROOF (i) — wrought-runner STARTS on the INSTALLED config
+# date: 2026-08-28T18:48:33Z
+# HARDEN raw/23 measured: PermissionError: '/var/lib/wrought/runner-state', exit 1, on
+#   main()'s   state.mkdir(parents=True, exist_ok=True)
+# Phase 1's operator action created that dir 0700 kalib:kalib. This is the re-test.
+# NO --config override anywhere below: the INSTALLED /etc/wrought/runner.conf is used verbatim.
+
+## cmd: /usr/bin/python3 bin/wrought-runner --status
+##   (--status exercises load_config() and the exact state.mkdir() line that raised, then
+##    prints breaker+ledger and returns 0 — zero side effects beyond creating the state dir.)
+{
+  "breaker": {
+    "halted": false,
+    "consecutive_failures": 0,
+    "reason": null,
+    "at": null
+  },
+  "ledger": {}
+}
+   rc=0
+
+## cmd: /usr/bin/python3 bin/wrought-runner        (FULL start, installed config, no flags)
+##   Safe by construction: QUEUE.md carries NO row at status APPROVED (RUNNABLE_STATUS), so the
+##   runner pulls the courier, parses the queue, finds nothing runnable and exits cleanly.
+##   push_status() is only reached once a gate is selected, so the real STATUS.md is NOT touched.
+[2026-08-28T18:48:40Z] HALT [queue-parse]: QUEUE row 22 for GATE-HJ2-HEARTBEAT has unknown status 'FOLDED INTO GATE-RECONCILE'; known: ['ADJUDICATED', 'APPROVED', 'BUNDLED', 'HALTED', 'NOT RUN', 'QUEUED', 'RUNNING']
+
+wrought-runner: 0 gate(s); STOPPED [queue-parse] QUEUE row 22 for GATE-HJ2-HEARTBEAT has unknown status 'FOLDED INTO GATE-RECONCILE'; known: ['ADJUDICATED', 'APPROVED', 'BUNDLED', 'HALTED', 'NOT RUN', 'QUEUED', 'RUNNING']  — BREAKER LATCHED, operator must --reset-breaker
+evidence: /var/lib/wrought/runner-state/runs/20260828T184840Z
+   rc=2
+
+## ================= CORRECTION, BY ADDITION (rails §4: never overwrite evidence) =================
+## The comment above this file's second command — written BEFORE the run — claims:
+##     'push_status() is only reached once a gate is selected, so the real STATUS.md is NOT touched.'
+## THAT CLAIM IS WRONG, and the run disproved it. The HALT path also calls push_status(), so the
+## runner OVERWROTE the real courier STATUS.md and COMMITTED AND PUSHED it:
+##     commit 3f6f819  'courier: status — wrought-runner GATE-BATCH HALTED'
+##     STATUS.md gate: GATE-BATCH  state: HALTED  (clobbering this session's RUNNING P5 heartbeat)
+## The box's own heartbeat was restored immediately afterwards and the clobber is recorded here
+## rather than quietly repaired. The wrong sentence is left standing above, as the rule requires.
+##
+## OPERATIONAL CONSEQUENCE worth carrying forward: a wrought-runner start is NOT a read-only
+## probe. Any start against the real courier writes and pushes STATUS.md. A future gate that
+## wants to test the runner without touching the courier must point courier_dir at a scratch
+## clone — which is what sub-proof (ii) does.
+
+## RESULT OF SUB-PROOF (i), stated plainly:
+##   PASS on what Phase 1 was meant to fix — the PermissionError on state_dir is GONE. The
+##   runner loaded the INSTALLED config, created its state dir, took its lock, wrote a run
+##   ledger, and reached the queue parser.
+##   FAIL on actually running — it halts at the queue parser with a LATCHING breaker, because
+##   of a SECOND, previously unknown defect. Full account: raw/24. The runner is UNSTARTABLE
+##   against the real courier until that is fixed.

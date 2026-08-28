@@ -1,0 +1,7 @@
+{
+  "effortLevel": "xhigh",
+  "advisorModel": "fable",
+  "tui": "fullscreen",
+  "skipDangerousModePermissionPrompt": true,
+  "theme": "dark"
+}

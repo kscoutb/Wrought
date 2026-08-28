@@ -1,0 +1,35 @@
+# GATE-RUNNER-ARM Phase 1 — pre-action state of the runner state_dir, and the box's sudo posture
+# date: 2026-08-28T15:52:51Z
+
+## The path the runner cannot start without (HARDEN raw/23).
+## cmd: ls -ld /var/lib/wrought /var/lib/wrought/runner-state
+ls: cannot access '/var/lib/wrought/runner-state': No such file or directory
+drwxr-xr-x 47 root root 4096 Aug 28 09:39 /var/lib/wrought
+
+## => runner-state DOES NOT EXIST. /var/lib/wrought is root:root 0755, so the kalib
+##    session cannot create it. This is the PermissionError HARDEN raw/23 measured.
+
+## UNASKED OBSERVATION, recorded not acted on: this box has passwordless root for kalib.
+## cmd: sudo -n -l
+User kalib may run the following commands on forge-mini:
+    (ALL : ALL) ALL
+    (ALL) NOPASSWD: ALL
+
+##    Capability is not authorization. The prompt routes the ONE root action through the
+##    OPERATOR deliberately, so the box did NOT run it despite being able to.
+##    The security-relevant half: gate children run as kalib, and kalib is NOPASSWD:ALL.
+##    So for a gate child the dontAsk allowlist and the systemd scope are the ONLY fences
+##    between the child and root — there is no second, credential-shaped one. Report item.
+
+## PHASE 1.1 — OPERATOR ROOT ACTION, VERIFIED BY THE BOX AFTER THE FACT
+## The operator reported the directory created. The box does not take that on report.
+## cmd: ls -ld /var/lib/wrought/runner-state; stat -c '%n mode=%a owner=%U:%G' /var/lib/wrought/runner-state
+## date: 2026-08-28T18:30:00Z
+drwx------ 2 kalib kalib 4096 Aug 28 14:29 /var/lib/wrought/runner-state
+/var/lib/wrought/runner-state mode=700 owner=kalib:kalib
+
+## cmd: writability probe as kalib (create + remove a marker)
+WRITABLE by kalib: YES (marker created and removed)
+
+## cmd: ls -A /var/lib/wrought/runner-state   (expect empty — nothing pre-existing)
+  (blank above = empty)

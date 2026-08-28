@@ -1,0 +1,41 @@
+# GATE-RUNNER-ARM Phase 1.2 — health baseline
+# date: 2026-08-28T15:52:31Z
+
+## cmd: systemctl is-active wrought-inference.service
+active
+
+## cmd: curl -sS -o /dev/null -w '%{http_code}\n' --max-time 10 http://127.0.0.1:8080/health
+200
+
+## cmd: cat /sys/class/drm/card*/device/power_dpm_force_performance_level 2>/dev/null; for d in /sys/class/drm/card*/device; do printf '%s vendor=%s device=%s runpm=%s\n' "$d" "$(cat $d/vendor 2>/dev/null)" "$(cat $d/device 2>/dev/null)" "$(cat $d/power/control 2>/dev/null)"; done
+/sys/class/drm/card0/device vendor=0x1002 device=0x744c runpm=on
+/sys/class/drm/card0-DP-1/device vendor= device= runpm=auto
+/sys/class/drm/card0-DP-2/device vendor= device= runpm=auto
+/sys/class/drm/card0-HDMI-A-1/device vendor= device= runpm=auto
+/sys/class/drm/card0-HDMI-A-2/device vendor= device= runpm=auto
+/sys/class/drm/card0-Writeback-1/device vendor= device= runpm=auto
+/sys/class/drm/card1/device vendor=0x1002 device=0x150e runpm=on
+/sys/class/drm/card1-DP-10/device vendor= device= runpm=auto
+/sys/class/drm/card1-DP-3/device vendor= device= runpm=auto
+/sys/class/drm/card1-DP-4/device vendor= device= runpm=auto
+/sys/class/drm/card1-DP-5/device vendor= device= runpm=auto
+/sys/class/drm/card1-DP-6/device vendor= device= runpm=auto
+/sys/class/drm/card1-DP-7/device vendor= device= runpm=auto
+/sys/class/drm/card1-DP-8/device vendor= device= runpm=auto
+/sys/class/drm/card1-DP-9/device vendor= device= runpm=auto
+/sys/class/drm/card1-HDMI-A-3/device vendor= device= runpm=auto
+/sys/class/drm/card1-Writeback-2/device vendor= device= runpm=auto
+
+## cmd: cat /sys/module/amdgpu/parameters/runpm   (expect 0)
+0
+
+## cmd: readlink -f /sys/class/drm/card0/device ; cat .../power/runtime_status
+/sys/devices/pci0000:00/0000:00:03.1/0000:c5:00.0/0000:c6:00.0/0000:c7:00.0
+active
+
+## cmd: cat /sys/class/drm/card0/device/mem_info_vram_{total,used}   (dGPU 0x744c)
+vram_total: 25753026560
+vram_used:  19619987456
+
+## cmd: uname -r
+7.0.0-30-generic

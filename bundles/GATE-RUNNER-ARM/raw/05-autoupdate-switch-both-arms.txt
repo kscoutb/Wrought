@@ -1,0 +1,30 @@
+# GATE-RUNNER-ARM Phase 2 — DIRECT measurement of the autoupdate switch (both arms), via 'claude doctor'
+# date: 2026-08-28T18:33:48Z
+# This is a measurement of the RESOLVER'S OWN VERDICT, not the weaker negative 'no update happened'.
+# cwd: the session scratchpad. stdin </dev/null. timeout 120.
+
+## ARM 1 — WITH the switch.
+## cmd: timeout 120 env DISABLE_AUTOUPDATER=1 /home/kalib/.local/bin/claude doctor </dev/null
+  Running: native (2.1.250)
+  Config install method: native
+  Auto-updates: disabled (set by env: DISABLE_AUTOUPDATER)     <<< HONOURED, and it NAMES the var
+  Auto-update channel: latest
+  Last update attempt: success -> 2.1.250 (2026-08-28)
+  No installation issues found.        rc=0
+
+## ARM 2 — CONTROL, without it. THIS IS THE BOX'S STATE UP TO THIS MOMENT.
+## cmd: timeout 120 env -u DISABLE_AUTOUPDATER -u DISABLE_UPDATES /home/kalib/.local/bin/claude doctor </dev/null
+  Running: native (2.1.250)
+  Auto-updates: enabled                                        <<< ENABLED, with autoUpdates:false set
+  Auto-update channel: latest
+  Last update attempt: success -> 2.1.250 (2026-08-28)
+
+## The control arm CONFIRMS the code reading in raw/04 by direct observation: the operator's
+## 'autoUpdates: false' preference was in place and the CLI still reported auto-updates ENABLED,
+## because autoUpdatesProtectedForNative=true voids the config arm on a native install.
+## The env arm is the ONLY reachable switch on this box.
+
+## BRACKET around the control run (a control that could move the binary must be watched):
+##   BEFORE: link=/home/kalib/.local/share/claude/versions/2.1.250 upd_sha=58026cd95247f2b8 versions=3
+##   AFTER:  link=/home/kalib/.local/share/claude/versions/2.1.250 upd_sha=58026cd95247f2b8 versions=3
+##   VERDICT: UNCHANGED — the binary did not move during the control run.

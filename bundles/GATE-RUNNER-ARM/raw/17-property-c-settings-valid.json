@@ -1,0 +1,1 @@
+{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"/tmp/claude-1000/-home-kalib-foundry/c7320a0f-9ba2-4fda-81e1-9a40647bd286/scratchpad/t-c/hook.sh"}]}]}}

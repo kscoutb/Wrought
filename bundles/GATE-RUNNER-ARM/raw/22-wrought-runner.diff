@@ -1,0 +1,35 @@
+--- build-evidence/runner-arm/raw/06-wrought-runner.BEFORE.py	2026-08-28 14:33:51.879690536 -0400
++++ bin/wrought-runner	2026-08-28 14:46:34.475514897 -0400
+@@ -485,13 +485,31 @@
+     "Failed to connect to user scope bus via local transport: No such file or directory".
+     """
+     lim = cfg["limits"]
++    # GATE-RUNNER-ARM: DBUS_SESSION_BUS_ADDRESS was REMOVED from this allowlist. The session bus
++    # is a cross-session vector, and HARDEN's isolation did not close it — a gate child was still
++    # handed the REAL bus address (unix:path=/run/user/1000/bus) even while its XDG_RUNTIME_DIR was
++    # private. Dropping it is safe and does NOT cost the launcher: MEASURED (raw/20) that
++    # `systemd-run --user --scope` succeeds with no DBUS_SESSION_BUS_ADDRESS as long as
++    # XDG_RUNTIME_DIR is set, because sd-bus derives the socket path from it; the control with BOTH
++    # removed fails with "$DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined". So the drop
++    # is total — parent and child — rather than a child-only strip, which is the tighter surface.
+     keep = ("HOME", "PATH", "USER", "LOGNAME", "SHELL", "LANG", "LC_ALL",
+-            "XDG_RUNTIME_DIR", "DBUS_SESSION_BUS_ADDRESS")
++            "XDG_RUNTIME_DIR")
+     env = {k: os.environ[k] for k in keep if k in os.environ}
+     if child_home is not None:
+         env["HOME"] = str(child_home)
+     env["TERM"] = "dumb"
+     env["CI"] = "1"
++    # GATE-RUNNER-ARM: pin the supervisor's own toolchain. On 2026-08-28 the CLI self-updated
++    # 2.1.238 -> 2.1.250 mid-campaign, invalidating every containment measurement under it. The
++    # operator's `autoUpdates: false` was ALREADY SET and did NOT stop it: the resolver's config
++    # arm is void on a native install when autoUpdatesProtectedForNative is true (raw/04), so the
++    # ENV arm is the only reachable switch. Measured honoured, and it names itself:
++    # `claude doctor` -> "Auto-updates: disabled (set by env: DISABLE_AUTOUPDATER)" (raw/05).
++    # This MUST be set here rather than in a profile or ~/.claude/settings.json: the child's env
++    # is an ALLOWLIST (nothing is inherited), its HOME is the ephemeral one, and the launch passes
++    # `--setting-sources ''` — so neither of the interactive surfaces can reach a gate child.
++    env["DISABLE_AUTOUPDATER"] = "1"
+     env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = str(lim["max_output_tokens"])
+     env["BASH_DEFAULT_TIMEOUT_MS"] = str(lim["bash_default_timeout_ms"])
+     if cfg.get("_config_path"):

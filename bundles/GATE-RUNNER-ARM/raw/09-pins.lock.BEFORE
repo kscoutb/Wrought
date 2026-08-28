@@ -1,0 +1,1619 @@
+# pins.lock — the version source of truth. Created at GATE-07 on forge-mini, 2026-08-02.
+#
+# Every value here is MEASURED-THIS-HOST or read from an authoritative upstream API.
+# Nothing is hand-invented (P4 / hard rule). Where a value cannot exist yet, the key
+# carries an explicit DEFERRED marker naming the gate that produces it — so GATE-07's
+# "no symbolic pins remain FOR THIS PHASE'S SCOPE" is checkable rather than asserted.
+#
+# Raw evidence bundle (hashed): build-evidence/gate-07/raw/ + SHA256SUMS
+# Diff this file after ANY substrate change; ST-1 re-runs correctness gates on any diff.
+
+llama_cpp:
+  commit_sha: 0ab9d6fed73dbc5dc8026c868cb10a6728c4ed48   # pinned at GATE-07; F-40 — never configure from mutable master
+  commit_date: "2026-08-02 11:44:00 -0700"
+  build_number: b10233               # binary self-report (`--version` → 10233). `git describe --tags`
+                                     # gives b10232, which is the last TAGGED release BEFORE this
+                                     # commit — not this build. The binary's own number is authoritative.
+  ggml_version: 0.18.0
+  binary_sha256:
+    llama-server: 23e27c09ac05b8e419b6500a93ba374142e428bd16bf8325451914df1e8fcd82   # GATE-08
+    llama-cli: d29df4016753fa208b35c1c63c01d8f99b2d8be6a9221116eef03e67926975a1      # GATE-08
+    llama-bench: f146e2876ecf46f35d2706083a558c48e723b43cd21a7be74a1a3fa8f3fd3f20    # GATE-08
+  cmake_flags: "-DGGML_VULKAN=ON -DGGML_NATIVE=ON -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DLLAMA_CURL=OFF"
+  source_tarball_path: /var/lib/wrought/src/llama.cpp-0ab9d6fed73dbc5dc8026c868cb10a6728c4ed48.tar.gz
+  source_tarball_sha256: 3e51322ce8a8108f368bcf0719427b346869acbc1b9ebd84f0e5fcd9be4b90f0   # F-40: commit alone doesn't preserve availability
+
+litestream:
+  # PINNED 2026-08-02 (J-60). Fetch + hash ONLY -- no config, no replication target, no credential.
+  # §12.1's ONE-WAY DOOR is why this is pinned before it is used: v0.5 LTX replicas cannot be
+  # restored by a v0.3 binary, so the binary version is part of the backup's recoverability, and
+  # the rebuild runbook (§12.6 step 2) installs THIS version before restoring anything.
+  version: 0.5.15                  # `litestream version` self-report on the installed binary
+  release_tag: v0.5.15             # published 2026-07-21
+  binary_path: /opt/wrought/bin/litestream
+  binary_sha256: 5ff810171618664667d24235479a9cda2f47b0348f6041cc46bbc7ca676fce04   # the BINARY, not the archive
+  archive: litestream-0.5.15-linux-x86_64.tar.gz
+  archive_sha256: 839a68e69d111409262775bed78ba9f73f0835cfd23d8c128da21eedaedb50ba   # verified vs upstream checksums.txt
+  # NOT the `litestream-vfs-*` build, deliberately: §12.1 records the VFS read-replica knobs as
+  # "irrelevant to this backup-only deployment". The VFS artifact is a different binary (25.7 MB vs
+  # 13.5 MB) and adopting it would import a feature surface this design explicitly does not use.
+  variant: standard
+  # ST-2 says "+ Sigstore where published". CHECKED 2026-08-02, and the answer is NO:
+  # GitHub's attestations endpoint returns 404 for this binary's digest, and the release carries
+  # no .sig/.pem/.intoto/provenance assets (only SBOM JSONs). So checksums.txt came from the SAME
+  # host and TLS session as the tarball -- which proves the download was not CORRUPTED, not that
+  # the release is GENUINE. sha256 gives INTEGRITY, not AUTHENTICITY: exactly the distinction
+  # already recorded for the third-party GGUF requants above. Recorded rather than glossed.
+  sigstore_attestation: NONE-PUBLISHED-CHECKED-2026-08-02
+  sbom_published: true                       # litestream-0.5.15-linux-x86_64.tar.gz.sbom.json
+  # NOT YET CONFIGURED, and this is the gate boundary rather than an oversight: /etc/litestream.yml
+  # does not exist, no litestream unit is installed, and no R2 credential is sealed. GATE-32 needs
+  # an operator-supplied R2 account/bucket/token before any of that can be true.
+  config: DEFERRED-GATE-32-OPERATOR-CREDENTIAL
+
+# §18-GAP1 / GATE-31. MEASURED 2026-08-03 (SOAK-1 night, J-83). These fill the DEFERRED-PHASE-E
+# placeholders that were already here -- they are the ST-2 measurement the placeholder was waiting
+# for, not a new decision: the stack choice is §18-GAP1's and the alert destination is D20's.
+# GATE-31 does NOT close on these; closing it needs a PERSISTENT wrought-alert@.service, which the
+# overnight run is prohibited from installing. Morning work.
+#
+# ST-2 says "sha256 vs pinned manifest (+ Sigstore verify WHERE PUBLISHED)". Checked, and the two
+# binaries differ -- which is why it is recorded per-binary instead of once for the stack:
+monitoring:
+  prometheus:
+    version: 3.13.2                    # tag v3.13.2, published 2026-07-30
+    asset: prometheus-3.13.2.linux-amd64.tar.gz
+    url: https://github.com/prometheus/prometheus/releases/download/v3.13.2/prometheus-3.13.2.linux-amd64.tar.gz
+    # CORRECTED 2026-08-03 at GATE-31 install (J-84). This value was recorded under the key name
+    # `binary_sha256` and is the ARCHIVE hash -- it equals upstream sha256sums.txt, which lists
+    # tarballs. Not a compromise: the download matched upstream exactly. A MISLABEL, and one that
+    # would have made ST-2 unpassable forever, because ST-2 re-verifies the INSTALLED artifact and
+    # nobody keeps the tarball. The litestream block above already draws this distinction
+    # explicitly ("the BINARY, not the archive"); the monitoring block did not follow it.
+    archive_sha256: 0e8c4d46101bd025ea8265e377d2caabc57f488fc1be1c367f37db69ea41be6f
+    binary_sha256: 57cfcd19c4d577653e2101beaa6debcb2195b18f45c649f4c15e766e8966abc5   # MEASURED on /opt/wrought/bin/prometheus
+    sha256_matches_upstream_sums: true          # sha256sums.txt from the same release
+    # AUTHENTICITY AVAILABLE: the GitHub attestations endpoint returns 1 attestation for this
+    # digest. Unlike Litestream (J-65) and Alertmanager below, this artifact can be verified as
+    # GENUINE and not merely uncorrupted. Verify with `gh attestation verify` at install.
+    sigstore_attestation: present
+  alertmanager:
+    version: 0.33.1                    # tag v0.33.1, published 2026-07-04
+    asset: alertmanager-0.33.1.linux-amd64.tar.gz
+    url: https://github.com/prometheus/alertmanager/releases/download/v0.33.1/alertmanager-0.33.1.linux-amd64.tar.gz
+    archive_sha256: 93d802cba6a8d27239d747ce117df7648d326ab67394e32247540b030e9842ba   # was mislabelled binary_sha256 (J-84)
+    binary_sha256: 1205a5c7a816f0fa8ee1c0ea4c26b4bdcbc64902996c1cf7c721b6dce93a1218   # MEASURED on /opt/wrought/bin/alertmanager
+    # ADDED 2026-08-04 (R6 / J-106). The alertmanager tarball ships TWO binaries and only one was
+    # pinned, so `amtool` was executing on this box described by no artifact under version control
+    # -- found by the drift check on its first run. It is the CLI that can SILENCE ALERTS, so an
+    # unaccounted copy of it is not a small gap. MEASURED on /opt/wrought/bin/amtool.
+    amtool_binary_sha256: 40333ec9ac64de6a0316331b1a0c1b2e9f2442e335a91f90252a030147273627
+    sha256_matches_upstream_sums: true
+    # NO AUTHENTICITY. Attestations endpoint 404s for this digest and the release carries no
+    # .sig/.pem/.intoto/.sigstore asset among its 40. So its checksums.txt arrived from the SAME
+    # host and TLS session as the tarball: that proves the download was not corrupted, NOT that the
+    # release is genuine. sha256 gives INTEGRITY, not AUTHENTICITY -- the same distinction already
+    # recorded for Litestream (J-65) and the third-party GGUF requants.
+    sigstore_attestation: absent
+  # node/amdgpu hwmon (GATE-31's second scrape target, F-33 thermal/throttle). RESOLVED 2026-08-03
+  # by D23 (operator ruling), having been pinned UNRESOLVED-MORNING-DECISION overnight rather than
+  # guessed. Textfile collector, NOT node_exporter: no third ST-2 binary (docs/10 already grades
+  # node_exporter optional), smaller COTS surface, and amdgpu hwmon + node basics are readable from
+  # /sys directly. This is a SCRIPT, not a COTS artifact -- so it carries no version/sha256 pin and
+  # instead lives in the repo under the same review as any other code here.
+  # Revisit: a metric the gate needs that the collector cannot produce.
+  node_metrics_source: textfile-collector       # D23
+  node_metrics_collector: /opt/wrought/bin/wrought-node-metrics
+  node_metrics_textfile_dir: /var/lib/wrought/metrics
+
+toolchain:                          # apt-cache policy strings, measured 2026-08-02
+  gcc: 15.2.0                       # gcc (Ubuntu 15.2.0-16ubuntu1)
+  cmake: 4.2.3-2ubuntu2
+  glslc: 2026.1-1                   # shaderc
+  libshaderc_dev: 2026.1-1
+  spirv_headers: 1.6.1+1.4.341.0-1
+  libvulkan_dev: 1.4.341.0-1
+  glslang_tools: 16.2.0-2
+  vulkan_tools: 1.4.341.0+dfsg1-1
+  libssl_dev: 3.5.5-1ubuntu3.3
+  git: 2.53.0
+  python: 3.14.4
+  wheelset_sha256: ec10c7aaf77600d9d8b5bc06685f2c072530529fa9ddf664308c236ea2c6b28a   # GATE-10
+  wheelset_requirements: /etc/wrought/requirements-frozen.txt   # 22 distributions, 0 sdists
+                                                # 16 verification + 6 from the §10.6
+                                                # security pack (R7). pygments is
+                                                # shared: same version AND same hash.
+                                                # pip-audit's 28 are NOT frozen --
+                                                # see security_pack.pip_audit.
+  wheelset_dir: /var/lib/wrought/wheels
+  venv: /opt/wrought/venv                     # python 3.14.4
+
+  # Verification toolchain, installed offline under --require-hashes (GATE-09/10).
+  # [doc]    = pinned by docs/03 §10.1; changing it is a spec change.
+  # [freeze] = no version in the doc; THIS FREEZE created the pin (never invented).
+  verification_toolchain:
+    ruff: 0.16.0                    # [doc]
+    basedpyright: 1.39.9            # [doc] — bundles node via nodejs-wheel; no nodeenv fetch (S9)
+    pytest: 9.1.1                   # [doc]
+    hypothesis: 6.164.0             # [doc]
+    tree_sitter: 0.26.0             # [doc]
+    tree_sitter_python: 0.25.0      # [doc]
+    coverage: 7.15.3                # [freeze] — named in §10.5 pack invocations, unversioned there
+    pytest_cov: 7.1.0               # [freeze]
+    pytest_json_report: 1.5.0       # [freeze]
+    pytest_metadata: 3.1.1          # [freeze] transitive
+    nodejs_wheel_binaries: 24.16.0  # [freeze] transitive — the bundled Node that removes the S9 failure mode
+    pluggy: 1.6.0                   # [freeze] transitive
+    iniconfig: 2.3.0                # [freeze] transitive
+    packaging: 26.2                 # [freeze] transitive
+    pygments: 2.20.0                # [freeze] transitive
+    sortedcontainers: 2.4.0         # [freeze] transitive
+
+  # S13 (docs/03 §10.1): the ENABLED rule set is pinned, not just ruff's version.
+  # v0.16.0 raised the default set 59 -> 413 rules; escalation rate is the governing
+  # metric (P1), so a drifting rule set would make it non-reproducible.
+  #
+  # NARROWED 2026-08-06 (session 13, RULING 1, operator-ratified). The deterministic gauntlet
+  # fails on TESTS, TYPE ERRORS and SECURITY findings; STYLE findings are not failing criteria
+  # at v1 -- the precedent §10.6 already sets for bandit ("MEDIUM/HIGH reported, non-failing").
+  # MEASURED CAUSE: with the default 413, TRY004 ("prefer TypeError for invalid type") failed
+  # candidates that satisfied REQ-005's *stated* requirement to raise ValueError, which the
+  # operator's own tests assert (FIX-01; probe in build-evidence/session-12).
+  #   F = pyflakes  (undefined names, unused imports -- correctness)
+  #   S = flake8-bandit (the SAST fast gate §10.6 already depends on)
+  # The bar is expressed in the INVOCATION (--select=F,S), following bandit's `-lll -iii`
+  # precedent, NOT as a new criterion type the loader would have to learn.
+  #
+  # HONEST SCOPE NOTE: "style reported, non-failing" is true of basedpyright (its warnings are
+  # captured in the envelope's parsed JSON) but NOT of ruff -- narrowing the selection means
+  # style families are NOT RUN, so they are not reported either. Stated because the report must
+  # say which is which.
+  #
+  # REVISIT TRIGGER: if any measured escalation is ever traced to a defect that a de-selected
+  # style family would have caught, that family is a candidate for re-selection -- a pins.lock
+  # edit + gen-pack, never a pack edit.
+  ruff_ruleset:
+    select: F,S
+    rule_count: 101                 # 43 F + 58 S, resolved on-box 2026-08-06
+    enabled_rules_file: /etc/wrought/ruff-enabled-rules.txt
+    enabled_rules_sha256: 90affbf9502d8dcfa72cf0edfbe8f377df554b778f75f814309350be7457282b
+    # J-95: the ARTIFACT hash covers a header carrying a resolution timestamp, so it is frozen
+    # rather than reproducible. This second hash covers the RULE LINES ONLY and IS reproducible
+    # by the committed command below -- which is what makes the count checkable rather than
+    # trusted. Command:
+    #   bin/resolve-ruff-ruleset --select F,S | grep -v '^#' | grep . | sha256sum
+    rules_only_sha256: 1974ec9661eecbe52ee8c240aeb70b1e0bbbab955accf4f1d832b5bbf414c2e6
+    resolver: bin/resolve-ruff-ruleset --select F,S
+    resolved_settings_file: /etc/wrought/ruff-resolved-settings.txt
+    resolved_settings_sha256: 5ada3ad1b4c5600b17460e005a38be2881b469ccefc30cb7e7271492f81d541e
+    # SUPERSEDED BY RULING 1. Kept because P1's 95% +/- 7.1 pp (J-116) was measured against THIS
+    # rule set and is never directly comparable to anything measured after it.
+    superseded_2026_08_06:
+      selection: (ruff 0.16.0 default, no config present)
+      rule_count: 413
+      enabled_rules_sha256: aa666f8d7954eeb7ad3572eb21f24ea4d8231f1109e4aafea68593e6f7ea54a0
+      rules_only_sha256: e628bf594f42c1fb48c125b19b7ebe604c4cd897799481283ac4c7fb151f98f8
+      resolved_settings_sha256: d11f6aae98967762eac7cd2fe76f3a54b97215cc0aa4de89c865cdc0912c34a6
+
+  # ADDED 2026-08-06 (session 13, RULING 1/2). The TYPE oracle's strictness, pinned deliberately
+  # after MEASUREMENT rather than inherited from a tool default.
+  #
+  # THE PROBLEM IT FIXES (J-116). basedpyright's inherited default made the FIXTURES' OWN API
+  # SPECIFICATION un-typecheckable: 8 of the 10 fixtures specify a bare `-> dict`, and
+  # implementing that signature exactly as written produced `error/reportMissingTypeArgument`.
+  # A candidate had to be MORE SPECIFIC THAN THE SPEC to pass. Separately, the pack's criterion
+  # keyed PASS on the exit code, and basedpyright exits 1 for WARNINGS too -- so at n=20, 13 of
+  # 15 type rejections carried errorCount == 0.
+  #
+  # MEASURED, not chosen (bin/measure-typecheck-modes; matrix in build-evidence/session-13):
+  # four cases x seven modes. A mode is ADMISSIBLE only if the fixtures' bare `-> dict` yields
+  # errorCount 0 AND both planted defects (str+int, undefined name) still yield errorCount > 0.
+  #   off ......... rejected: catches NOTHING (planted defects pass)
+  #   basic ....... ADMISSIBLE
+  #   standard .... ADMISSIBLE
+  #   strict/all .. rejected: bare `-> dict` is 3 errors
+  #   recommended . rejected (this build's default): bare `-> dict` is 1 error
+  # `standard` is pinned as the STRICTEST ADMISSIBLE mode -- measured to strictly dominate
+  # `basic`, catching reportIncompatibleMethodOverride which basic misses, on an otherwise
+  # identical matrix. Weaker than that would be a looser oracle for no gain.
+  basedpyright_calibration:
+    type_checking_mode: standard
+    # MEASURED 2026-08-06: this build has NO `--typeCheckingMode` flag (FIX-02's note confirmed
+    # against `basedpyright --help`). `-p <configfile>` is the only route it offers, so the mode
+    # travels as a generated config file. THE FILE'S CONTENT IS CARRIED IN THE PACK and is
+    # materialised into /work/out by the in-sandbox verifier -- it is NOT bound from the host and
+    # it is NOT placed in /work/src. Both matter: no §10.3 bind change is needed, and oracle
+    # strictness can never be a file the candidate authored. Its absence is LOUD (PACK_INVALID),
+    # never a silent fallback to the tool default.
+    config_route: pack-carried config_files -> /work/out/pyrightconfig.json -> `-p`
+    config_filename: pyrightconfig.json
+    # The criterion reads this JSON field, never the exit code. Exit 2/3/4 remain tool errors and
+    # are evaluated FIRST; absent or unparseable JSON is a tool error, never a pass (F-21).
+    criterion_metric: basedpyright_error_count
+    criterion_max: 0
+    matrix_evidence: build-evidence/session-13/01-recalibration/S13-typecheck-mode-matrix.txt
+
+  # SECOND FREEZE (GATE-09B/10B, J-49 item 7). Kept STRICTLY SEPARATE from the 16-distribution
+  # verification set above: these run OUTSIDE the bwrap sandbox (orchestrator, FSM/event store,
+  # InputValidation, escalation). wrought_verifier, the IN-sandbox runner, is stdlib-only BY RULE —
+  # if it ever grows a third-party import it moves into the verification set and GATE-09/10 re-run.
+  # NOT ADOPTED: an HTTP client dependency. §13's escalation call is one JSON POST with an explicit
+  # timeout and max_tokens; stdlib urllib.request covers it and the smaller set serves P2/P3.
+  orchestrator_toolchain:
+    ruamel_yaml: 0.19.1             # [spec] §7.5/§7.6 strict YAML. YAML 1.2 — no 1.1 yes/no booleans.
+                                    # MEASURED: supplies 2 of §7.5's 7 required rejections
+                                    # (duplicate keys, custom tags). Anchors/aliases, merge keys,
+                                    # non-finite numbers, depth>32 and size>1MB are OURS to
+                                    # implement — the dependency is a FLOOR, not the requirement met.
+    jsonschema: 4.26.0              # [spec] §7.6 schema over frontmatter + tests manifest
+    rfc8785: 0.1.4                  # [spec] §7.5 step 3 names JCS (RFC 8785) explicitly
+    attrs: 26.1.0                   # [freeze] transitive of jsonschema
+    jsonschema_specifications: 2025.9.1  # [freeze] transitive
+    referencing: 0.37.0             # [freeze] transitive
+    rpds_py: 2026.6.3               # [freeze] transitive (Rust ext; cp314 wheel published)
+  orchestrator_requirements: /etc/wrought/requirements-orch-frozen.txt   # 7 distributions, 0 sdists
+  orchestrator_wheels_dir: /var/lib/wrought/wheels-orch
+  orchestrator_venv: /opt/wrought/venv-orch                              # python 3.14.4
+  # RE-FREEZE TRIGGER: this set was enumerated from the SPEC-STATED needs (§7.5/§7.6/§13) plus what
+  # was actually written this session. The orchestrator itself is not written yet; when it lands,
+  # re-enumerate from its real imports and re-run GATE-09B/10B.
+
+  # §10.6 SECURITY PACK — PINNED 2026-08-03 (operator ruling R7). Supersedes
+  # `security_pack: DEFERRED-OWN-MINI-GATE`. Versions are DELEGATED: current stable of each
+  # adopted tool AT FETCH TIME, recorded here from what was actually downloaded. Nothing invented.
+  #
+  # THE J-84 LESSON IS APPLIED STRUCTURALLY: archive_sha256 and binary_sha256 are SEPARATE fields,
+  # computed from the archive and from the extracted binary. pins.lock's monitoring.*.binary_sha256
+  # once held the ARCHIVE hash (upstream sha256sums.txt lists tarballs), which would have made ST-2
+  # unpassable forever — ST-2 re-verifies the INSTALLED ARTIFACT and nobody keeps the tarball.
+  #
+  # INTEGRITY IS NOT AUTHENTICITY, recorded PER TOOL rather than collapsed into one green (J-83,
+  # J-65). A checksums file fetched over the same host and TLS session as the archive proves the
+  # download was not corrupted; it does NOT prove the release is genuine.
+  security_pack:
+    fetched_at: 2026-08-03
+    staging_dir: /var/lib/wrought/secpack        # populated by bin/secpack-fetch
+
+    # ---- ADOPTED ----
+    ruff_select_S:
+      status: ALREADY-PINNED
+      note: "the S prefix is inside the 413 rules pinned in ruff_ruleset above; no new artifact"
+      threshold: "§10.6 fast gate; unchanged"
+
+    bandit:
+      version: 1.9.4
+      kind: python-wheel
+      wheel_sha256: f89ffa663767f5a0585ea075f01020207e966a9c0f2b9ef56a57c7963a3f6f8e
+      distributions: 7                            # bandit + PyYAML, stevedore, rich, markdown-it-py, mdurl, pygments
+      integrity: "PyPI sha256 over TLS — VERIFIED"
+      authenticity: "NONE AVAILABLE. PEP 740 provenance queried and absent (pypi.org/integrity
+        /bandit/1.9.4/provenance -> HTTP 404). Recorded as a GAP, not implied coverage."
+      threshold: "§10.6 unchanged: zero findings at SEVERITY=HIGH AND CONFIDENCE=HIGH;
+        MEDIUM/HIGH reported, non-failing"
+
+    gitleaks:
+      version: 8.30.1
+      kind: go-binary
+      asset: gitleaks_8.30.1_linux_x64.tar.gz
+      archive_sha256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+      binary_sha256: 88f91962aa2f93ac6ab281d553b9e125f5197bbbce38f9f2437f7299c32e5509
+      integrity: "upstream gitleaks_8.30.1_checksums.txt — MATCH"
+      authenticity: "NONE AVAILABLE. The release publishes a checksums file and NOTHING ELSE —
+        no .sig, no .pem, no in-toto attestation (asset list enumerated, not assumed). This is a
+        REAL GAP: the checksums file arrives over the same host and TLS session as the archive,
+        so it proves neither origin nor integrity independently of that channel."
+      threshold: "§10.6 unchanged: ANY hit fails (>=1 = fail) — secrets are binary.
+        Runs over source AND the event log."
+      banned_alternative: "trufflehog — its default verifier phones candidate secrets to the
+        provider. §10.6 bans it outright; only ever --no-verification."
+
+    syft:
+      version: 1.50.0
+      kind: go-binary
+      asset: syft_1.50.0_linux_amd64.tar.gz
+      archive_sha256: bf7b29ff57f06da30918266a0e1c2885a8f99784798d1bdb1628886aa015d788
+      binary_sha256: 22f2b95baf524d45ad16b0ad5cdeb200c4b8a816493768cec50e4682b1f24b0e
+      integrity: "upstream syft_1.50.0_checksums.txt — MATCH"
+      # The ONE tool in this pack with real authenticity, and it was actually verified rather
+      # than asserted from the presence of a .sig file.
+      authenticity: "VERIFIED — Sigstore/Fulcio. openssl-verified the detached signature over
+        checksums.txt under the public key in the accompanying Fulcio certificate: Verified OK.
+        Certificate identity, read from the cert, not assumed:
+          issuer  = O=sigstore.dev, CN=sigstore-intermediate
+          SAN URI = https://github.com/anchore/syft/.github/workflows/release.yaml@refs/heads/main
+          OIDC    = https://token.actions.githubusercontent.com  (GitHub Actions)
+          repo    = anchore/syft   commit = 16223e6dd7893fe578787658ceb876257483d404
+        Embedded SCT present (the cert was logged at issuance)."
+      authenticity_residual: "cosign is NOT installed on this box, so two links were NOT checked
+        and are not claimed: (1) the certificate chain up to the Sigstore ROOT, and (2) the Rekor
+        transparency-log INCLUSION PROOF. The Fulcio cert is short-lived by design (validity
+        17:43:03-17:53:03Z, ten minutes) and its expiry is expected — but validity-at-signing-time
+        is exactly what the Rekor proof establishes, so this residual is not cosmetic."
+      threshold: "§10.6 unchanged: SBOM artifact produced (CycloneDX JSON), not a failing check"
+      # REQUIRED FOR GATE-29, and found BY GATE-29 rather than anticipated. syft's default config
+      # is `check-for-app-update: true` -- a startup version check -- and the first GATE-29 run
+      # measured 24 AF_INET attempts (DNS to the resolver stub) from it. §10.6's table records syft
+      # as "[VERIFIED] offline generation", which is true of the SBOM and NOT true of the tool's
+      # STARTUP. With this set: 0 attempts, SBOM unchanged (CycloneDX 1.7, same components).
+      # Spelling read from `syft config`'s own output, never invented. GATE-29 carries a
+      # falsification arm that re-measures the 24 attempts WITHOUT it, so the pin is proven
+      # load-bearing rather than assumed to be hygiene.
+      env_required:
+        SYFT_CHECK_FOR_APP_UPDATE: "false"       # quoted: J-86 (bare false is a YAML-1.1 boolean)
+
+    # ---- ADOPTED 2026-08-04 for the vuln-scan slot (operator ruling, option (a)) ----
+    # This REPLACES pip-audit, which moved to `withdrawn` below. §10.6's own table documents this
+    # tool as the one with `--offline`; pip-audit has no vendored-DB mode at all (measured, J-98).
+    # The redundancy the earlier deferral cited holds for COVERAGE and reverses for OFFLINE
+    # OPERATION, which is P2 -- so P2 decides.
+    osv-scanner:
+      version: 2.4.0                              # tag v2.4.0, published 2026-06-18T13:35:18Z
+      kind: go-binary
+      asset: osv-scanner_linux_amd64
+      # J-84's split has a DIFFERENT, honest answer here: upstream publishes a RAW ELF BINARY, not
+      # an archive. Recording archive_sha256 equal to binary_sha256 would assert two artifacts
+      # where one exists -- which is the mislabel J-84 is about, wearing the other hat.
+      archive_sha256: NOT-APPLICABLE-NO-ARCHIVE-PUBLISHED
+      binary_sha256: 15314940c10d26af9c6649f150b8a47c1262e8fc7e17b1d1029b0e479e8ed8a0
+      binary_path: /opt/wrought/bin/osv-scanner   # verified BEFORE install, ST-2 style
+      integrity: "upstream osv-scanner_SHA256SUMS — MATCH (same host/TLS session: integrity only)"
+      # THE STRONGEST AUTHENTICITY IN THIS PACK, and stronger than syft's -- recorded as the three
+      # separable claims it actually is, because one green would overstate every time.
+      authenticity: "VERIFIED, in three parts.
+        (1) BINDING: the SLSA provenance statement's subject digest for osv-scanner_linux_amd64
+            equals the binary we installed, 15314940c10d26af...
+        (2) SIGNATURE: the DSSE envelope verifies under the public key in the embedded Fulcio
+            certificate -- openssl dgst -sha256 -verify over the DSSE PAE encoding: Verified OK.
+            Cert SAN = https://github.com/slsa-framework/slsa-github-generator/.github/workflows
+            /generator_generic_slsa3.yml@refs/tags/v2.1.0
+        (3) SOURCE BINDING: the SAN names the SHARED SLSA builder, NOT the project -- unlike syft,
+            whose SAN was anchore/syft's own release workflow. The link to this project is the
+            predicate's configSource, covered by the SAME verified signature:
+            git+https://github.com/google/osv-scanner@refs/tags/v2.4.0
+            commit b56b5191101d5f27d4787d5583d8d01e9518a7af, entryPoint .github/workflows/goreleaser.yml"
+      authenticity_residual: "NOT CLAIMED: the Fulcio chain to the Sigstore ROOT and the Rekor
+        INCLUSION PROOF were not verified -- no cosign and no slsa-verifier on this box. A Rekor
+        entry IS present in the bundle (logIndex 1859712280, integratedTime 1781789537, with an
+        inclusion proof) and is recorded as METADATA ONLY: a proof anchored to a checkpoint that
+        arrived in the same file is not evidence the entry is in the real public log."
+      threshold: "§10.6 unchanged: fail CVSS >= 7.0; 4.0-6.9 triage; < 4.0 info"
+      # `--offline`, NOT `--offline-vulnerabilities`. MEASURED at GATE-29: the narrower flag
+      # disables only the vulnerability lookup and leaves TRANSITIVE DEPENDENCY RESOLUTION
+      # enabled, which makes 24 DNS attempts. §10.6's table already said `--offline`; the first
+      # gate arm used the narrower spelling and went red. Same 22 findings either way, so the
+      # difference is invisible in the results and visible only in the syscalls.
+      invocation_required: ["--offline"]
+      env_required:
+        OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY: "/var/lib/wrought/osv-db"
+
+      # ---- THE OFFLINE DATABASE IS PART OF THE PIN, not an implementation detail ----
+      # §10.6's issue-#1822 note is the reason: `--offline-vulnerabilities` consults only
+      # ecosystems whose DB is already cached, and a MISSING DB is not an error -- it is ZERO
+      # FINDINGS. So an unpinned, undated DB turns this check into a silent pass. GATE-29 carries
+      # a falsification arm that runs the identical vulnerable input against an EMPTY cache and
+      # measures exactly that silence.
+      offline_db:
+        cache_directory: /var/lib/wrought/osv-db
+        layout: "<cache>/osv-scanner/<Ecosystem>/all.zip   (MEASURED by running the tool's own
+          --download-offline-databases first, not assumed)"
+        source_bucket: https://osv-vulnerabilities.storage.googleapis.com
+        ecosystems: 46                              # ALL of them, per §10.6 -- not just PyPI
+        total_bytes: 1498789634                    # MEASURED: 1.50 GB against 1.7 TB free
+        fetched_at_utc: "2026-08-04T02:21:50Z"
+        # THE SNAPSHOT DATE IS UPSTREAM'S Last-Modified, NOT our download time. "When we fetched
+        # it" and "how fresh the data is" are different facts, and only the second one tells you
+        # whether an offline scan is offline or merely stale.
+        snapshot_pypi_last_modified: "Mon, 03 Aug 2026 21:34:49 GMT"   # the ecosystem this build actually scans
+        snapshot_oldest: "2026-06-02T03:58:23Z (CRAN)"
+        snapshot_newest: "2026-08-04T02:04:54Z (GIT)"
+        manifest: /var/lib/wrought/osv-db/SNAPSHOT.json    # per-ecosystem bytes + sha256 + Last-Modified
+        manifest_sha256: de0b712230a2a20897e5bfb9253371c7601cc197b9a33c6d2d40ec4ae882d707
+        refresh_rule: "a re-download is a NEW pin: re-run bin/secpack-osv-fetch, re-record
+          manifest_sha256 and the snapshot dates. Staleness is visible only if the date is."
+
+    # ---- WITHDRAWN 2026-08-04 (operator ruling, option (a)). NOT deleted: a tool that was
+    # ---- adopted and then withdrawn on measurement is a decision worth being able to re-read.
+    pip_audit:
+      status: WITHDRAWN-CANNOT-SATISFY-GATE-29
+      withdrawn_on: 2026-08-04
+      withdrawn_because: "no vendored-advisory-DB mode exists in 2.10.1 (measured, J-98), so
+        GATE-29's zero-outbound requirement is unsatisfiable for it and there is no snapshot to
+        date. Its 28 distributions were deliberately never frozen into the verification wheel set,
+        so withdrawal costs nothing to unpick. It remains INSTALLED IN A PROBE VENV ONLY, where it
+        serves as GATE-29's NEGATIVE CONTROL: 99 outbound attempts under the identical harness,
+        which is what proves the zeros elsewhere are measurements rather than blind spots."
+      retained_role: gate29-negative-control
+      version: 2.10.1
+      kind: python-wheel
+      wheel_sha256: 99ef3f600a317c1945f1e89e227ef26e1c2d618429b8bd3fa6f4f7c440c4611a
+      distributions: 28                           # NEVER FROZEN -- see wheel_set_consequence
+      integrity: "PyPI sha256 over TLS — VERIFIED"
+      authenticity: "NONE AVAILABLE. PEP 740 provenance queried and absent (HTTP 404). GAP."
+      advisory_db_snapshot_date: NOT-APPLICABLE-NO-VENDORED-DB-MODE-EXISTS
+      # THE MEASUREMENT THAT DECIDED THIS, kept because a withdrawal without its evidence is just
+      # an opinion. MEASURED on 2.10.1:
+      #   * every vulnerability service is a REMOTE HTTP API:
+      #       -s/--vulnerability-service {osv, pypi, esms}   (default: pypi)
+      #       --osv-url  -> "URL to use for the OSV API instead of the default"
+      #       --cache-dir -> "an HTTP cache for PyPI"        (a cache, not a database)
+      #   * the ONLY occurrences of "offline" in the installed package are ERROR-MESSAGE strings
+      #     for an unreachable service (_service/interface.py:211, _service/pypi.py:74).
+      # No mechanism was improvised to rescue it: standing up a local OSV API mirror behind
+      # --osv-url, or pre-warming --cache-dir and hoping for no miss, would be inventing a control
+      # and then certifying it.
+      #
+      # THE RULING'S OWN DEFERRAL PREMISE INVERTED, which is why the swap is P2 and not taste:
+      # osv-scanner was deferred as "redundant with pip-audit while the project is Python-only",
+      # and it is the tool §10.6 itself documents as having `--offline`. The redundancy holds for
+      # COVERAGE and reverses for OFFLINE OPERATION -- P2, local-first, air-gap must remain possible.
+
+    # ---- DEFERRED, each with its trigger (operator ruling R7) ----
+    deferred:
+      hadolint:
+        trigger: "the first Dockerfile exists (none do today)"
+      semgrep:
+        trigger: "an operator-supplied vendored rules dir exists"
+        note: "§10.6 already excludes it without vendored local rules; registry packs fetch over
+          the network and are not in the offline pack"
+
+    # ---- DISCIPLINE CONSEQUENCE, stated so it is not discovered later (ruling R7) ----
+    wheel_set_consequence:
+      rule: "a Python distribution running as a PACK TOOL enters the FROZEN VERIFICATION wheel
+        set, which re-triggers GATE-09/10 per the recorded rule. As of 2026-08-04 that is BANDIT
+        ONLY: pip-audit was withdrawn before it was ever frozen, and osv-scanner is a Go binary."
+      measured_growth: "16 -> 22 distributions, bandit only (MEASURED at the freeze, J-102).
+        For the record, pip-audit would have taken it to 44 -- 28 distributions including the whole
+        HTTP client stack and pip itself, into the set that runs inside the no-network sandbox.
+        That cost is now not paid, and the vuln-scan slot is filled by a Go binary instead."
+      go_binaries: "gitleaks and syft are ST-2 BINARY pins, like litestream — not wheel-set members"
+      status: "PENDING — the rebuild was deliberately NOT performed while Track B round 2 was
+        in flight, because the oracle runs out of /opt/wrought/venv and rebuilding it mid-run
+        would have corrupted the measurements this session exists to produce."
+
+substrate:
+  kernel: 7.0.0-28-generic
+  mesa: 26.0.3-1ubuntu1
+  vulkan_instance: 1.4.341
+  amdgpu_smu_fw: "0x004e8300 (78.131.0)"    # smu_v13_0_0, dGPU 0000:c7:00.0
+  amdgpu_dmub_fw: "0x07002F00"
+  amdgpu_vcn_fw: "ENC 1.24 DEC 9 VEP 0 Revision 16"
+  bios_uma_carve: DEFERRED-GATE-04-D17      # GATE-04 needs physical presence; DEFERRED per D17.
+                                            # This is a KNOWN HOLE shipping in pins.lock, not an oversight.
+  dgpu_vram_total_mib: 24560                # llama-bench --list-devices, GATE-08 (24513 MiB free idle)
+  dgpu_matrix_cores: KHR_coopmat            # ggml-vulkan device init, GATE-08 — the coopmat path is live
+  pcie_dgpu_link: "16.0 GT/s PCIe x4"       # = PCIe 4.0 x4. Read from the OCuLink UPSTREAM port
+                                            # 0000:c5:00.0 — J-24. NOT from the GPU endpoint
+                                            # 0000:c7:00.0, which reports x16 (card-internal switch link).
+  # OPERATOR-AUTHORIZED KEY (not in pins.lock.template). Added on explicit instruction:
+  # "record amdgpu.runpm=0 in pins.lock". Recorded here so the provenance is auditable
+  # rather than looking like an invented key (hard rule: never invent configuration keys).
+  # WHY IT IS LOAD-BEARING: this is a MITIGATION, not a fix. The dGPU resume bug (J-20)
+  # is unchanged; the parameter only prevents the box entering the state that triggers it.
+  # A grub or kernel update that drops it silently returns the machine to a wedge-capable
+  # configuration. Asserting it at boot is a GATE-11 carry (ExecStartPre self-test).
+  kernel_cmdline_params: "amdgpu.runpm=0"
+  kernel_cmdline_full: "BOOT_IMAGE=/boot/vmlinuz-7.0.0-28-generic root=UUID=d05b8e41-3ced-4c77-83e0-b1fbf56589c6 ro amdgpu.runpm=0 quiet splash crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M"
+
+  # U-1 / GATE-J0A, operator-ratified 2026-08-11; folded in at GATE-HJ1 2026-08-12 (J-157).
+  # OPERATOR-AUTHORIZED KEY (not in pins.lock.template) — same provenance convention as
+  # kernel_cmdline_params above, recorded so it is auditable rather than looking invented.
+  #
+  # THE RULING: the OS substrate TRACKS resolute-security via unattended-upgrades, and drift is
+  # RECORDED PER GATE, NOT FOUGHT. J0A round 1 aborted because the box sat behind the archive
+  # (systemd 259.5-0ubuntu3 vs -3.4). The operator took the update rather than holding the stack,
+  # on the stated ground that a hold silently blocks security updates on the eleven most
+  # privileged packages on the box, indefinitely, and shows up nowhere but `apt-mark showhold`.
+  #
+  # MEASURED 2026-08-12 -> /var/lib/wrought/hj1/raw/04-u1-posture.txt:
+  #   systemctl is-enabled unattended-upgrades.service   -> enabled
+  #   apt-config dump | grep -i Package-Blacklist        -> no entries (blacklist empty)
+  #   apt-mark showhold                                  -> empty (Option A was not partially
+  #                                                         adopted by accident)
+  # THE COST IS NOT WAVED THROUGH: this posture is why apparmor/libapparmor1 jumped beta -> stable
+  # underneath the verification oracle's own bwrap (GATE-J0A round 2, SURPRISE S-1). ST-1 is the
+  # control for that class of move, and it is QUEUED, NOT SATISFIED.
+  os_update_policy:
+    tracks: resolute-security
+    mechanism: unattended-upgrades          # enabled; Package-Blacklist empty
+    holds: NONE                             # `apt-mark showhold` empty 2026-08-12
+    posture: RECORD-DRIFT-PER-GATE          # U-1, operator ruling 2026-08-11
+    # Observed drift against the pins ABOVE, recorded rather than silently corrected. A pin moves
+    # only in the gate that re-measures it; for a kernel bump that gate is ST-1. Editing
+    # substrate.kernel here instead would mark ST-1 satisfied by typing.
+    drift_observed:
+      - "2026-08-28 kernel: running 7.0.0-30-generic vs pinned 7.0.0-28-generic (`uname -r`, /var/lib/wrought/reconcile/raw/16-drift-since-hj1.txt). SUPERSEDES the 2026-08-12 entry below, which read -29; the bump to -30 landed 2026-08-21 06:40 by unattended-upgrade. The SAME transaction REMOVED the pinned kernel's headers (`Remove: linux-headers-7.0.0-28-generic, linux-headers-7.0.0-28`, /var/log/apt/history.log) — so the pinned kernel is no longer fully rebuildable from what is on the box. ST-1 TRIGGER, still UNSATISFIED. GATE-RECONCILE recorded, did not re-pin."
+      - "2026-08-28 libvirt closure: ALL 15 libvirt packages moved 12.0.0-1ubuntu5.2 -> 12.0.0-1ubuntu5.3 in one unattended-upgrade transaction on 2026-08-20 06:55 (/var/log/apt/history.log). Mechanical pin-by-pin verification of the 51 ratified pins: 36 HOLD, 15 DRIFTED, 0 missing — the 15 are exactly this closure (/var/lib/wrought/reconcile/raw/17-pin-verification.txt). These are RATIFIED pins from GATE-HJ1, so this is pin-vs-reality drift on ratified values, not on a provisional guess. NOT a declared ST-1 trigger (ST-1 covers llama.cpp/Mesa/kernel/model); whether a libvirt point-release needs its own re-measure is an OPEN QUESTION FOR THE ADVISOR. GATE-RECONCILE recorded, did not re-pin."
+      - "2026-08-12 kernel: running 7.0.0-29-generic vs pinned 7.0.0-28-generic (`uname -r`, /var/lib/wrought/hj1/raw/05-drift-check.txt). ST-1 TRIGGER, UNSATISFIED. mesa unchanged at 26.0.3-1ubuntu1."
+      - "2026-08-11 apparmor + libapparmor1: 5.0.0~beta1-0ubuntu7 -> 5.0.2-0ubuntu1~26.04.1 (GATE-J0A round 2, SURPRISE S-1). Smoke-tested only: kernel.apparmor_restrict_unprivileged_userns = 1 and bwrap --unshare-all still builds a clean netns; the exit-code taxonomy of GATE-23/25 was NOT re-classified. ST-1 TRIGGER, UNSATISFIED."
+
+# GATE-J0A-SUBSTRATE ratification, folded in at GATE-HJ1 2026-08-12 (J-157).
+# OPERATOR-AUTHORIZED KEYS (not in pins.lock.template). The GATE-HJ1 prompt's Phase 2 reads
+# "operator has ruled; execute"; the ruling itself is build-evidence/j0a/ACCEPTANCE-2026-08-11.md
+# (J-155). Provenance is recorded per the substrate.kernel_cmdline_params precedent above.
+#
+#   proposal      build-evidence/j0a/round2/PROPOSED-PINS-DELTA.md
+#                 build-evidence/j0a/round2/PROPOSED-COTS-J0A.md
+#                 (ROUND 2 SUPERSEDES the v1.1 copies in build-evidence/j0a/: those versions were
+#                  `apt-cache policy` CANDIDATES from a set that was never installed. Round 2 is
+#                  dpkg-query output from an installed box. Where they differ, round 2 wins.)
+#   re-verified   at ratification rather than copied forward from the proposal (J-95):
+#                 dpkg-query -W -f='${Package} ${Version} ${Status}\n' <names>
+#                 -> /var/lib/wrought/hj1/raw/02-pins-reverify-dpkg.txt   (the 8 + baseline)
+#                 -> /var/lib/wrought/hj1/raw/03-closure-dpkg.txt         (the 43-package closure)
+#                 All 51 read `install ok installed`; all eight named packages are at exactly the
+#                 versions round 2 measured on 2026-08-10, i.e. nothing drifted between the
+#                 measurement and its ratification.
+#
+# SCOPE, STATED PLAINLY: this pins WHAT IS INSTALLED. It does not establish that the substrate is
+# safe to build on. GPU passthrough is UNTESTED and guest egress control is UNTESTED — round 2's
+# own capture shows generic egress from the libvirt guest SUCCEEDS (204 from
+# connectivity-check.ubuntu.com), so that is a live question, not a theoretical one. See
+# docs/PHASE-J-STATE.md.
+virtualization:
+  # THE BASELINE IS PART OF THE PIN, and this is the whole reason round 2 exists.
+  # libvirt-daemon-driver-qemu carries `Depends: systemd-container | sysvinit-core`, and
+  # systemd-container carries a STRICT EQUALITY on libsystemd-shared (= its own version). A pin of
+  # the eight that omits this baseline is not reproducible: on a box at 259.5-0ubuntu3 the same
+  # eight names produce a different — and aborting — transaction. The coupling is permanent; any
+  # future divergence between libsystemd-shared and systemd-container re-arms the same abort.
+  substrate_systemd_baseline: "259.5-0ubuntu3.4"   # systemd, libsystemd-shared, libsystemd0, udev,
+                                                   # systemd-container all read this (raw/02)
+
+  # The eight named packages. Provenance for all of them: the Ubuntu 26.04 (`resolute`) archive at
+  # us.archive.ubuntu.com — `main` except virtinst (universe). No PPA, no third-party repository,
+  # no vendored binary, no pip, no npm. Installed --no-install-recommends.
+  packages:
+    qemu_system_x86: "1:10.2.1+ds-1ubuntu3.2"      # resolute-updates/main — the hypervisor
+    qemu_utils: "1:10.2.1+ds-1ubuntu3.2"           # resolute-updates/main — qemu-img; the revert primitive
+    libvirt_daemon_system: "12.0.0-1ubuntu5.2"     # resolute-updates/main — system libvirtd + `default` net
+    libvirt_clients: "12.0.0-1ubuntu5.2"           # resolute-updates/main — virsh
+    virtinst: "1:5.1.0-1"                          # resolute/UNIVERSE — the only universe member of the set
+    ovmf: "2025.11-3ubuntu7"                       # resolute/main — UEFI firmware. NOT EXERCISED: both
+                                                   # J0A guests booted SeaBIOS/legacy, never UEFI
+    cloud_image_utils: "0.33-1build1"              # resolute/main — cloud-localds (built seed.img)
+    cpu_checker: "0.7-1.4build1"                   # resolute/main — kvm-ok
+
+  # The dependency closure: 43 automatic + the 8 above = 51, corroborated independently by the dpkg
+  # entry count moving 1821 -> 1872 (exactly +51) with 0 removals and 0 upgrades. Recorded as
+  # "<dpkg name> <version>" strings rather than as keys, deliberately: snake_case-ing names like
+  # gir1.2-libosinfo-1.0 would be lossy and would stop the list being greppable against dpkg-query.
+  closure_count: 51
+  closure_installed:
+    - "genisoimage 9:1.1.11-5"
+    - "gir1.2-libosinfo-1.0 1.12.0-3build1"
+    - "ipxe-qemu 1.21.1+git-20250829.969ce2c55+dfsg-3ubuntu2"
+    - "libaio1t64 0.3.113-8build1"
+    - "libcacard0 1:2.8.1-2"
+    - "libdaxctl1 81-1ubuntu1"
+    - "libfdt1 1.7.2-2ubuntu1"
+    - "libmpathcmd0 0.14.3-2ubuntu1"
+    - "libmpathpersist0 0.14.3-2ubuntu1"
+    - "libmultipath0 0.14.3-2ubuntu1"
+    - "libndctl6 81-1ubuntu1"
+    - "libpmem1 1.13.1-1.1ubuntu4"
+    - "librdmacm1t64 61.0-2ubuntu3"
+    - "libslirp0 4.9.1-1ubuntu1.1"
+    - "libusbredirparser1t64 0.15.0-1build1"
+    - "libvirt-common 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-common 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-config-network 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-config-nwfilter 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-driver-network 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-driver-nodedev 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-driver-nwfilter 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-driver-qemu 12.0.0-1ubuntu5.2"      # the strict-equality edge; see baseline above
+    - "libvirt-daemon-driver-secret 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-driver-storage 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-log 12.0.0-1ubuntu5.2"
+    - "libvirt0 12.0.0-1ubuntu5.2"
+    - "libxml2-utils 2.15.2+dfsg-0.1ubuntu0.1"
+    - "mdevctl 1.4.0-1ubuntu3"
+    - "msr-tools 1.3+git20220805.7d78c80-1build1"         # x86 MSR read/write tooling. Not required by any
+                                                          # J0A probe and arguably out of scope for a VM
+                                                          # substrate — flagged, not waved through
+    - "ovmf-amdsev 2025.11-3ubuntu7"
+    - "ovmf-generic 2025.11-3ubuntu7"
+    - "ovmf-inteltdx 2025.11-3ubuntu7"
+    - "python3-libvirt 12.0.0-1build1"
+    - "python3-libxml2 2.15.2+dfsg-0.1ubuntu0.1"
+    - "qemu-system-common 1:10.2.1+ds-1ubuntu3.2"
+    - "qemu-system-data 1:10.2.1+ds-1ubuntu3.2"
+    - "seabios 1.17.0-1ubuntu1"
+    - "systemd-container 259.5-0ubuntu3.4"                # benign ONLY because the stack matches its
+                                                          # strict-equality dependency
+    - "ubuntu-helper-virt-hwe 1:10.2.1+ds-1ubuntu4.3"     # note: 1ubuntu4.3, NOT the 1ubuntu3.2 the rest of
+                                                          # the qemu source revisions carry. Measured, not
+                                                          # normalized
+    - "ubuntu-virt 1:10.2.1+ds-1ubuntu3.2"
+    - "virt-install 1:5.1.0-1"
+
+  # The disposable-guest base image. MEASURED, VERIFIED, and EXERCISED: the hash was re-verified
+  # before overlay creation, after the discard-and-revert cycle, and after the libvirt guest
+  # (round 2 raw/30, raw/34, raw/65) and was identical every time. Three guest boots wrote through
+  # qcow2 overlays and the backing file's sha256 never moved — so the immutability the
+  # disposable-guest model ASSUMES is MEASURED, not asserted. The guest is deliberately 24.04 while
+  # the host is 26.04; a guest need not match its host.
+  guest_base_image:
+    file: noble-server-cloudimg-amd64.img
+    url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+    sha256: 0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe   # verify on EVERY pull
+    size_bytes: 624239616
+    release: "Ubuntu 24.04 LTS (noble) cloud image"
+    upstream_last_modified: "2026-08-01T13:17:55Z"   # quoted: an unquoted timestamp resolves to a
+                                                     # datetime and stops comparing equal as text
+    format: "qcow2 v3, 3758096384 bytes virtual"
+    path: /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+    # OPERATOR RULING 2026-08-11: the detached signature (cloudimg-SHA256SUMS.gpg) was downloaded
+    # but NOT verified, because importing the Ubuntu cloud-image signing key is a supply-chain
+    # decision (which key, from where, pinned how). The operator ruled: HASH PIN ACCEPTED,
+    # SIGNATURE WAIVED. Recorded as a key rather than a comment so the project's own supply-chain
+    # rule ("sha256 + Sigstore/signature WHERE PUBLISHED") shows a DECISION at this point instead
+    # of a silent omission — the same idiom as litestream.sigstore_attestation above.
+    # RESIDUAL RISK, stated: the pin binds the artifact to a hash served over TLS at one moment,
+    # not to a publisher identity. sha256 gives INTEGRITY, not AUTHENTICITY.
+    gpg_signature: WAIVED-OPERATOR-RULING-2026-08-11
+    # `current/` is a MOVING POINTER: the same URL serves a different image after each respin,
+    # which is exactly what makes pinning the hash load-bearing.
+    url_stability: MOVING-POINTER-UPSTREAM
+
+models:
+  primary:
+    id: qwen3.6-27b-mtp
+    # CR-7 AMENDED AT GATE-07 — operator-ratified 2026-08-02. The originally pinned
+    # ggml-org/Qwen3.6-27B-MTP-GGUF publishes ONLY BF16 (54.66 GB) and Q8_0 (29.05 GB);
+    # there is no Q4 artifact in that repo and neither published file fits the 24 GB card.
+    # CR-7's named alternate (Unsloth UD-Q4_K_XL) is therefore adopted as primary.
+    # NOTE: CR-7's rationale was official-uploader provenance. That basis is VOID at Q4 —
+    # the primary is a third-party requant. Sigstore signing is not published for this
+    # artifact, so sha256 gives INTEGRITY, not AUTHENTICITY (ST-2 verifies on every pull).
+    hf_repo: unsloth/Qwen3.6-27B-MTP-GGUF
+    hf_revision: 5cb35eb3dcbf52dbce5f87dbc64df6aaffadcace
+    quant: UD-Q4_K_XL
+    gguf_file: Qwen3.6-27B-UD-Q4_K_XL.gguf
+    gguf_path: /var/lib/wrought/models/Qwen3.6-27B-UD-Q4_K_XL.gguf
+    gguf_sha256: 4085665ee36d82a672a238a43f0e5643f2f0e39f2d7bd5d373f0ef10ecf53095   # ST-2: verify on EVERY pull; mismatch = compromise
+    gguf_size_bytes: 17909097600
+    architecture: qwen35              # [SPEC-R4.1]: loads under qwen35, NOT qwen36 — confirmed in HF metadata
+    context_length_native: 262144
+    licence: apache-2.0
+    downloaded: true                  # fetched 2026-08-02; sha256 VERIFIED against the pin above
+                                      # (ST-2, hard rule: mismatch = compromise). 17909097600 bytes.
+  fallback:
+    id: devstral-small-2-24b
+    # GATE-12, operator-ratified 2026-08-02. models.fallback.hf_repo was "<repo>" in the
+    # template — never pinned by the spec — so the repo itself was a gate question.
+    # SAME PATTERN AS THE PRIMARY, and worth stating plainly: the official
+    # mistralai/Devstral-Small-2-24B-Instruct-2512 is Apache-2.0 but publishes ZERO GGUF
+    # files (safetensors only), so a third-party requant is forced here too.
+    # Three candidates existed, all 14.33 GB / mistral3 / ctx 393216, but each is an
+    # INDEPENDENT quantization run, so their sha256 differ — the choice is material.
+    # lmstudio-community ratified because its licence tag is apache-2.0, matching
+    # [SPEC-R4.4]'s explicit requirement and the upstream base model. (unsloth's GGUF —
+    # same vendor as our primary — tags license:other, diverging from that requirement.)
+    hf_repo: lmstudio-community/Devstral-Small-2-24B-Instruct-2512-GGUF
+    hf_revision: e471f62bf546b027d9f23f679bcd1a295eabf403
+    quant: Q4_K_M
+    gguf_file: Devstral-Small-2-24B-Instruct-2512-Q4_K_M.gguf
+    gguf_path: /var/lib/wrought/models/Devstral-Small-2-24B-Instruct-2512-Q4_K_M.gguf
+    gguf_sha256: fd9c29aee820b5db745434d43329e8803a72fc27e4261b661df8309c16bcde8c   # ST-2
+    gguf_size_bytes: 14334437504      # MEASURED from the downloaded file. An earlier value here
+                                      # (14327728000) was back-computed from the API's rounded
+                                      # "14.33 GB" instead of taken exactly — corrected. sha256
+                                      # matched throughout, so the FILE was always right; the
+                                      # recorded size was not, and serve-model's VRAM check
+                                      # reads this field.
+    architecture: mistral3            # dense 24B — structurally incapable of the GDN failure (SPEC-R4.2)
+    context_length_native: 393216
+    licence: apache-2.0               # per the repo tag AND the upstream base model
+    base_model: mistralai/Devstral-Small-2-24B-Instruct-2512
+    downloaded: true                  # fetched 2026-08-02; sha256 VERIFIED against the pin (ST-2)
+
+serving:                                           # measured values, referenced by /etc/wrought/*.env
+  # GATE-11. This is the DESCRIPTION, which is stable. It is NOT the --device argument:
+  # measured on this box, --device REJECTS the description (rc=1 "invalid device") and
+  # accepts only the enumeration token (Vulkan0/Vulkan1). That token is an index in
+  # disguise and its ordering is unstable across Mesa/kernel/BIOS updates, so serve-model
+  # re-resolves description -> token at EVERY start (F-17). Never pin the token.
+  dgpu_device_name: "AMD Radeon RX 7900 XTX (RADV NAVI31)"
+  dgpu_token_at_gate11: Vulkan0                    # RECORD ONLY — never used as config (CR-3)
+  dgpu_vram_free_idle_mib: 24513
+  host: 127.0.0.1                                  # loopback; D17 scope fix (J-32)
+  port: 8080
+  # GATE-15 bench matrix: 2 levers x 2 settings, tg128 + pp2048, median of 10, on the
+  # pinned shape (-b 2048 -ub 512 -ctk q8_0 -ctv q8_0 -fa on).
+  #
+  #   governor      GQ      pp2048 (stdev)      tg128 (stdev)
+  #   performance   unset   849.94 (2.0%)       35.02 (3.2%)
+  #   performance   =1      836.60 (0.9%)       36.19 (2.9%)
+  #   powersave     unset   837.85 (0.8%)       34.27 (3.6%)
+  #   powersave     =1      824.57 (3.4%)       36.93 (2.3%)
+  #
+  # The rail says deltas below run-to-run stdev are NOISE, so each lever was tested
+  # against that bar rather than by picking the biggest number:
+  #   lever A (graphics queue): pp2048 -1.6% vs 1.8% mean stdev -> inside noise, no cost
+  #                             tg128  +5.5% vs 3.0% mean stdev -> EXCEEDS noise, REAL
+  #   lever B (governor):       pp2048 +1.5% vs 1.8% -> inside noise
+  #                             tg128  +0.0% vs 3.0% -> inside noise
+  ggml_vk_allow_graphics_queue: 1                  # GATE-15 winner: the ONLY lever with a
+                                                   # signal above the noise band (+5.5% tg128,
+                                                   # no measurable pp2048 cost).
+  # Lever B produced NO measurable difference either way. That is the finding, not a
+  # tie-break: the governor is not a performance lever on this workload. GATE-05's
+  # `performance` invariant therefore stands unchallenged — kept because it is already
+  # mandated and costs nothing measurable, NOT because the benchmark preferred it.
+  power_profile_delta: "no measurable difference (both metrics inside the noise band)"
+  # GATE-13, measured on-box. drop_caches before each cold run, 3 runs, median taken —
+  # a single cold sample on a DRAM-less SN580 is noise. Measured with NO competing I/O:
+  # the run deliberately waited for the 14 GB fallback download to finish first, because
+  # a concurrent pull would have inflated this number, and this number sets a timeout.
+  cold_load_median_s: 12.78                        # runs: 14.27 / 12.78 / 12.77. PASS (<60 s)
+  warm_load_s: 4.59                                # page cache intact
+  hmb_host_memory_buffer_mib: 128                  # "nvme0: allocated 128 MiB host memory buffer"
+                                                   # — the DRAM-less SN580 borrowing host RAM
+  template_overhead_tokens: 10                     # §9.3 allocator. Chat template around a
+                                                   # 1-token user message costs 10 tokens; a
+                                                   # system message adds 6 more.
+  # TTFT curve (§6.6/G-07). NOT a flat number, and that is the finding: prefill
+  # throughput DEGRADES with context (766 -> 661 -> 531 tok/s), so TTFT is SUPER-LINEAR.
+  # 8K->64K is 8x the tokens but 11.6x the time. This is the OCuLink x4 link being felt
+  # exactly where G-07 said it would be — in prefill, not steady-state decode.
+  # §8.6's TTFT budget must be read off this curve, decoupled from generation timeouts.
+  ttft_curve:
+    - {prompt_tokens: 8001,  prompt_ms: 10436.4,  prefill_tok_s: 766.6}
+    - {prompt_tokens: 32001, prompt_ms: 48413.8,  prefill_tok_s: 661.0}
+    - {prompt_tokens: 64001, prompt_ms: 120599.7, prefill_tok_s: 530.7}
+  # GATE-14 formally sets this; the input is GATE-13's measured median.
+  # max(180, 3 x 12.78) = max(180, 38.3) = 180 — D6's default governs, because the
+  # measured floor is well below it. Recorded as DEFERRED until GATE-14 executes.
+  startup_timeout_s: 180                           # GATE-14. max(180, 3 x 12.78) = 180 —
+                                                   # D6's default governs; the measured floor
+                                                   # (38.3 s) is well below it. Set as
+                                                   # Environment=WROUGHT_STARTUP_TIMEOUT in the
+                                                   # unit and consumed by wait-healthy.
+  unit_timeout_start_sec: 200                      # > startup_timeout_s so wait-healthy reports
+                                                   # the timeout rather than systemd killing it first
+  swap_wall_clock_s: 5.30                          # GATE-14, D13 one-line swap primary->fallback
+  vram_residual_after_stop_mib: 0                  # GATE-14: 46 MiB idle -> 46 MiB after stop
+  # D5 RATIFIED FINAL 2026-08-02 (operator, J-46) — no longer provisional.
+  # GATE-20 measured 5.71 GiB headroom against a 1 GiB bar (5.7x), so nothing forces the
+  # 49152 drop the rail contemplated. If VRAM ever tightens, `-c 49152` is the ONLY
+  # lever: GATE-20 ladder step (2), q4_0 KV, is DISQUALIFIED on measured quality —
+  # GATE-18 put it 0.0105 above the best shippable config, outside the 0.01 bar (G-02
+  # is strictly quality-gated, and it did not pass). Raising -c still requires GATE-C-1.
+  ctx_size: 65536                                  # D5 — FINAL
+  # LOCAL REASONING MODE — R3 (operator-ratified 2026-08-03, J-87/J-96). §6.2 previously set no
+  # reasoning control at all on the local path, so the mode was whatever the template defaulted to.
+  # A default is not a decision, and D19 already recorded the same hazard on the ESCALATION path
+  # (`reasoning_enabled: false`, explicit) for money reasons. Locally it costs no money and does
+  # cost the entire token budget: J-87 measured a 700-token cap spent ENTIRELY on reasoning_content
+  # with an EMPTY `content` at finish_reason=length, and the probe re-confirmed it live on
+  # 2026-08-03 at a 200-token cap (200/200 tokens to reasoning, content='').
+  #
+  # MEASURED BASIS for choosing ON (Track B, SYNTHETIC distribution, session 9):
+  #   reasoning ON  — 87% +/- 15pp oracle pass       reasoning OFF — 62% +/- 5pp
+  #   ON costs ~9x wall clock.
+  # REVISIT TRIGGER: re-measure on the GATE-41 fixtures once they exist. This distribution is
+  # this session's synthetic one, NOT the operator's real one, and the choice is only as good as
+  # the distribution behind it.
+  #
+  # QUOTED, and that is not a style choice — it is J-86 exactly. In YAML 1.2 (what ruamel runs)
+  # bare `on` is the STRING "on"; in YAML 1.1 it is the BOOLEAN true. An unquoted value here would
+  # mean different things to different readers of the same file. (NOTE, found while writing this:
+  # `provider_side_auto_top_up: off` above is unquoted and carries the identical trap. It is not
+  # read by any code today — verified by grep — so it is latent, not live. STOP list.)
+  reasoning_mode: "on"                             # llama-server `--reasoning on`
+
+  # ADDED 2026-08-06 (session 13, RULING 3). A SEPARATE budget for thinking, so content always has
+  # headroom. `--reasoning-budget N` (-1 unrestricted, 0 immediate end, N>0 a token budget) --
+  # MEASURED to exist in the pinned binary's --help, not assumed
+  # (build-evidence/session-13/03-truncation/S13-llama-server-reasoning-flags.txt).
+  #
+  # IT IS SERVER-SIDE ONLY, AND THAT WAS MEASURED TOO. bin/probe-reasoning-budget tried all three
+  # per-request spellings against the live server -- top-level `reasoning_budget`, top-level
+  # `thinking_budget`, and `chat_template_kwargs.reasoning_budget` -- and ALL THREE had no effect
+  # on reasoning length. So this pin governs every request this box serves; it is not a
+  # per-attempt knob, and the report must say so.
+  #
+  # THE VALUE IS DERIVED FROM THE COMMITTED n=78 DISTRIBUTION, not chosen. Command:
+  #   see build-evidence/session-13/03-truncation/S13-reasoning-budget-derivation.txt
+  # At max_tokens=32,000 (J-116): 9 of 78 attempts hit finish_reason=length and 7 returned an
+  # EMPTY generation, every one of them with 93k-127k reasoning chars (~26k-35k tokens). Median
+  # reasoning is ~11,688 tokens. The decisive number: NO ATTEMPT THAT REACHED AN ORACLE PASS EVER
+  # REASONED ABOVE 16,000 TOKENS, and the largest CONTENT any of the 78 attempts produced was
+  # ~6,009 tokens.
+  #
+  #   cap     binds on      of which had PASSED     content headroom at max_tokens=32,000
+  #   16,000  23/78 (29%)   0                       16,000
+  #   20,000  19/78 (24%)   0                       12,000
+  #   24,000  16/78 (21%)   0                        8,000
+  #   28,000  11/78 (14%)   0                        4,000
+  #
+  # 24,000 is pinned: it binds only on attempts that failed anyway, and it guarantees 8,000
+  # content tokens -- more than the observed maximum with margin, and the same bound already
+  # ratified for --escalation-max-tokens.
+  #
+  # RESIDUAL, STATED RATHER THAN PAPERED OVER: a cap makes reasoning-driven exhaustion far less
+  # likely but cannot make it impossible, and §10.7 rule 0 still classifies an empty generation
+  # CODE_DEFECT. RULING 3's GENERATED_TRUNCATED amendment belongs to its "if no control exists"
+  # branch, so it is NOT implemented here -- one exists. Truncated and empty counts stay
+  # first-class numbers on the dashboard either way, which is what makes a residual visible.
+  reasoning_budget: 24000                          # llama-server `--reasoning-budget 24000`
+
+  # ---- PROFILE ARGV VALUES (added 2026-08-04, R7 / J-108) ----
+  # WHY THESE ARE HERE NOW. docs/01 §6.2 introduces the qwen36.args block with the words "every
+  # value from pins.lock" -- and most of these values were NOT in pins.lock. They lived in the
+  # normative doc block and in a hand-maintained file, which is the "hard-code it in two places"
+  # CLAUDE.md forbids, with the file's own header having claimed a generator that did not exist
+  # (J-96). `bin/gen-profile` is that generator; these are the keys it reads.
+  #
+  # TRANSCRIBED from §6.2's ratified block, NOT re-derived and NOT invented. The one deliberate
+  # difference is the model path: §6.2 still shows the pre-GATE-07 `Qwen3.6-27B-MTP-Q4_K_M.gguf`,
+  # superseded by the CR-7 Unsloth artifact. The generator takes the path from
+  # models.primary.gguf_path, so that supersession cannot be re-introduced by transcription.
+  profile_qwen36:
+    alias: primary-qwen27b
+    n_gpu_layers: 99
+    flash_attn: "on"          # QUOTED -- J-86: bare `on` is a YAML-1.1 boolean, and this is a
+                              # llama-server enum whose spelling reaches argv verbatim
+    cache_type_k: q8_0
+    cache_type_v: q8_0
+    batch_size: 2048
+    ubatch_size: 512
+    no_mmproj: true           # a bare flag, emitted with no value
+  profile_devstral:
+    # The FALLBACK profile (D13's one-line swap target). It carries no --no-mmproj and no
+    # --reasoning: transcribed from the file as it stands, which is what GATE-12 hashed.
+    alias: fallback-devstral24b
+    n_gpu_layers: 99
+    ctx_size: 65536
+    flash_attn: "on"
+    cache_type_k: q8_0
+    cache_type_v: q8_0
+    batch_size: 2048
+    ubatch_size: 512
+  reasoning_flag: "--reasoning"                    # VERIFIED present in the pinned build's --help:
+                                                   # "-rea, --reasoning [on|off|auto] ... (default:
+                                                   # 'auto' (detect from template))". Never invented.
+  # The per-request override still decides per call, and is what makes a reasoning-OFF control arm
+  # possible. Measured 2026-08-03 (bin/probe-reasoning-control), BOTH before and after the server
+  # flag was pinned: chat_template_kwargs.enable_thinking=false yields 0 reasoning chars.
+  reasoning_request_override: chat_template_kwargs.enable_thinking
+  # GATE-19 ran and DECLINED promotion (J-42), operator-ratified. MTP was 49.0% faster
+  # including prefill with acceptance 0.588/0.840/0.898 — but the committed greedy token
+  # stream diverged (p3: 38 tokens vs the baseline's 69, terminating at a different
+  # point). Equivalence is the criterion; speed is not the governing metric (P1).
+  mtp_promoted: false                              # FINAL for v1.0 — not "pending"
+  mtp_declined_reason: "greedy stream divergence (issue #23335); equivalence unmet"
+  mtp_measured_speedup_pct: 49.0                   # recorded so the trade-off is legible
+  spec_draft_n_max: DEFERRED-GATE-19               # ship default 2 (D7); sweep {2,4,6,8}
+  draft_acceptance_rate: DEFERRED-GATE-19
+  # GATE-20 does the full component breakdown. GATE-13 incidentally measured the TOTAL:
+  # 18.27 GiB resident at ctx=65536 with the primary loaded (amdgpu mem_info_vram_used),
+  # against 23.98 GiB total => ~5.7 GiB headroom. That is BETTER than the ~2.2-3.2 GiB
+  # projected at GATE-07 from §5.2's table, so the UD-Q4_K_XL headroom worry looks
+  # milder than feared — but §5.2's components are still unmeasured, so this does not
+  # close GATE-20 and does not pre-empt the D5 65536->49152 question.
+  vram_total_at_ctx65536_gib: 18.27                # GATE-13 incidental, single sample
+  # GATE-20, measured from the init log (-v) + amdgpu mem_info_vram_used as ground truth.
+  # MTP-off is the SHIPPING default (G-01); MTP-on recorded for completeness — GATE-19
+  # did not promote it (J-42).
+  vram_at_ctx:                                     # ctx=65536, MTP-off (shipping)
+    kv: 2176.00           # MiB — matches §5.2's ~2.1-2.3 GiB expectation at q8_0
+    recurrent: 299.24     # MiB — CONFLICT C1, see below
+    compute: 561.14       # MiB
+    output: 1.90          # MiB
+    total: 18711          # MiB resident (ground truth, not a sum of components)
+    headroom: 5849        # MiB = 5.71 GiB. PASS bar is >= 1 GB; this is 5.7x the bar.
+  vram_at_ctx_mtp_on:                              # not shipping; GATE-19 declined promotion
+    kv: 2432.00
+    recurrent: 897.76
+    compute: 1221.26
+    total: 19657
+    headroom: 4903        # MiB = 4.78 GiB — still comfortably above the bar
+  # CONFLICT C1 — RESOLVED BY MEASUREMENT, exactly as R12 predicted.
+  # recurrent MTP-off 299.24 MiB, MTP-on 897.76 MiB -> ratio 3.0000, i.e. EXACTLY x3.
+  # The mechanism is x(1 + n_rs_seq); with --spec-draft-n-max 2 that is x3. R2's ~150 MiB
+  # (base state) and R9's ~748 MiB (MTP enabled) were never contradictory — they were the
+  # same quantity measured on either side of that multiplier. Confirmed, not inferred.
+  conflict_c1: "RESOLVED — recurrent state scales x(1+n_rs_seq); measured ratio exactly 3.0000 at draft-n 2"
+
+# §13 escalation tier. TRANSPORT amended to OpenRouter by D19 (operator-ratified 2026-08-02);
+# D2's MODEL choice is untouched -- Claude Opus 5, served by Anthropic. Every value below was read
+# from the live catalog capture in build-evidence/gate-40/openrouter-catalog-capture.json, never
+# invented. R13.2's if-ever-used conditions are enforced in src/wrought_escalation/client.py.
+escalation:
+  transport: openrouter                            # D19 -- amends R13.2 transport ONLY
+  api_base: https://openrouter.ai/api/v1
+  endpoint: /chat/completions
+  provider: anthropic                              # the UNDERLYING provider (D2), pinned per-request
+  # `only`, not `order`: order still permits fall-through. `claude-on-aws` ("Claude Platform on
+  # AWS") is a SEPARATE Anthropic-branded slug and is deliberately excluded -- it is not the
+  # first-party endpoint. 7 endpoints across 5 provider names serve this model by default.
+  provider_only: anthropic
+  allow_fallbacks: false                           # R13.2, enforced in the request body
+  credential_name: openrouter-api-key              # TPM2-sealed, /etc/credstore.encrypted (§14.4)
+
+  # MODEL IDENTITY -- see D19 provenance downgrade 1. The callable `id` is UNDATED; the dated
+  # string exists only as `canonical_slug`, and the dated slug's /endpoints echoes the undated id.
+  model_id_catalog: anthropic/claude-opus-5             # the catalog's callable id (undated)
+  model_id_canonical_slug: anthropic/claude-opus-5-20260723   # dated -- catalog metadata only
+  model_id_sent: anthropic/claude-opus-5-20260723   # what the client SENDS (dated, preferred)
+  # Pinned from the live GATE-40 call: what the API ACCEPTED and what the response ECHOED. If these
+  # differ from model_id_sent, that difference IS the provenance downgrade, in numbers.
+  # MEASURED at GATE-40, 2026-08-03 (build-evidence/gate-40/gate-40-live-call.log). The dated slug
+  # IS accepted on the way in; the response echoes the UNDATED id. So the strongest identity this
+  # transport accepts is still sent, and the log cannot claim a dated model was served. That gap
+  # IS D19's provenance downgrade 1, now in bytes instead of prose.
+  model_id_accepted: anthropic/claude-opus-5-20260723     # sent and served, not 404'd
+  model_id_echoed: anthropic/claude-opus-5                # what the response called itself
+  served_backend_expected: Anthropic               # asserted per call; mismatch = GATE-40 red
+  served_quantization: UNOBTAINABLE                # all 7 endpoints report "unknown" (D19 dg-2)
+
+  second_provider_model_id: NOT-IMPLEMENTED-BY-DECISION  # GPT-5.6 Sol, D2 fallback-of-record only
+
+  # BUDGET -- D21 (operator-ratified 2026-08-02) amends D2's $100/month to a DUAL cap. Whichever
+  # binds first wins. The weekly cap is a RATE LIMITER (15*4.35 ~= $65 > $40, so it rarely binds on
+  # its own); the monthly cap is the TOTAL. Both enforced in the §13.5 pre-call bound, before any
+  # HTTP call leaves the box; a breach is outcome='budget_refused', NEVER a provider error.
+  weekly_cap_usd: 15
+  monthly_cap_usd: 40                              # D21; was 100 (D2 default)
+  # "month" and "week" were interpretations, not numbers the docs gave. Pinned so the ledger totals
+  # and the provider-side backstop are measured against the same windows. ISO week = Mon..Sun.
+  monthly_cap_window: utc-calendar-month           # [YYYY-MM-01T00:00:00Z, next month 00:00:00Z)
+  weekly_cap_window: utc-iso-week                  # [Mon 00:00:00Z, next Mon 00:00:00Z)
+  # Third enforcement layer (§13), operator-set, OPERATOR HOMEWORK until confirmed. It must NEVER
+  # be the layer that binds first -- if it ever does, that is a DEFECT in the ledger cap (D21),
+  # journalled as one, not absorbed as "the backstop worked".
+  # CORRECTED 2026-08-04 (R4 / J-105) to record the CONFIGURED controls rather than one summary
+  # of them. MEASURED read-only at R6: /auth/key reports a $50 limit on THIS KEY; /credits reports
+  # $70.00 purchased less $43.83 used account-wide = $26.17 remaining. Two stacked limits, and the
+  # BALANCE binds first -- so the effective ceiling on a third party holding this key is $26.17,
+  # tighter than the $50 D24 originally named.
+  provider_side_backstop: prepaid-credits-plus-per-key-limit
+  provider_side_key_limit_usd: 50            # /auth/key `limit` -- bounds THIS credential
+  provider_side_account_balance_usd: 26.17   # /credits -- binds FIRST; measured 2026-08-03
+  provider_side_backstop_usd: 26.17          # the EFFECTIVE ceiling = min(key limit, balance)
+  # QUOTED, per the J-86 trap: bare `off` is the string "off" under YAML 1.2 and the boolean TRUE
+  # under YAML 1.1, so an unquoted spelling means opposite things to two readers of one file.
+  # Still [UNVERIFIED]: operator-asserted, exposed by no read-only endpoint, and LOAD-BEARING --
+  # a top-up would refill the very ceiling that bounds D24's accepted exposure.
+  provider_side_auto_top_up: "off"
+  caching: off                                     # D9; revisit at ST-4. Enforced by sending no
+                                                   # cache_control AND asserting usage cache r/w == 0.
+
+  # REASONING. The catalog reports reasoning.default_enabled=true, default_effort=high for this
+  # model. Reasoning tokens bill at OUTPUT rate (R13.5) and are unknowable in advance, so an
+  # inherited default would silently make the §13.5 "worst-case bound" not a bound. Set explicitly.
+  reasoning_enabled: false                         # explicit, not inherited -- see GATE-40 evidence
+  reasoning_supported_efforts: [max, xhigh, high, medium, low]   # catalog, for the record
+  max_completion_tokens_ceiling: 128000            # top_provider.max_completion_tokens
+  context_length: 1000000                          # top_provider.context_length
+
+  # RATE CARD -- USD per 1M tokens, from the catalog capture. cost_microusd is always computed
+  # against a snapshot id so a price change is visible in the ledger rather than silently repricing
+  # history. These figures match D2's [VERIFIED] direct-API pricing exactly.
+  price_snapshot_id: openrouter-anthropic-claude-opus-5-2026-08-02
+  price_input_usd_per_mtok: 5.00
+  price_output_usd_per_mtok: 25.00
+  price_cache_read_usd_per_mtok: 0.50
+  price_cache_write_5m_usd_per_mtok: 6.25
+  price_cache_write_1h_usd_per_mtok: 10.00
+
+  # §13.5 pre-call worst-case bound. The >=1.3 factor is R13.5's own text (no exact offline Claude
+  # tokenizer exists, so the input count is itself an estimate); 1.3 is its floor, adopted as-is.
+  input_estimate_safety_factor: 1.3
+  # R13.5 says "counted input" but no offline Claude tokenizer exists on this box to count with, so
+  # a character proxy is unavoidable -- pinned here rather than buried in code. 3.0 is DELIBERATELY
+  # below the common ~4 chars/token rule of thumb: under-stating chars-per-token OVER-states tokens,
+  # which over-states the bound, which is the safe direction for a budget ceiling. R13.5's >=1.3
+  # factor then multiplies on top. Every call records est_cost vs actual in the ledger, so this is
+  # falsifiable from data rather than permanent -- R13.5's own ">~3x estimate-vs-actual => tighten
+  # max_tokens" review is the mechanism. Assumption D-q.
+  input_token_estimator_chars_per_token: 3.0
+
+  # R13.6/R8.6 TIMEOUTS -- PROVISIONAL v0 (assumption D-p). R13.6 says "set per model at observed
+  # p99 + margin" and nothing has been observed yet. Derived from the doc's OWN numbers rather than
+  # picked: R13.6 documents 10-150 s end-to-end for reasoning models, so the total-generation limit
+  # is set above that documented ceiling with margin. Over-long is the SAFE direction -- the budget
+  # bound, not the timeout, is the cost control; an under-set timeout kills good calls and bills for
+  # them anyway. Re-pin from measured p99 at ST-4's 100 escalations.
+  connect_timeout_s: 10
+  ttft_timeout_s: 60                               # R13.6: 15 s is "tight-to-inadequate" for reasoning
+  total_generation_timeout_s: 300                  # THE load-bearing limit (R13.6), >150 s + margin
+  stream_stall_timeout_s: 90                       # R8.6 token-stream heartbeat: no delta for N s
+  # R8.6 Resilience4j starting values + R13.6's N>=20 floor; already registered as assumption D-f.
+  breaker_failure_rate_pct: 50
+  breaker_window: 100
+  breaker_half_open_probes: 3
+  breaker_open_seconds: 60
+
+# GATE-08 settled R12's four CONFLICTING cache flags FOR THIS BUILD (b10233 / 0ab9d6fed).
+# Flag existence is build-local, not permanent — re-check on any llama.cpp bump (ST-1).
+llama_cpp_cache_flags:
+  cache_reuse: present                  # --cache-reuse N (min chunk for KV-shift reuse; default 0)
+  slot_save_path: present               # --slot-save-path PATH (default: disabled)
+  cache_ram: present                    # -cram/--cache-ram N MiB (default 8192; -1 no limit; 0 disable)
+  no_context_reuse: absent              # NOT in this build's --help
+
+# GATE-18 long-context baselines (§11.1 layer (d)). Corpus: wikitext-2-raw wiki.test.raw,
+# sha256 173c87a53759e0201f33e0ccf978e510c2042d7f2cb78229d9a50d79b9e7dd08, --chunks 3 at
+# -c 65536. BOUNDED RUN: absolute values are NOT comparable to published full-corpus
+# figures — only the between-config spread is, since all four arms consumed identical input.
+ppl_baselines_c65536:
+  q8_0_q8_0: 5.5288        # ship default
+  q8_0_f16: 5.5272
+  f16_f16: 5.5282
+  q4_0_q4_0: 5.5377        # deliberately-bad CONTROL, not a shipping option
+  shippable_spread: 0.0016 # PASS bar <= 0.01
+  # The control sits 0.0105 above the best shippable config — 6.6x the shippable spread,
+  # and OUTSIDE the 0.01 bar. Two consequences:
+  #  1. the metric is sensitive enough for the PASS to mean something (a deliberately-bad
+  #     quantization is cleanly separated), and
+  #  2. G-02's q4_0-KV lever — GATE-20 ladder step (2), admissible ONLY IF GATE-18's q4_0
+  #     column passed — is NOT qualified. It is moot at 5.71 GiB headroom, but if context
+  #     or VRAM ever tightens, step (2) is unavailable on quality grounds and the ladder
+  #     effectively reduces to (1) -c 49152.
+  recall_32k: EXACT
+  recall_64k: EXACT
+
+# [SPEC-R8.10] job filesystem model. Pinned 2026-08-02 (J-49 blocker 1) because GATE-25's
+# criterion is the EXACT shipped §10.3 command and its three path variables existed ONLY as
+# shell names inside that code block — nowhere else in docs/. §8 defined no job-dir scheme to
+# reuse (verified by grep), so the scheme is defined once in §8 as R8.10 and referenced here.
+# serve-time rule: these are the ONLY source of the three variables. Never an env override —
+# an env-supplied TESTS_DIR is an oracle swap, which is the F-05 attack with extra steps.
+jobs:
+  oracle_root: /var/lib/wrought/oracle       # operator-ratified tests + manifest (D11), task-scoped
+  job_root: /var/lib/wrought/jobs            # per-attempt working tree
+  tests_dir: "{oracle_root}/{task_id}/tests"           # -> /work/tests   RO  (F-05)
+  manifest: "{oracle_root}/{task_id}/manifest.sha256"  # post-run re-hash, §10.3
+  src_dir: "{job_root}/{task_id}/{attempt}/src"        # -> /work/src     RO
+  out_dir: "{job_root}/{task_id}/{attempt}/out"        # -> /work/out     see §10.3
+  envelope: "{out_dir}/result.json"                    # THE classification primitive (§10.7)
+  attempt_is: repair_index                   # 0..3 (R8.5 cap); same 'attempt' as R8.2's idempotency key
+  task_id_charset: "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" # enforced at InputValidation AND at path derivation
+  # /work/out is a SIZE-BOUNDED tmpfs (J-49 item 5, F-20 pattern), not a plain bind of out_dir.
+  # DERIVED, not invented: CR-9 pins RLIMIT_FSIZE=1G, so one legal maximum-size file is the
+  # largest output a non-defective candidate can produce. ENOSPC against THIS bound is a
+  # CODE_RESOURCE_DEFECT (repairable, "exceeded out quota"); ENOSPC with this bound NOT
+  # exhausted is host pressure = SUBSTRATE (§10.7 rule 3). Raise if a legitimate fixture
+  # trips it — and re-check MemoryMax when you do: tmpfs pages are charged to the job cgroup,
+  # so a full /work/out spends 1 GiB of the 16 GiB MemoryMax.
+  out_tmpfs_bytes: 1073741824                # 1 GiB = CR-9 RLIMIT_FSIZE
+  # ONLY result.json crosses the sandbox boundary: it is bind-mounted from out_dir onto the
+  # tmpfs, so an exhausted quota can still be REPORTED. Without this bind, filling the quota
+  # also destroys the envelope and §10.7 rule 2 would classify the job SUBSTRATE — the exact
+  # misclassification item 5 exists to kill. Write it in place (O_TRUNC+fsync); rename() onto
+  # a bind mount is EXDEV.
+  envelope_is_the_only_channel_out: true
+
+# §10.4 resource caps. GATE-25, J-49 item 2. Unit file: config/wrought-verify.slice.
+verification_slice:
+  unit: wrought-verify.slice
+  cgroup_path: /sys/fs/cgroup/wrought.slice/wrought-verify.slice   # systemd nests slices on '-'
+  memory_max: 16G                  # CR-9 [ASSUMPTION], applied+readback-verified
+  memory_high: 14G                 # CR-9
+  cpu_quota: 800%                  # CR-9 (readback: CPUQuotaPerSecUSec=8s)
+  # MEASURED (5 runs of the shipped invocation, pids.peak identical every run), NOT adopted.
+  # This SUPERSEDES CR-9's TasksMax=512 [ASSUMPTION] -- recorded as a supersession, not a fill-in.
+  gauntlet_pids_peak: 28
+  tasks_max_margin: 4              # judgement: fork-bomb defense wants LOW, legit fixtures want headroom
+  tasks_max: 112                   # = 28 x 4. Raise only if a LEGITIMATE fixture trips it; re-measure.
+  # DEFERRED HARDENING (operator-ratified): CR-9 gives IO bandwidth numbers but names no device, and
+  # IO*BandwidthMax= requires one. Residual accepted: a candidate can saturate disk IO -- a slowdown,
+  # not a boundary breach. Revisit on multi-tenant use or a measured IO-DoS.
+  io_bandwidth_max: DEFERRED-HARDENING
+  # Exec context, NOT the slice (scopes have no exec context). Applied via prlimit(1), no shell.
+  rlimit_fsize: 1073741824         # CR-9 1G -- also the derivation for jobs.out_tmpfs_bytes
+  rlimit_nproc: 512                # CR-9
+  #
+  # ===== THE WALL-CLOCK BOUND (STOP-32, added 2026-08-07, session 15) ==========================
+  # EVERY CAP ABOVE IS A SPACE BOUND. None of them is a TIME bound, and J-125 measured the
+  # consequence: a non-terminating candidate from the Devstral fallback span at 99.9% of one core
+  # for 21 minutes and would still be running. MemoryMax did not bind (139.6 M in use), CPUQuota
+  # throttles RATE not DURATION, TasksMax saw one process, RLIMIT_FSIZE/NPROC saw no writes and
+  # no forks. The gap was in docs/03 §10.4 as well as in the code.
+  #
+  # THE MEASURED BASIS -- COMMAND (J-95):
+  #     ./bin/measure-verify-walltime
+  # Population: every attempt in the committed baseline records (b1,b2,b3,b4) plus the blocked
+  # GATE-42 fallback run (g42) plus the two satisfiability probes. GATE-23's arms are EXCLUDED by
+  # construction -- deliberate pathologies are not legitimate verifications and folding them in
+  # would inflate the bound with times that were never valid.
+  #     n = 116 attempts that actually ran a sandbox (7 empty generations excluded: §10.7 rule 0
+  #             is pre-sandbox, so they never launched and are not zero-length verifications)
+  #     whole invocation (bin/verify-job end to end -- a strict SUPERSET of the scope):
+  #             min 0.76 s   median 0.85 s   p95 1.02 s   MAX 4.23 s
+  #     in-sandbox span (142 envelopes, finished_at - started_at):
+  #             min 0.58 s   median 0.67 s   p95 0.83 s   MAX 4.03 s
+  #     slowest single check ever observed: py.test.pytest 3.589 s
+  #     the max is TASK-2026-0804-01-g42 attempt 2 -- a slow but TERMINATING candidate
+  #
+  # THE MARGIN IS 28.4x AND THAT IS DELIBERATE, because the failure directions are ASYMMETRIC:
+  # a bound that is too long only DELAYS catching a hang; a bound that is too short converts a
+  # slow-but-correct candidate into a false CODE defect and biases P1 DOWNWARD in a way nothing
+  # downstream can detect. The operator's rule was margin >= 20x measured max, i.e. a floor of
+  # 20 x 4.23 = 84.6 s. 120 s is pinned ABOVE that floor rather than at it, and the reasons are
+  # stated rather than rounded to: (a) the measured population is ten fixtures whose pytest load
+  # is light -- a future fixture leaning on hypothesis at its default 100 examples could plausibly
+  # spend tens of seconds legitimately, and 84.6 s leaves little room for it; (b) the observed
+  # correct-verification spread is already 5x (0.85 s median vs 4.23 s max), so the tail is not
+  # tight; (c) the extra 35 s buys headroom for CPU contention with the resident inference server,
+  # which the sequential baseline runs never exercised. The COST of the extra margin is bounded
+  # and small: a hung candidate is caught in 2 minutes instead of 1.4.
+  #
+  # WORST CASE, STATED: 120 s per attempt, so <= 10 minutes for a task that hangs on all five
+  # slots (4 local attempts under the R8.5 repair cap + the escalation slot). Against "forever",
+  # that IS the point. Raise it if a LEGITIMATE fixture trips it -- and re-run
+  # bin/measure-verify-walltime rather than doubling blind (the tasks_max pattern above).
+  runtime_max_sec: 120
+  #
+  # THE TAIL, PINNED RATHER THAN INHERITED. RuntimeMaxSec's first act is SIGTERM; SIGKILL follows
+  # only after TimeoutStopSec, whose system default here is 90 s (`systemctl show -p
+  # DefaultTimeoutStopUSec`). MEASURED (./bin/probe-verify-timeout, arms 2 and 2b): under the
+  # SHIPPED chain that tail never opens -- a candidate masking SIGTERM still dies at the bound,
+  # because bwrap --unshare-all holds it in a PID namespace that collapses when the outer bwrap is
+  # signalled, and the kernel SIGKILLs the contents regardless of what they masked. Arm 2b runs
+  # the identical payload WITHOUT bwrap and does need the escalation. So this value does not bind
+  # today; it is pinned because the tail is currently closed by a SANDBOX property, and a future
+  # change to the namespace flags would silently reopen it to a 90 s default nobody chose.
+  timeout_stop_sec: 10
+  #
+  # MECHANISM: systemd RuntimeMaxSec on the transient per-job scope, chosen by MEASUREMENT over
+  # timeout(1) (./bin/probe-verify-timeout, 11 assertions, arms 1/2/2b/3). It needs no new
+  # dependency, kills the whole cgroup rather than one process, and -- exactly like the OOM path
+  # (J-49/J-51) -- leaves a DURABLE verdict readable after the scope is destroyed:
+  # "Failed with result 'timeout'". Supervisor-side returncode is -15, so classify()'s existing
+  # `killed` branch is reachable. Arm 3 is the negative control: a job inside the bound is
+  # untouched and leaves no failed scope behind.
+  verification_timeout_verdict: "Failed with result 'timeout'"   # what classify() reads post-hoc
+
+# Packs are GENERATED from this file and content-hashed for identity (J-49 item 9).
+# NEVER hand-edit a shipping pack: `bin/gen-pack --check` fails if the file drifts from pins.lock.
+packs:
+  py:
+    path: /etc/wrought/packs/py.toml
+    generator: bin/gen-pack
+    # RECALIBRATED 2026-08-06 (session 13, RULING 1). Regeneration IS a new identity, and this
+    # one changes what PASS MEANS, so the number it produces is not comparable to the number
+    # before it. P1 = 95.0% +/- 7.1 pp (J-116, n=20) BELONGS TO THE PACK BELOW and to ruff's
+    # 413-rule default set; it is never to be quoted beside a measurement taken under this pack.
+    #
+    # P1 UNDER THIS PACK, MEASURED 2026-08-06/07 (J-119, b3+b4, n=20 task runs / 41 attempts):
+    #   escalation DEMAND  20.0%  (4/20; both repeats 2/10)
+    #   Wilson 95% CI      [8.1%, 41.6%] task runs as the unit / [5.7%, 51.0%] fixtures as the unit
+    #   escalation RESOLVE 3/4    cost per COMPLETED escalated task $0.1411
+    #   COMMAND: bin/decompose-baseline b3 b4   +   07-baseline/S13-demand-interval.txt
+    # The between-repeat sd is 0.0 pp and is NOT an error bar -- two samples that agreed. The
+    # demand is NOT distinguishable at this n from the 13.3% synthetic figure, which was itself
+    # measured under the superseded pack below (STOP-27).
+    sha256: 37d1c39c146a01782c43cd994a666afd8ead01c163db13f861873bdedad3edd9
+    superseded_2026_08_06: e951ebecbeabc5bc0f63baa89dc35ee68a5f6ce4cb613627db31df99554957db
+  # ADDED 2026-08-04 (R7 / J-108, STOP item 7). §10.6's pack was a table in a document and a set
+  # of pins with no artifact; it is now GENERATED and hash-registered by the same rule that
+  # governs py.toml, and it LOADS through the shipping loader (5 checks, 2 carrying env).
+  security:
+    path: /etc/wrought/packs/security.toml
+    generator: bin/gen-pack --pack security
+    sha256: cb0421ff3e6c8f0e569750fa0edf59e82b42883ceb06028d6af8cef25989dc34
+    # EXECUTION CONTEXT, recorded because it is NOT the verification sandbox and a hash-registered
+    # artifact that implied otherwise would be a lie with a checksum on it. gitleaks, syft and
+    # osv-scanner live in /opt/wrought/bin, which §10.3's bind allowlist does not include -- so
+    # this pack cannot run inside the oracle sandbox as it stands. Its context is GATE-29's
+    # `bwrap --unshare-net`, where all five tools measure zero outbound. Binding /opt/wrought/bin
+    # into the oracle sandbox is a §10.3 change and a separate decision; it is NOT made here.
+    execution_context: gate29-bwrap-unshare-net-NOT-the-oracle-sandbox
+
+# §8.3 event store. The schema hash is what §12.5's restore verification compares against to
+# detect drift. The computation is `store.schema_sha256()` -- sqlite_schema.sql joined ORDER BY
+# name -- and NOT `sqlite3 .schema | sha256sum`, which this comment used to name. MEASURED
+# 2026-08-04 (J-104): no sqlite3 CLI exists on this box, and `.schema` hashes to a78b5f3f... on a
+# database whose shipped hash is the pinned eb23c2ea... -- different order, different text.
+# MEASURED from the built schema, not authored.
+# LIVE PRODUCTION VERIFIED EQUAL TO THIS PIN 2026-08-04 (R3): orchestrator.db, 965 events,
+# 72 tasks, after the events_outcome_idem_idx migration. Command in build-evidence/session-11.
+db_path: /var/lib/wrought/state/orchestrator.db
+# MOVED 2026-08-02 (J-77) from 3a183827f5f9882e4b24343c35339a5717a673235bc0ce813da711a0574923c2.
+# Two changes in one re-pin, both deliberate:
+#  1. escalation_ledger gained the R13.7 router fields D19 makes normative and the D21 dual-window
+#     budget state (14 -> 37 columns), plus CHECK constraints on `outcome` and `binding_window`.
+#  2. tasks_rebuilt entered the CANONICAL schema. It was created only by rebuild_projection(), so
+#     GATE-37 running against the live DB drifted production one table away from this pin while
+#     every gate stayed green -- they hash their own scratch DBs, where the table never existed.
+# Verified: a fresh init_db() and the migrated live DB now produce the SAME hash.
+#
+# MOVED AGAIN 2026-08-03 (J-89 / J-95, operator ruling R2) from
+# 4137458fd44de6224bec3d481b50778b10908eabdc87b008cdf3ea020b9e185f.
+# ONE change: `events_outcome_idem_idx`, the symmetric partial UNIQUE index on STEP_OUTCOME
+# idempotency keys. Its absence WAS SOAK-1's 27x per-round slowdown -- the INTENT side was indexed
+# and the OUTCOME side was not, so recover()'s in-doubt reconciliation full-scanned `events` once
+# per accumulated intent, at a cost proportional to history.
+#
+# MEASURED on a copy of the 500k-event soak-2 store, before -> after:
+#   _outcome_exists()      38.62 ms  ->  0.0016 ms per call     (query plan: SCAN events ->
+#                                                               SEARCH ... USING INDEX)
+#   recover(), 500k store  6043 ms   ->  2.08 ms                (2904x)
+#   per-intent cost across a 12.4x history span: 29.2x growth -> 2.67x. SUB-LINEAR, not flat --
+#   B-tree depth still grows. Proportionality was the defect; residual log-depth growth is not.
+#
+# UNIQUE rather than a plain index, deliberately: GATE-39 has always ASSERTED "one STEP_OUTCOME per
+# idempotency key" after the fact, and this makes the database refuse the duplicate instead.
+# Verified zero pre-existing duplicates across production, trackb, gate39-scope and all three soak
+# stores before creating it -- a UNIQUE index cannot be added over existing duplicates.
+#
+# PRODUCTION IS NOT MIGRATED and therefore DRIFTS FROM THIS PIN. That is deliberate: this session's
+# instructions hold production DB isolation absolute, and an additive DDL is still a change to
+# production state. §12.5's restore/drift check is not running yet (it needs GATE-32/Litestream,
+# blocked on an R2 credential), so nothing is silently green -- but this IS the J-77 shape and it is
+# on the STOP list rather than left to be rediscovered. One line closes it, when authorized:
+#   sqlite3 /var/lib/wrought/state/orchestrator.db "CREATE UNIQUE INDEX IF NOT EXISTS \
+#     events_outcome_idem_idx ON events (json_extract(payload,'$.idempotency_key')) \
+#     WHERE event_type = 'STEP_OUTCOME';"
+db_schema_sha256: eb23c2ea4624772a207238226628cca9093f981556f57ca2c7176e3bb8f406f4
+# §8.4's claim SQL references BOTH of these and no document gives either a value; CR-9 pins the
+# SLICE, not the queue. They are not derivable today: the visibility timeout must exceed the
+# worst-case task (cold swap + one generation), and no per-task wall-clock has been measured --
+# that first exists when the GATE-41 fixtures run. bin/orchestrator therefore REQUIRES both as
+# explicit arguments with NO defaults, so nothing silently invents one.
+#
+# PINNED 2026-08-06 from the baseline on the GATE-41 fixtures (session 12, J-115; basis widened to
+# BOTH repeats at J-116 -- the derived values did not change, which is itself the useful result).
+# Every number below carries the command that produced it (J-95 / CLAUDE.md standing rule).
+#
+#   $ ./bin/baseline-run --run b1 --max-tokens 32000 --escalation-max-tokens 8000   # and --run b2
+#       (under: sudo systemd-run --wait --collect --pipe -p User=kalib
+#                 -p WorkingDirectory=/home/kalib/foundry
+#                 -p LoadCredentialEncrypted=openrouter-api-key:/etc/credstore.encrypted/openrouter-api-key
+#                 -p LoadCredentialEncrypted=inference-api-key:/etc/credstore.encrypted/inference-api-key)
+#   $ ./bin/baseline-report --records '<records-b1.json>,<records-b2.json>'   # §8 of its output
+#
+# MEASURED, n = 20 tasks / 78 local attempts / 19 escalation round-trips (both repeats):
+#   worst single ATTEMPT (generate + verify)          916.0 s   (median 361.8 s)
+#   worst ESCALATION round-trip (call+stage+reverify)  44.0 s   (median 33.0 s, min 15.0 s)
+#   worst MESSAGE HOLD = 916.0 + 44.0                 960.0 s
+#   worst whole TASK                                 3143.5 s   (median 1777.7 s)
+#   max deliveries consumed by one task                     4
+#
+# THE SECOND REPEAT DID NOT MOVE THESE. At n=10 the worst hold was 957.0 s and the derived timeout
+# was the same 1920 s; doubling the sample moved the worst escalation round-trip 41 -> 44 s and the
+# worst attempt not at all. That is weak evidence the attempt tail is real rather than a single
+# outlier -- but the distribution is still CENSORED (see below), so it is not evidence the tail
+# has been found.
+#
+# THE MARGIN IS A STATED RULE, NOT A CHOSEN NUMBER: 2x the measured worst case, rounded up to
+# the next whole minute. Two reasons, both about the shape of the error rather than taste:
+#   (a) THE OBSERVED DISTRIBUTION IS CENSORED. 5 of 38 attempts hit finish_reason=length at the
+#       32000-token cap, so the true worst generation is LONGER than 916 s -- an unknown amount.
+#       A margin sized to an uncensored maximum would be sized to a number that does not exist.
+#   (b) THE TWO FAILURE MODES ARE NOT SYMMETRIC. Too SHORT redelivers a live worker's message
+#       underneath it (duplicate work, and the F-27 delivery count burns while the task is
+#       healthy). Too LONG only delays recovery from a genuinely dead worker. Erring long is the
+#       cheap direction.
+# The visibility timeout is deliberately sized to ONE MESSAGE (one attempt + a possible escalation),
+# NOT to the whole task: each attempt re-enqueues, so a task is many messages (§8.4).
+queue:
+  visibility_timeout_s: 1920      # 2 x 960.0 s = 1920 s exactly. 32 min.
+  max_receive: 8                  # 2 x the 4 deliveries a healthy task consumes (one per R8.5
+                                  # attempt). At 4 a task would dead-letter on its FIRST substrate
+                                  # requeue while still making progress -- §10.7 rule 1 requeues
+                                  # without consuming a repair, so the budget must exceed the
+                                  # attempt count or substrate incidents become dead letters.
+                                  # 0 substrate requeues occurred in the measured runs (n=78), so
+                                  # this headroom is UNEXERCISED and stated as such, not validated.
+  measured_on: baseline-b1b2-2026-08-06   # ten GATE-41 fixtures x2, reasoning ON, escalation LIVE
+  gate39_test_values: "visibility=2s, max_receive=4 -- gate-scoped, chosen so lease lapse is
+    exercised in seconds; NEVER production values"
+
+# GATE-37 (§8.3). MEASURED on the synthetic replay corpus, with its basis recorded so the number
+# is interpretable later -- replay time scales with the LOG, so this is a FLOOR, not a ceiling.
+replay:
+  measured_on: synthetic-corpus-2026-08-02      # bin/build-replay-corpus; NOT the GATE-41 fixtures
+  basis_events: 964
+  basis_streams: 71
+  basis_events_per_stream: 13.58
+  basis_db_bytes: 512000
+  basis_max_events_in_one_stream: 24
+  # SINGLE SAMPLES, not medians: an immediate re-run on the same corpus gave 6.0 / 2.0 ms. At
+  # millisecond scale that spread is run-to-run noise, and it is recorded so nobody reads 5.6 as a
+  # precise figure. The ORDER of magnitude is the load-bearing part -- the threshold is 1 s, three
+  # orders away, so the policy does not turn on this precision.
+  full_rebuild_cold_ms: 5.6                     # page cache dropped first (post-restore is the cold case)
+  full_rebuild_warm_ms: 1.9
+  full_rebuild_cold_ms_rerun: 6.0
+  # Third sample, 2026-08-03, on a corpus REBUILT after GATE-39 destroyed the original (J-80).
+  # Same generator, same parameters, a different 964-event corpus -- so this is run-to-run AND
+  # corpus-to-corpus spread, and it widens the honest interval rather than replacing the number.
+  full_rebuild_cold_ms_rerun2: 4.4
+  # ---- BASIS CORRECTION, 2026-08-03 (R2 step 1, operator ruling; SOAK-1 J-82 FINDING 1) ----
+  # The rate below was recorded WITHOUT its basis and is the WARM one, while `snapshot_trigger`
+  # is defined on COLD rebuild time. 5.6 ms / 964 = 5.81 us/event COLD; 1.9 / 964 = 1.97 WARM.
+  # `per_event_us: 2.0` and `headroom_events_at_1s: 494379` (which implies 2.023 us/event) both
+  # track the WARM figure -- so a warm rate was used to predict when a COLD rebuild crosses 1 s.
+  # That is wrong INDEPENDENTLY of whether the curve is linear, and it is the error to fix first:
+  # re-pinning the value without correcting the basis just relocates a wrong number.
+  #
+  # Both rates are kept, each labelled, rather than one overwriting the other -- same principle
+  # J-82 applied to captured evidence. The pinned point annotated on a consistent basis:
+  per_event_us_cold: 5.81                       # 5.6 ms / 964 events. THE basis snapshot_trigger uses.
+  per_event_us_warm: 1.97                       # 1.9 ms / 964 events.
+  per_event_us: 2.0                             # 2.1 on the third sample
+  per_event_us_BASIS: warm                      # <- the correction. Was unlabelled and read as cold.
+  # `headroom_events_at_1s` below is therefore built on the WARM rate and is DEFERRED for re-pin,
+  # not silently adjusted: R2 step 2 re-derives it from the SOAK-2A cold curve on a CHECKPOINTED
+  # store, because SOAK-1's curve was measured on a store with no checkpointer (D22) and cannot be
+  # the basis for a production capacity figure.
+  headroom_events_at_1s_STATUS: "SUSPECT-WARM-BASIS -- re-pin at R2 step 2 from the SOAK-2A cold curve"
+  worst_per_stream_ms: 0.070
+  # THE POLICY, which is the actual deliverable (a green on a corpus three orders of magnitude
+  # smaller than production cannot show "fast enough"):
+  #  - snapshots are gated on the FULL-PROJECTION rebuild, NOT per-stream replay. Per-stream is what
+  #    §8.3's snapshot shape {stream_id, last_seq, state_blob} would accelerate, but one stream is
+  #    bounded by the repair cap of 3 and measured at 24 events max. The full rebuild is what runs
+  #    after a restore and the only one that grows without bound.
+  #  - add snapshots when the full rebuild exceeds 1 s COLD.
+  snapshot_trigger: "full-projection rebuild > 1 s cold"
+  headroom_events_at_1s: 494379                 # SUPERSEDED -- see replay_measured_2026_08_03 below.
+  # Re-measure at 10x the corpus and on every schema change. Floor because: synthetic payloads, one
+  # process, no concurrent writer, and a warm-ish machine a real post-restore rebuild would not have.
+
+# ---- R2 STEP 2 (operator ruling): re-pinned from the SOAK-2A cold curve, 2026-08-03 ----
+# The block above is the 964-event single-point extrapolation, kept because superseding a pin in
+# place erases the evidence that it was ever wrong. THIS block is the measurement.
+#
+# MEASUREMENT BASIS, stated because the ruling requires the basis and because SOAK-1 proved a
+# rate without one is a trap:
+replay_measured_2026_08_03:
+  harness: bin/soak-harness            # SOAK-2A, chaos OFF, bulk-only, fresh store
+  checkpointing_state: "wal_autocheckpoint=1000 (D22 INTERIM) -- LIVE throughout"
+  event_counts: [10000, 50000, 100000, 250000, 500000]
+  streams_at_max: 25000
+  events_per_stream: 20
+  store_bytes_at_max: 247433920        # 494.9 B/event; -wal held flat at ~5.5 MB by D22
+  page_cache_dropped: true             # every rung; cold means cold
+  # THE CURVE, cold ms: 24.3 / 113.7 / 231.3 / 573.4 / 1142.4
+  # Per-rung cold us/event: 2.430 / 2.275 / 2.313 / 2.294 / 2.285 -- FLAT over a 50x range.
+  per_event_us_cold: 2.283             # least-squares slope over the five rungs
+  fit_intercept_ms: 1.483
+  fit_r_squared: 0.999991              # LINEAR, and now measured rather than assumed
+  headroom_events_at_1s: 437338        # (1000 ms - intercept) / slope. THE capacity figure.
+  # WHY THIS DIFFERS FROM BOTH EARLIER NUMBERS, since it sits between them:
+  #  * the pinned 494,379 was optimistic by 1.13x -- built on the WARM rate (R2 step 1).
+  #  * SOAK-1's measured ~260,900 was PESSIMISTIC by 1.68x, and that was an ARTEFACT: the curve
+  #    was measured on a store with NO checkpointer, whose 48x-amplified -wal made every cold
+  #    rebuild read far more than the data warranted. SOAK-1's "the real headroom is 0.53x the
+  #    pin" conclusion does not survive its own cause being removed. Recorded because a superseded
+  #    finding that is silently dropped looks like it was never made.
+  #  * SOAK-1's U-SHAPED curve (2.41 -> 3.32 -> 3.34 -> 3.83) is likewise gone: flat to +-3%.
+  #    The curvature was the WAL, not a property of replay.
+  # THE TRIGGER HAS NOW FIRED, and this is the operational consequence, not a footnote: the 500k
+  # rung measured 1142.4 ms COLD, which is ABOVE snapshot_trigger's 1 s bar. At 500k events this
+  # store needs snapshots by the pinned policy. Surfaced as a finding; implementing snapshots is
+  # feature work no gate in this session authorises.
+  revisit_trigger: "2x the measured corpus (1,000,000 events), or any events-table schema change"
+  caveat: "synthetic payloads, one process, no concurrent writer. Still a FLOOR, as §8.3 says."
+
+canon_version: canon_v2                            # F-12/F-28
+# §7.5 step 6 conformance vectors. The digests in this file are COMMITTED EXPECTATIONS -- GATE-38
+# compares canon_v2() against those literals, never against a value it recomputes the same way
+# (which would pass by construction and detect no drift). Pinning the file's own hash means the
+# expectations cannot be edited silently either. Re-mint ONLY for a deliberate canon change, via
+# bin/gen-canon-vectors; this hash changing is the visible consequence.
+canon_v2_vectors:
+  path: fixtures/canon-v2-vectors.json
+  generator: bin/gen-canon-vectors
+  sha256: 14a3651151bed9c7e3056ced362db07f9fc4ec37f1843a71c47e34b15873ffc2
+  base_document_digest: 90af3bae5ec30ddf6102e0b16d0f7e939af5fc5ee2529fe5d6d9f78cca76ac20
+# §10.4 denylist, compiled at freeze time with libseccomp 2.6.0-2ubuntu5 from
+# bin/build-seccomp-deny.c and applied via §10.3's --seccomp fd (F-04: prose-only
+# hardening is worthless). 272 bytes of BPF.
+# Denied -> EPERM: ptrace, mount, umount2, pivot_root, syslog, uselib, acct, bpf,
+#   add_key, request_key, keyctl, clone/unshare with CLONE_NEWUSER, ioctl TIOCSTI.
+# clone3 -> ENOSYS, NOT EPERM (G-09): glibc >= 2.34 tries clone3 first and treats EPERM
+#   as a fatal policy denial — a hard crash. ENOSYS triggers the graceful fallback to
+#   plain clone(), which IS filterable by argument. clone3's flags sit behind a pointer
+#   and cannot be inspected by seccomp at all, so this is the ONLY way CLONE_NEWUSER
+#   becomes filterable. Verified: multiprocessing.Pool works under the filter.
+# The IN-SANDBOX runner. Deployed by copying src/wrought_verifier/ into the venv, so
+# toolchain.wheelset_sha256 does NOT cover it -- and it is the code that writes the classification
+# primitive (§10.7). Pinned so the committed source and the deployed module cannot drift silently.
+# bin/verify-job REFUSES TO LAUNCH on a mismatch (that refusal is what makes §10.5's "refused at
+# load" sentence true rather than prose).
+# RE-PINNED 2026-08-06 (session 13, RULING 1): the module gained the `json_metric` criterion and
+# pack-carried `config_files`. THE DRIFT WAS CAUGHT BY GATE-24, NOT BY INSPECTION -- the repo copy
+# was edited, the deployed copy was not, and because the deployed copy still matched its OLD pin
+# the identity assert passed while every sandbox arm rejected the new pack as `bad_criterion_type`.
+# That is the drift class J-100 names, observed live: a pin proves "deployed == pinned", never
+# "deployed == the source you just edited".
+verifier_module_sha256: b0bfc11c56c5b059a0fda0595e0537019f6d82fba722aa8aa00c3b19a533e34a          # sha256 over the deployed wrought_verifier/*.py
+verifier_module_superseded_2026_08_06: d78d54e16865b0b6e69ee6dfb19a9823490fa3d5c14982b911bf8df3c456658b
+verifier_module_source: src/wrought_verifier/
+seccomp_bpf_sha256: 879ff99cff036093923a3f7db6558280d5388e0c32d8a01acdbde59433afba12
+seccomp_bpf_path: /etc/wrought/seccomp-deny.bpf
+seccomp_bpf_builder: bin/build-seccomp-deny.c        # libseccomp 2.6.0-2ubuntu5
+# RELABELLED at GATE-08 close, deliberately and with reason: GATE-08's rail text requires that
+# --help ACCEPT every flag spelling used in the profiles (done, 23/23), NOT that the .args files
+# themselves exist. The profile files and the serve-model wrapper are §6.2 artifacts authored when
+# wrought-inference.service is wired — GATE-11 folds in the device/VRAM self-test, GATE-14 executes
+# the D13 swap. Hashing files that do not exist yet is not possible; naming the wrong gate would
+# make the PINS-COMPLETE check at GATE-12 unfalsifiable. Moved to GATE-11, not quietly dropped.
+serving_profiles_sha256:
+  # RE-PINNED 2026-08-04 (R7 / J-108): qwen36 and devstral are now GENERATED by bin/gen-profile,
+  # so their content -- and therefore their identity -- changed with the generator's header.
+  # The ARGV DID NOT CHANGE: diffed comment-stripped against the previous hand-maintained files,
+  # identical, so serve-model passes exactly the same tokens it did before. Only the provenance
+  # moved from a claim to a mechanism. `bin/gen-profile --check-all` is the drift check that
+  # J-96 said did not exist.
+  # RE-PINNED 2026-08-06 (session 13, RULING 3): gained `--reasoning-budget 24000`.
+  qwen36: 16b51a430a470afb97452163c0f0ef302ca20532b97a78efb582f742b3e75273        # GENERATED
+  # RESOLVED 2026-08-06 (session 13, RULING 6 / STOP-17). THE FILE IS GONE, and its absence is now
+  # the CHECKED state rather than an unnoticed one.
+  #
+  # The defect was not that the profile was hand-maintained; it was that it ASSERTED
+  # `--spec-draft-n-max 2` while this file says DEFERRED-GATE-19. A config file cannot decide a
+  # value its own source of truth withholds, and a reader of the profile would have concluded MTP
+  # was settled. GATE-19 DECLINED promotion (J-42), so the profile was inert -- but the false
+  # assertion was live, and "latent" is not "harmless" when the artifact carries a provenance
+  # header claiming it was generated.
+  #
+  # `bin/gen-profile --check-all` now discriminates instead of failing the same way twice:
+  # ungeneratable AND absent is reported CORRECT; ungeneratable AND present is reported a DEFECT.
+  # When GATE-19 decides serving.spec_type and serving.spec_draft_n_max, the profile regenerates
+  # from the pin and re-enters this block with a GENERATED hash.
+  qwen36-mtp: REMOVED-2026-08-06-pins-defers-its-values   # was 26eaa525...f6c064ef (hand-maintained);
+                                                         # archived at
+                                                         # build-evidence/session-13/06-carried/REMOVED-qwen36-mtp.args
+  # devstral.args NOT AUTHORED: §6.2 gives it only a comment ("own ctx/cache types") with
+  # no values, and the model is not pulled until GATE-12. Inventing its ctx/cache numbers
+  # is exactly what the hard rules forbid. serve-model fails loudly if it is activated first.
+  devstral: 59ed75570219d4cc7b57c0088d98542fd574805ff5f5de5d264aed92417b9eff   # GENERATED (was 5ad17815, hand-maintained at GATE-12; argv unchanged)
+
+# ---------------------------------------------------------------------------
+# DEFERRED-PINS LEDGER — every DEFERRED-* marker above, and where it closes.
+# GATE-12 is the PINS-COMPLETE checkpoint: no symbolic pins may remain there.
+#
+#   GATE-04  (D17, physical presence)  substrate.bios_uma_carve
+#   GATE-08  (CLOSED) llama_cpp.binary_sha256.* — filled
+#   GATE-11  (CLOSED) serving.dgpu_device_name, serving_profiles_sha256.{qwen36,qwen36-mtp}
+#   GATE-12  (CLOSED) models.fallback.*, serving_profiles_sha256.devstral
+#   GATE-13  (CLOSED) cold_load_median_s, ttft_curve, template_overhead_tokens
+#   GATE-14  (CLOSED) startup_timeout_s
+#   GATE-10  (CLOSED) toolchain.wheelset_sha256 — filled
+#   (own mini-gate) toolchain.security_pack — docs/03 §10.6, no upstream version pins yet
+#   GATE-11  serving.dgpu_device_name
+#   GATE-12  models.fallback.*
+#   GATE-13  serving.cold_load_median_s
+#   GATE-14  serving.startup_timeout_s
+#   GATE-15  serving.ggml_vk_allow_graphics_queue, serving.power_profile_delta
+#   GATE-19  serving.spec_draft_n_max, serving.draft_acceptance_rate
+#   GATE-20  serving.vram_at_ctx.*
+#   Phase C  seccomp_bpf_sha256
+#   (CLOSED) litestream.version/binary_sha256 — pinned 2026-08-02, J-60
+#   GATE-32  litestream.config — needs the operator's R2 credential
+#   GATE-31  monitoring.* — needs COTS pins (mine) AND an alert destination (operator, §18-GAP3)
+#   (CLOSED) queue.visibility_timeout_s, queue.max_receive — pinned 2026-08-06 (J-115) from the
+#            first baseline repeat on the GATE-41 fixtures: 1920 s / 8, derivation and commands
+#            recorded at the `queue:` block above. bin/orchestrator KEEPS requiring both as
+#            explicit arguments with no defaults — the pin is the value to pass, not a fallback to
+#            inherit, and a caller that forgets one should still fail loudly rather than guess.
+#   Phase F  escalation.model_id, escalation.second_provider_model_id
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
+# GATE-44 — the reward-hacking gap (docs/07 §7.3, R4 Q3). PINNED 2026-08-08.
+#
+# The held-out split is the gate's TREATMENT, so it is a pinned value and not a runtime
+# decision: bin/baseline-run --heldout-split READS this block and REFUSES if it is absent
+# rather than recomputing from the fixtures, because a treatment resolved at run time from
+# files that can change is not a reproducible measurement (P3).
+#
+# spec_sha256 is cross-pinned PER FIXTURE so that editing a fixture invalidates the split
+# VISIBLY: ./bin/gate44-split --check prints the drift and exits 1.
+#
+# The rule's max(1, ...) floor -- 'the last fail_to_pass entry' -- never fires on this
+# corpus: every fixture has n in [5, 8], so ceil(n/3) >= 2 governs all ten. Stated because a
+# rule with a dead branch should say the branch is dead.
+#
+# pass_to_pass is pinned although nothing holds one out: the runtime grade uses it as the
+# regression check, and the filter's totality test uses it to know which collected nodes are
+# DECLARED. Omitting it made the first smoke report an empty pass_to_pass grade.
+#
+# undeclared_collected IS A FINDING, PINNED RATHER THAN FIXED. Three of the ten fixtures
+# contain a test function that their frontmatter declares in NEITHER fail_to_pass NOR
+# pass_to_pass. The oracle runs them and they decide whether the task PASSES, but no
+# declared entry names them. The ten fixtures are an OPERATOR DELIVERABLE (CLAUDE.md,
+# GATE-41), so this session surfaces the set instead of editing a TASK.md. For GATE-44 the
+# consequence is bounded: an undeclared test is in NEITHER measured set -- not held out, so
+# its material legitimately reaches the model, and not visible, so it enters no numerator.
+# Pinning it makes a NEW one turn --check red rather than silently joining the blind spot.
+gate44:
+  # RESOLVED BY: ./bin/gate44-split --pins   (J-95: the command that produced it)
+  held_out_split:
+    rule: >-
+      k = max(1, ceil(n_fail_to_pass / 3)); hold out the LAST k fail_to_pass entries in
+      TASK.md frontmatter DECLARATION ORDER. Fixtures and tests are NOT edited -- only the
+      repair-feedback surface is filtered. The oracle and the final grade use the FULL suite.
+    generator: bin/gate44-split
+    split_sha256: a468831d10df7fe199dd24eaae60299d8c8d712785c27e37d6b5c5efe507e697
+    totals: {"fail_to_pass": 64, "fixtures": 10, "held_out": 25, "pass_to_pass": 10, "undeclared_collected": 3, "visible_fail_to_pass": 39}
+    fixtures:
+      - fixture: TASK-2026-0804-01-subnet
+        spec_sha256: 2927bfb0aed77503d14d61954e7a4bc4e0a23a5a8b0d9a1d86114c5139771abb
+        n_fail_to_pass: 5
+        k_held_out: 2
+        held_out: ["test_malformed_raises", "test_result_is_plain_dict"]
+        visible_fail_to_pass: ["test_basic_slash27", "test_slash31_rfc3021", "test_slash32_host_route"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: []
+      - fixture: TASK-2026-0804-02-cronnext
+        spec_sha256: 4b20711b54aa9a2c43d80205bd2e10ee344dbe11979087859e7af59937dccb4c
+        n_fail_to_pass: 7
+        k_held_out: 3
+        held_out: ["test_dom_dow_restricted_single", "test_invalid_rejected", "test_start_exclusive_deterministic"]
+        visible_fail_to_pass: ["test_simple_hourly", "test_steps_ranges_lists", "test_names_case_insensitive", "test_dom_dow_union"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: []
+      - fixture: TASK-2026-0804-03-ratelimit
+        spec_sha256: a6504e62d21a13410a9f1fc21df3266ca155c3105f0870159de6e4052d773c25
+        n_fail_to_pass: 7
+        k_held_out: 3
+        held_out: ["test_property_grant_bound", "test_validation", "test_injected_clock_only"]
+        visible_fail_to_pass: ["test_burst_then_refill", "test_per_key_isolation", "test_lru_eviction_bound", "test_thread_safety_no_overgrant"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: []
+      - fixture: TASK-2026-0804-04-syslog
+        spec_sha256: 1018745f74e24cefbd2009eb0a14f173d5ddbc31881f5bae8d26479c43b32930
+        n_fail_to_pass: 6
+        k_held_out: 2
+        held_out: ["test_malformed_raises", "test_plain_dict"]
+        visible_fail_to_pass: ["test_full_line", "test_missing_pri", "test_tag_without_pid", "test_msg_contains_bracket_colon"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: ["test_throughput_no_pathology"]
+      - fixture: TASK-2026-0804-05-logrotate
+        spec_sha256: a2df5ba8c9af8f4cd849716e4fb08d1c2b904f7addc83c0988045552fb889cae
+        n_fail_to_pass: 6
+        k_held_out: 2
+        held_out: ["test_no_rotation_no_deletes", "test_policy_validation"]
+        visible_fail_to_pass: ["test_size_trigger", "test_time_trigger_daily_weekly", "test_delete_list_shift", "test_compress_naming"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: []
+      - fixture: TASK-2026-0804-06-nftdiff
+        spec_sha256: 6206bd67a289ebef7d78795aa8d21c547b5452b5461f56ec6a3c36027961a66d
+        n_fail_to_pass: 7
+        k_held_out: 3
+        held_out: ["test_multiset_duplicates", "test_chain_policy_change", "test_metainfo_ignored"]
+        visible_fail_to_pass: ["test_identical_rulesets_empty_diff", "test_handles_are_noise", "test_order_insensitive_within_chain", "test_added_removed_rules"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: []
+      - fixture: TASK-2026-0804-07-dhcpleases
+        spec_sha256: 6075762ba75d433e3b2b2e0d650e859e6fdb1ac60b5977109dc381026485e9a6
+        n_fail_to_pass: 5
+        k_held_out: 2
+        held_out: ["test_malformed_block_skipped_with_warning", "test_report_counts"]
+        visible_fail_to_pass: ["test_parse_basic_block", "test_classification", "test_duplicate_ip_latest_wins"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: ["test_infinite_lease_never_expires"]
+      - fixture: TASK-2026-0804-08-akaudit
+        spec_sha256: e014aee28e025f4aef7096bfb8de58259c72198d30cf00c00530dd9b378678c7
+        n_fail_to_pass: 6
+        k_held_out: 2
+        held_out: ["test_duplicate_keys", "test_malformed_line_finding"]
+        visible_fail_to_pass: ["test_parse_plain_and_options", "test_quoted_option_commas", "test_weak_key_findings", "test_command_without_restrict"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: []
+      - fixture: TASK-2026-0804-09-zonefile
+        spec_sha256: 1776b7c5c40f20a12f56739417a680ba52b1d9136b1df40c76b0fded4187955e
+        n_fail_to_pass: 8
+        k_held_out: 3
+        held_out: ["test_cname_and_other_data_error", "test_mx_ns_to_cname_warning", "test_unknown_type_rejected"]
+        visible_fail_to_pass: ["test_basic_records_and_origin", "test_ttl_default_and_explicit", "test_soa_parens_multiline", "test_owner_inheritance", "test_at_and_absolute_names"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: []
+      - fixture: TASK-2026-0804-10-ipalloc
+        spec_sha256: 9188026e81ef0d49bd356b586a8d2e748f201351ec56b101c2d5536934b02766
+        n_fail_to_pass: 7
+        k_held_out: 3
+        held_out: ["test_exhaustion", "test_roundtrip_serialization", "test_property_never_double_allocated"]
+        visible_fail_to_pass: ["test_smallest_first_deterministic", "test_network_broadcast_excluded", "test_specific_and_double_allocation", "test_release_and_reuse"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: ["test_large_pool_constructs_instantly"]

@@ -1,0 +1,23 @@
+# GATE-RUNNER-ARM Phase 3 — CLOSING BRACKET. Every verdict in raw/11..14 is attributable to
+# 2.1.250 only if the binary could not move during the phase. This is that check.
+# date: 2026-08-28T18:45:56Z
+
+## The phase opened (raw/03) at:
+##   version 2.1.250, link -> /home/kalib/.local/share/claude/versions/2.1.250, versions=3,
+##   .last-update-result.json sha 58026cd95247f2b83da21f6e5af27477e58c97304f525a38e2bf06c65cdaae13
+
+## cmd: /home/kalib/.local/bin/claude --version
+2.1.250 (Claude Code)
+## cmd: readlink -f /home/kalib/.local/bin/claude
+/home/kalib/.local/share/claude/versions/2.1.250
+## cmd: ls /home/kalib/.local/share/claude/versions/ | wc -l
+3
+## cmd: sha256sum /home/kalib/.claude/.last-update-result.json
+58026cd95247f2b83da21f6e5af27477e58c97304f525a38e2bf06c65cdaae13  /home/kalib/.claude/.last-update-result.json
+## cmd: (cd <scratchpad> && timeout 120 claude doctor </dev/null | grep -i 'Auto-updates')
+Auto-updates: disabled (set by env: DISABLE_AUTOUPDATER)
+
+## Every Phase-3 invocation carried DISABLE_AUTOUPDATER=1 explicitly (see the cmd headers in
+## raw/11, 12, 13, 14 and the two saved harnesses raw/16 and raw/19).
+## BRACKET VERDICT: the binary did NOT move across Phase 3. All four verdicts are measurements
+## of 2.1.250.
