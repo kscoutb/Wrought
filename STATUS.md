@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-28T15:53:30Z
+updated:  2026-08-28T18:30:13Z
 gate:     GATE-RUNNER-ARM
-state:    HALTED
-last:     Phase 1.2 DONE (read-only): byte-freeze baseline captured; health green — wrought-inference active, /health 200, amdgpu runpm 0, dGPU 0x744c at 0000:c7:00.0 with 19.62/25.75 GB VRAM, kernel 7.0.0-30-generic (known drift). Confirmed the blocker: /var/lib/wrought/runner-state DOES NOT EXIST and /var/lib/wrought is root:root 0755.
-next:     WAITING ON THE OPERATOR — Phase 1.1, the one root action (mkdir -p + chown kalib:kalib + chmod 700 /var/lib/wrought/runner-state). The box has NOPASSWD:ALL and deliberately did NOT self-authorize it: the prompt routes it through a human. Phases 2-4 (CLI pin, four-property re-verify, DBUS drop) do not depend on it and run next; Phase 5 does.
+state:    RUNNING P2
+last:     Phase 1 CLOSED. Operator root action done and VERIFIED BY THE BOX, not taken on report: /var/lib/wrought/runner-state is drwx------ kalib:kalib mode=700, writable, empty. Baseline + health green.
+next:     Phase 2 — measure the autoupdate mechanism, set DISABLE_AUTOUPDATER on both the child and interactive surfaces, pin claude_code_version=2.1.250 in pins.lock with the 2.1.238 drift entry, and prove a fresh invocation attempts no update.
 usage:    n/a
