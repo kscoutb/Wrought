@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-28T19:48:41Z
+updated:  2026-08-28T19:53:24Z
 gate:     GATE-J0B-RESUME
-state:    RECEIVED
-last:     Prompt v2.0 (SUPERVISED, run THROUGH wrought-runner) read. This gate is NOT attended-direct — it is meant to run as a claude -p gate child under the runner, so the attended session's job is the courier record + pre-flight, not execution.
-next:     Record the GATE-RUNNER-ARM adjudication (rails §10), archive the prompt, then pre-flight every mechanical precondition BEFORE the operator starts a supervised batch.
+state:    HALTED
+last:     NOT STARTED — pre-flighted instead of run, and found 3 BLOCKERS + 1 calibration risk (bundles/GATE-J0B-RESUME/PREFLIGHT.md). This prompt is addressed to wrought-runner as a gate child, so the attended session's job is the courier record + pre-flight; running it directly would defeat its stated purpose of validating the runner. B-1 SILENT AND TOTAL: the prompt writes `ADD-DIR:` but the runner's regex is `^ADD-DIRS:` (bin/wrought-runner:82), so the line is silently ignored and /var/lib/wrought/j0b — the gate's ENTIRE workdir — is unreachable; under dontAsk a Bash target outside gate_cwd is denied even when allowlisted, so Phase A step 1 would be denied. B-2: Phase A boots egress-LOCKED then installs Goose from GitHub — impossible; J0B's timestamps show the proven shape is boot OPEN, install, poweroff, re-boot LOCKED. B-3: Goose is NOT in pins.lock though the prompt says "the pinned Goose release"; the values exist only as J0B evidence (v1.46.0, sha256 a1cf4856...5a7b) and the box will not invent a pin. R-1: deadman_no_progress_sec (3600) is tighter than runtime_max_sec (5400) and silently wins, so the real ceiling is 60 min not 90 — and a deadman kill would likely leave a guest running, which the reaper catches as a LATCHING fault. GATE-RUNNER-ARM adjudication recorded (rails §10); prompt archived verbatim; row set QUEUED, NOT APPROVED — rails §12.1 assigns APPROVED to advisor+operator.
+next:     OPERATOR/ADVISOR: fix B-1 (rename the header to ADD-DIRS:, or teach the runner both spellings and halt on a near-miss), settle B-2's ordering and B-3's pin, decide R-1, then set the QUEUE row APPROVED at the ferry, launch the proxy BEFORE the runner, and start the supervised batch.
 usage:    n/a
