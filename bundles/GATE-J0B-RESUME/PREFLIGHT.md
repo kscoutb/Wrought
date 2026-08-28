@@ -143,3 +143,75 @@ number this batch exists to calibrate.
   **new listener** and be reaped as residue, latching the breaker.
 - Transport: file-sourced via the courier, and the "exactly ONE indented block" claim is correct —
   one block, 3 lines, intact.
+
+---
+
+# ADDENDUM — one new BLOCKER, and one correction to R-1
+
+Both found on a second pass prompted by the advisor. Appended rather than edited in place; the
+original text above stands, including the part R-1's correction contradicts.
+
+## B-4 (BLOCKER, and this one would have sunk the batch after the other three were fixed)
+## Pre-step 1 names `authproxy.py` — the version that DEMONSTRABLY FAILED this exact test
+
+The two preserved proxies are not v1 and a cosmetic revision. **v1 failed the pinhole, was
+diagnosed, and was replaced** — and the surviving egress proof this gate must re-establish was
+obtained with **v2**. The J0B evidence says so in its own file headers:
+
+    raw/32-P3-pinhole-diagnosis.txt   00:16:55Z
+      "qemu ACCEPTED the primary guestfwd form and launched, but the pinhole returns curl exit 28
+       (timeout, 0 bytes) rather than 200. Failure is functional, not a parse rejection."
+      - proxy alive and LISTENING on 8081 ......................... yes
+      - "no ESTABLISHED connection to/from 8081 at all"
+      - control: "host -> 127.0.0.1:8081/health = 200"   (it answers the HOST fine)
+
+    raw/33-P3-retry-with-v2.txt       00:20:11Z
+      "same restrict=on + guestfwd pinhole, WITH authproxy2.py (PER-REQUEST UPSTREAM).
+       authproxy.py v1 is left on disk unedited as the record (EXECUTOR-RAILS 4)."
+
+    raw/34-P3-egress-FINAL.txt        00:20:54Z
+      "Same guest, same netdev, CORRECTED PROXY."
+      http://connectivity-check.ubuntu.com   000  [curl exit=6]   <- DNS fails
+      http://10.0.2.2:8080/health            000  [curl exit=7]   <- SLIRP gateway refused
+      http://10.0.2.100:8081/health          200  [curl exit=0]   <- the pinhole
+
+**The three-way result the prompt calls "the J0B result, re-established" was measured on
+`authproxy2.py`, not on `authproxy.py`.** My earlier comparison in the READY table checked LISTEN
+address, stdin handling and `apicalls.log` path — on which the two files are identical — and
+therefore missed the difference that matters: **per-request upstream**. v1's persistent-upstream
+behaviour is what the guestfwd pinhole would not carry. That comparison was too shallow and this
+addendum supersedes its "the prompt's choice of `authproxy.py` is fine" conclusion.
+
+Note also that the control in raw/32 is the trap: **v1 answers the host on 8081 perfectly**, so
+pre-step 1's own confirmation step —
+
+    curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8081/props  → 200
+
+— **passes on the broken proxy.** The operator would see a green light and start the batch, and the
+failure would only appear later, from inside the guest, as Phase A step 3 timing out.
+
+**Fix:** pre-step 1 should copy and launch **`authproxy2.py`**. If there is a deliberate reason to
+prefer v1, it needs to say so and to explain how the guestfwd pinhole is expected to work this time
+— because on the recorded evidence it does not.
+
+## CORRECTION to R-1 — the consequence is ONE latching halt, not two compounding faults
+
+The original R-1 says a dead-man kill "*likely leaves a guest running, which the reaper catches as
+`gate-residue`, a LATCHING fault*", and calls it "two failures compounding". **The residue half of
+that is wrong**, and HARDEN's own measurement cuts against it:
+
+- the dead-man's trip path is `systemctl --user stop <unit>` — it stops **the scope**, not just the
+  child (`DeadMan._watch`);
+- the prompt mandates the guest launch as a **scope descendant**, and `GATE-RUNNER-HARDEN` `raw/10`
+  measured that a scope child **was gone at the deadline with no sweep needed**.
+
+So the guest is most likely reaped cleanly by the cgroup, and the sweep stays clean.
+
+What IS true, and is the part worth acting on:
+
+    bin/wrought-runner:92   NON_LATCHING = {"gate-cap", "wall-clock"}
+    bin/wrought-runner:1133 latched = bool(halt_reason) and breaker_name not in NON_LATCHING
+
+`deadman` is **not** in `NON_LATCHING`, so a dead-man trip latches the breaker **on its own merits**
+and still needs `--reset-breaker`. **The 60-minute effective ceiling — the core of R-1 — stands
+unchanged and is the finding that matters.** Only the residue-cascade garnish is withdrawn.
