@@ -1,0 +1,6 @@
+# written by the GATE-RUNNER-HARDEN Phase-2 probe-D child, under a private ephemeral HOME and a private XDG_RUNTIME_DIR
+2026-08-28T13:49:44Z
+HOME=/var/lib/wrought/runner-harden/ehome-D2
+XDG_RUNTIME_DIR=/var/lib/wrought/runner-harden/ehome-D2/xdg-runtime
+13774.sock
+15576.sock
