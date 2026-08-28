@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-28T13:39:24Z
+updated:  2026-08-28T13:44:38Z
 gate:     GATE-RUNNER-HARDEN
-state:    TRANSPORT-OK
-last:     Block count checked: exactly TWO indented blocks (6 + 5 lines), both intact and non-empty. TRANSPORT DEVIATION, surfaced not absorbed: the prompt arrived as CHAT TEXT, not a file — the THIRD consecutive failure of rails §7, and this prompt's own header asked for a file upload. Content intact, so archived verbatim and run. Rails §10 done as first courier action: both adjudications recorded verbatim (mechanically, sed -n) and both QUEUE rows set ADJUDICATED.
-next:     Phase 1 — byte-freeze baseline (raw/00) and health checks, then Phase 2 (private-HOME steering breaker).
+state:    RUNNING P1
+last:     Phase 1 done. Byte-freeze baseline raw/00 captured; health green (wrought-inference active, /health 200, runpm 0, dGPU 0x744c at 0000:c7:00.0, VRAM 19619987456/25753026560). Both adjudications recorded + pushed.
+next:     Phase 2 — measure the cross-session discovery key (the prompt says ~/.claude/daemon/roster.json; live evidence points at /run/user/1000/cc-socks). Private-HOME probes follow.
 usage:    n/a
