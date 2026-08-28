@@ -347,3 +347,67 @@ Two things the advisor should rule on before that batch:
 2. **`DBUS_SESSION_BUS_ADDRESS` in the child env allowlist (§2.6).** Dropping it for the inner
    process would remove a child's remaining handle to the user bus. Cheap, but it is a containment
    change and this gate did not make it unasked.
+
+---
+
+## 9. REVISION 2, same session — a gap this report's own audit missed
+
+**Added after the bundle was first pushed. Nothing above is edited; this is a correction by
+addition (rails §4), the same discipline `GATE-RUNNER`'s `raw/18` and `GATE-RECONCILE`'s `raw/20`
+followed.** Evidence: `raw/23`.
+
+The advisor asked the question §7 should have asked: **every runner invocation in this session used
+a scratch config.** The **installed** `/etc/wrought/runner.conf` and the **modified**
+`bin/wrought-runner` had never been loaded together — and Phase 4 made `ephemeral_home` and
+`reaper` *required* keys, so a name mismatch would have surfaced for the first time at the
+operator's next start. Audit item 9 said "re-run the harnesses"; it did not notice that no harness
+touched the installed file.
+
+**Result, in two parts.**
+
+**(a) The change itself is compatible.** The runner's own `load_config` accepts the installed file:
+every required key present, `permission_mode` accepted, `ephemeral_home` and `reaper` both found
+and well-formed.
+
+**(b) But the runner still cannot start — and this is PRE-EXISTING, not introduced here.**
+
+```
+/home/kalib/foundry/bin/wrought-runner --config /etc/wrought/runner.conf --status
+  PermissionError: [Errno 13] Permission denied: '/var/lib/wrought/runner-state'
+  EXIT=1
+```
+
+`/var/lib/wrought` is `root:root 0755`, and `state_dir` has read `/var/lib/wrought/runner-state`
+since `GATE-RUNNER` wrote the config on 2026-08-21 — it is in `raw/08`, the BEFORE copy. Every
+`GATE-RUNNER` dry run and every run this session used a **scratch** `state_dir` under a directory
+`kalib` owns, so **neither gate ever exercised this path.** The operator's first real start would
+have met an unhandled traceback rather than a clean refusal.
+
+**Not fixed here, deliberately.** Creating a directory under `/var/lib/wrought` needs root and is
+outside this gate's authorized change set (`bin/`, `/etc/wrought/runner.conf`, docs, a scratch
+dry-run); rails §1 also says a session creates state only in its own workdir. **Operator action,
+recorded rather than taken:**
+
+```
+sudo mkdir -p /var/lib/wrought/runner-state
+sudo chown kalib:kalib /var/lib/wrought/runner-state
+sudo chmod 700 /var/lib/wrought/runner-state
+```
+
+The `0700` is not cosmetic: `ephemeral_home.root` defaults to
+`/var/lib/wrought/runner-state/ephemeral-homes`, and those directories hold live credential copies.
+
+**A second self-correction, smaller.** The first attempt at the `load_config` check had a bug of my
+own — `importlib.machinery` was not imported. The broken attempt is left in `raw/23` above its
+correction rather than edited out.
+
+**What this says about the audit.** §7 found nine things and missed the one that would have stopped
+the operator's next command. The pattern is the one this project keeps re-learning and which §7
+item 9 half-stated: the audit checked what the proofs *concluded*, not which configuration they
+*ran against*. Recorded as a finding against this session, not a footnote.
+
+**Also recorded, deliberate residue:** the scratch dry-run harness at
+`/var/lib/wrought/runner-harden/dry/` is left in place — stubs, scratch git repos, latched scratch
+breakers, and a `fakehome` whose credentials are the literal string `not-a-real-credential`. The
+`raw/22` re-scan confirms it holds no real secret. It sits inside this gate's own workdir, which
+rails §1 allows, and no prompt enumerated it for deletion. **Operator's call.**

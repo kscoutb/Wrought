@@ -1,0 +1,81 @@
+# cmd: /home/kalib/foundry/bin/wrought-runner --config /etc/wrought/runner.conf --status
+# date: 2026-08-28T14:22:31Z
+# WHY, and this is a gap the adversarial audit missed: EVERY runner invocation this session
+#   used a SCRATCH config. The INSTALLED /etc/wrought/runner.conf and the MODIFIED runner had
+#   never been loaded together. Phase 4 made ephemeral_home and reaper REQUIRED keys, so any
+#   name mismatch between the code and the installed file would surface for the first time at
+#   the operator's next start. --status parses the config, runs load_config's full required-key
+#   and permission_mode validation, and prints the breaker + ledger. It starts no gate.
+
+Traceback (most recent call last):
+  File "/home/kalib/foundry/bin/wrought-runner", line 1134, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/home/kalib/foundry/bin/wrought-runner", line 997, in main
+    state.mkdir(parents=True, exist_ok=True)
+    ~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/pathlib/__init__.py", line 1012, in mkdir
+    os.mkdir(self, mode)
+    ~~~~~~~~^^^^^^^^^^^^
+PermissionError: [Errno 13] Permission denied: '/var/lib/wrought/runner-state'
+EXIT=1
+
+# and the real state_dir the runner uses (it may create it; that is its own directory):
+# cmd: ls -la /var/lib/wrought/runner-state/
+ls: cannot access '/var/lib/wrought/runner-state/': No such file or directory
+
+=== ISOLATING: did load_config() pass, or did the required-key check fail? ===
+# main() order: cfg = load_config(...)  THEN  state.mkdir(...)  THEN  the --status branch.
+# The traceback is at state.mkdir, so load_config ALREADY RETURNED. Confirmed directly by
+# importing the runner's own loader and calling it on the installed file:
+# cmd: python3 -c 'import importlib.util; load_config("/etc/wrought/runner.conf")'
+Traceback (most recent call last):
+  File "<string>", line 3, in <module>
+    spec = importlib.util.spec_from_loader('wr', importlib.machinery.SourceFileLoader('wr','/home/kalib/foundry/bin/wrought-runner'))
+                                                 ^^^^^^^^^^^^^^^^^^^
+AttributeError: module 'importlib' has no attribute 'machinery'
+
+=== SO WHAT ACTUALLY FAILED: the runner cannot create its own state_dir ===
+# cmd: ls -ld /var/lib/wrought ; id -un
+drwxr-xr-x 47 root root 4096 Aug 28 09:39 /var/lib/wrought
+kalib
+
+# Is this MINE or PRE-EXISTING? state_dir has read /var/lib/wrought/runner-state since
+# GATE-RUNNER wrote the config on 2026-08-21 — it is in raw/08, the BEFORE copy:
+# cmd: grep state_dir raw/08-runner.conf.BEFORE.json
+  "state_dir": "/var/lib/wrought/runner-state",
+
+# VERDICT: PRE-EXISTING, not introduced by this gate. /var/lib/wrought is root-owned 0755,
+#   so the unprivileged runner cannot mkdir its state_dir. Every GATE-RUNNER dry run and
+#   every run this session used a SCRATCH state_dir under a directory kalib owns, so
+#   NEITHER GATE EVER EXERCISED THIS PATH. The operator's first real start would have hit
+#   it — an unhandled PermissionError traceback, not a clean refusal.
+# NOT FIXED HERE: creating a directory under /var/lib/wrought needs root and is outside
+#   this gate's authorized change set (bin/, /etc/wrought/runner.conf, docs, a scratch
+#   dry-run). EXECUTOR-RAILS S1 also says a session creates state only in its own workdir.
+#   It is an OPERATOR ACTION, recorded here rather than taken:
+
+      sudo mkdir -p /var/lib/wrought/runner-state
+      sudo chown kalib:kalib /var/lib/wrought/runner-state
+      sudo chmod 700 /var/lib/wrought/runner-state   # it will hold ephemeral HOMEs
+
+#   The last line matters: ephemeral_home.root defaults INSIDE state_dir, and those
+#   directories hold live credential copies. 0700 is not cosmetic.
+
+=== (the import helper above had a bug of my own — importlib.machinery was not imported.
+     Corrected by ADDITION, rails S4; the broken attempt is left above.) ===
+# cmd: python3 -c '<import the runner by path, call its own load_config on the installed file>'
+  load_config: OK — every required key present, permission_mode accepted.
+  new required keys found: ['ephemeral_home', 'reaper']
+  ephemeral_home.enabled = True
+  ephemeral_home.root    = /var/lib/wrought/runner-state/ephemeral-homes
+  ephemeral_home.seed    = ['.claude/.credentials.json', '.gitconfig', '.git-credentials']
+  reaper.enabled         = True
+  reaper.qemu_pattern    = qemu-system
+  permission_mode        = dontAsk
+  course_check.enabled   = False
+  state_dir              = /var/lib/wrought/runner-state
+
+# CONCLUSION: the MODIFIED runner and the INSTALLED config are COMPATIBLE — the Phase-4
+#   required-key change validates cleanly against the installed file. The only thing
+#   standing between the operator and a start is the missing, root-owned state_dir above.

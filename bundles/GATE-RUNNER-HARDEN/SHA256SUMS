@@ -22,6 +22,7 @@ cda202d689f3cb214f2542339c025dfedf81057b410de96d7f42099f3396a8fe  ./raw/11-dryru
 36b1ec7d5f080fdab273af32de0d4fb5e1d12ee7ac9ec2df085de245ad9821ed  ./raw/20-probe-captures.txt
 74d1635c017954522e03850eede165fcccfe15d478f68e12109164a20e8698d8  ./raw/21-secret-scan.txt
 9d2368d4d02455fda4df87959492fd6b2d574bf5c3f382968901677fec03070c  ./raw/22-enumerated-deletes-and-rescan.txt
+0c8bd10b2d26191760268256de41ec4f90b5bdd4fc4d74e7a7d862cd039df1d8  ./raw/23-installed-config-smoke.txt
 11c5b19cc080037934ffc015315e7ed14bbc5e5c1f9870aa42ada2ce053a8e44  ./raw/99b-byte-freeze-verdict.txt
 f3e6f893bfcbb6be7b3d10232a9fd0cd0a821ad9088ee4177c0fdd059d638f87  ./raw/99-byte-freeze-reassert.txt
-5285f1ec643368301b2811cbbe992b496649afc270921d99e9fc4a2a72f56f92  ./REPORT-RUNNER-HARDEN.md
+15ddf9f5798391b74350f59fce220395c151c58c9047c9ae01e58ef5ee02a4a0  ./REPORT-RUNNER-HARDEN.md
