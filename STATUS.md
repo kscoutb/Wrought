@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-28T18:46:08Z
+updated:  2026-08-28T18:48:07Z
 gate:     GATE-RUNNER-ARM
-state:    RUNNING P4
-last:     Phase 3 CLOSED — ALL FOUR SAFETY PROPERTIES HOLD ON 2.1.250, the runner is NOT blocked. (b) dontAsk still denies un-allowlisted Bash and still honours a granular allowlist; the acceptEdits/auto TRAP still holds, still silent. (c) hooks still fire under -p (2 payloads, canary blocked); c4 still SILENT — malformed settings, rc=0, ZERO bytes stderr, hook gone, canary ran => the json.load guard is still required. (d) BASH_DEFAULT_TIMEOUT_MS still BACKGROUNDS not kills; budget still a soft ceiling with the same signature. (a) fresh context holds; two-surface isolation holds and is STRONGER in the runner's real seed shape — the child created NO socket anywhere, control arm proved the probe sees children. TWO benign-but-real changes reported: the model can now RAISE the per-call Bash timeout over the env default (strengthens 'kernel is the only stop'), and the budget overshoot measured 6.94x vs 4.6x (2 samples, not a trend). Version bracket held across the whole phase.
-next:     Phase 4 — drop DBUS_SESSION_BUS_ADDRESS from the CHILD env allowlist and prove a gate child still runs without it.
+state:    RUNNING P5
+last:     Phase 4 CLOSED. DBUS_SESSION_BUS_ADDRESS DROPPED — and it closed a real hole, not a cosmetic one: HARDEN's isolation left every gate child holding the REAL bus address (unix:path=/run/user/1000/bus) despite a private runtime dir. Took the TIGHTER option: removed from the allowlist outright rather than a child-only strip, because MEASURED that `systemd-run --user --scope` works with no DBUS address as long as XDG_RUNTIME_DIR is set (sd-bus derives it); control with both removed fails. Proved a real gate child still runs: 3 turns, 0 denials, 0 bytes stderr, git works. Ground truth taken from INSIDE the child, not its prose — it wrote DBUS=[<UNSET>], XDG_RUNTIME_DIR=[the private one], DISABLE_AUTOUPDATER=[1]. Nothing needed re-adding. Runner diff is 35 lines, exactly two changes.
+next:     Phase 5 — two sub-proofs: (i) the runner STARTS on the INSTALLED /etc/wrought/runner.conf verbatim (PermissionError gone), (ii) one real claude gate end-to-end on a scratch courier + scratch state, never the real store.
 usage:    n/a
