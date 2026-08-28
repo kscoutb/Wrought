@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-28T19:28:55Z
-gate:     GATE-RUNNER-ARM
-state:    BUNDLED
-last:     THE RUNNER IS ARMED. Installed-config start exits cleanly rc=0; one real gate ran end-to-end (session feee78d7-7ea4-4e97-b23a-7650f79a6ae1, PASS, byte freeze HOLD, sweep CLEAN, credentials torn down, gate pushed its own bundle). CLI pinned 2.1.250 with autoupdate closed at BOTH surfaces — root cause was that `autoUpdates: false` was ALREADY SET and VOID on a native install, and HARDEN's ephemeral HOME had itself re-opened the child surface. All four safety properties HOLD on 2.1.250, measured before the pin moved. DBUS dropped outright — it was a live hole. SECOND BLOCKER found and fixed under an explicit ruling: the runner could not parse the real QUEUE.md (RESET + parametric FOLDED INTO), which would have latched a permanent breaker on every start. Byte freeze HELD. Bundle 37 entries, verifies 37/37 (SHA256SUMS = 1e813f62084c78715904e13d4f6d8aefc8dee835e4da6b6fa27c04c7cbe2cb34). Foundry commits: 1a74ae0 + 0c0f2cd (the second corrects three stale raw-file counts in the SHIPPED audit and report; SHA256SUMS regenerated after it).
-next:     Advisor adjudication. Then the SUPERVISED GATE-J0B (Phases 5-7 + seed rebuild) through the armed runner, setting the PROVISIONAL scale numbers; then ST-1 (still unsatisfied on two triggers). OPEN for the advisor: the undocumented `NOT RUN` queue status; the hardcoded `reset_by: operator` provenance string; the ~$55 worst-case gate cost implied by the 6.94x overshoot against the provisional $8 cap; NOPASSWD:ALL means gate children inherit passwordless root; and transport, now FOUR consecutive misses of rails §7.
+updated:  2026-08-28T19:48:41Z
+gate:     GATE-J0B-RESUME
+state:    RECEIVED
+last:     Prompt v2.0 (SUPERVISED, run THROUGH wrought-runner) read. This gate is NOT attended-direct — it is meant to run as a claude -p gate child under the runner, so the attended session's job is the courier record + pre-flight, not execution.
+next:     Record the GATE-RUNNER-ARM adjudication (rails §10), archive the prompt, then pre-flight every mechanical precondition BEFORE the operator starts a supervised batch.
 usage:    n/a
