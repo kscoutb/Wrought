@@ -1,0 +1,17 @@
+# GATE-J0B-RESUME Phase A.2 — Goose install + keyless pinhole config (route from J0B raw/41)
+# date: 2026-08-28T22:07:16Z
+
+$ ssh probe@guest -- tar -xjf /tmp/goose.tar.bz2 -C /tmp && sudo install -m0755 /tmp/goose /usr/local/bin/goose
+tar (child): bzip2: Cannot exec: No such file or directory
+tar (child): Error is not recoverable: exiting now
+tar: Child returned status 2
+tar: Error is not recoverable: exiting now
+
+# Config at the pinhole, KEYLESS — the guest never receives a secret (rails §5: never inside a guest).
+$ ssh probe@guest -- mkdir -p ~/.config/goose && printf "GOOSE_PROVIDER: openai\nGOOSE_MODEL: primary-qwen27b\nOPENAI_HOST: http://10.0.2.100:8081\n" > ~/.config/goose/config.yaml
+--- config.yaml ---
+GOOSE_PROVIDER: openai
+GOOSE_MODEL: primary-qwen27b
+OPENAI_HOST: http://10.0.2.100:8081
+--- goose info ---
+bash: line 5: goose: command not found

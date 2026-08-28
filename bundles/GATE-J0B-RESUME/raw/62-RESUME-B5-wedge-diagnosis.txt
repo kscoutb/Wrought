@@ -1,0 +1,119 @@
+# GATE-J0B-RESUME Phase B.5 — THE AGENT TURN FAILED, AND WHY. Diagnosis before any retry.
+# date: 2026-08-28T22:22Z
+#
+# This file is the measurement chain, in the order it was taken. Each step names the command that
+# produced it (J-95). The conclusion is at the bottom; the point of the chain is that every
+# plausible cause was eliminated by a measurement rather than by argument.
+
+# ---------------------------------------------------------------------------------
+# THE SYMPTOM
+#
+# `goose run --no-session -t "..."` in the locked guest prints:
+#     Network error: Network error — check your network connection and try again.
+# and EXITS 0. No FORGE.txt is created. This reproduced on every attempt.
+
+# ---------------------------------------------------------------------------------
+# F-4 — GOOSE EXITS 0 ON A TOTAL FAILURE. This is the single most important finding for the
+# runner, and it is independent of the wedge below.
+#
+#   $ ssh probe@guest -- 'timeout 420 goose run --no-session -t "Create /home/probe/FORGE.txt
+#                          containing exactly the word FORGE, then print it."; echo $? > /tmp/p5.rc'
+#   rc=0
+#   /home/probe/FORGE.txt: No such file or directory
+#
+# goose's own log records ERROR "Error: Network error ..." for the same run, so it KNOWS it failed.
+# It exits 0 anyway. Consequence for the charter: **the exit status of this agent is not a success
+# signal and must never be used as one.** Any future harness wrapping goose has to assert on the
+# WORK PRODUCT (does the file exist, does it contain FORGE) and on the host-side call log, not on
+# rc. The prompt's Phase-5 acceptance list asks for "goose exit 0" AND "the file exists + contains
+# FORGE" — this gate shows why the second clause is the load-bearing one: the first passed while
+# the task produced nothing at all.
+
+# ---------------------------------------------------------------------------------
+# ELIMINATION 1 — it is not the dummy key. (one variable)
+#   OPENAI_API_KEY=unused goose run ...   -> Network error
+#   (clean env)          goose run ...    -> Network error   [raw/61 C5-E]
+# Identical. The dummy is not implicated; it is also never persisted (see raw/61 C5-F).
+
+# ---------------------------------------------------------------------------------
+# ELIMINATION 2 — it is not the pinhole, and not the guest's egress.
+#   in-guest GET http://10.0.2.100:8081/health  -> 200      [raw/60]
+#   in-guest GET http://10.0.2.100:8081/props   -> 200 + body
+# The pinhole is open and carries GETs from inside the locked guest throughout.
+
+# ---------------------------------------------------------------------------------
+# ELIMINATION 3 — it is not the proxy's request path. POSTs WITH BODIES RELAY CORRECTLY.
+# Tested from the host against the proxy, both framings:
+#   $ curl -X POST -H 'Content-Length: 0'            http://127.0.0.1:8081/health -> 404 in 0.0010s
+#   $ curl -d '{"a":1}'                              http://127.0.0.1:8081/health -> 404 in 0.0016s
+#   $ curl -d '{"a":1}' -H 'Transfer-Encoding: chunked' http://127.0.0.1:8081/health -> 404 in 0.0012s
+#   $ curl -d '{"a":1}'                              http://127.0.0.1:8080/health -> 404 in 0.0004s  (control)
+# The proxy forwards a POST head, a Content-Length body and a chunked body, and relays the
+# upstream response, in ~1.5 ms. `authproxy2.py` is NOT defective here. I had hypothesised two
+# specific bugs in it (buffered-body loss in relay_exact; doubled CRLF in the head rebuild) and
+# READ THE SOURCE to check both: relay_exact drains reader.buf before recv (l.139-150) and
+# parse_headers strips CRLF from the raw line it stores (l.105-116). BOTH HYPOTHESES WERE WRONG
+# and are recorded as wrong rather than quietly dropped.
+#
+# The running proxy is also the RIGHT one (B-4):
+#   $ sha256sum authproxy2.py .../bundles/GATE-J0B/PARTIAL/authproxy2.py
+#   ea2974cec859aef8f320eb6208031f7a5b360cbdf8764e097b48bffd35f4d99e   (both, identical)
+#   $ tr '\0' ' ' < /proc/89355/cmdline  ->  python3 /var/lib/wrought/j0b/authproxy2.py
+
+# ---------------------------------------------------------------------------------
+# ELIMINATION 4 — it is not the model server being down.
+#   $ curl -d '<chat body>' http://127.0.0.1:8080/v1/chat/completions   (no key)
+#     -> http=401 in 0.000388s   {"error":{"message":"Invalid API Key",...}}
+#   $ curl http://127.0.0.1:8080/health -> 200 in 0.000417s
+# llama-server is up and answers instantly. It rejects the unkeyed chat call at the door, which is
+# also the C5 point: /health and /v1/models are open, the CHAT call is what the key gates.
+
+# ---------------------------------------------------------------------------------
+# THE ACTUAL CAUSE — head-of-line blocking inside llama-server, and the proxy waiting on it.
+#
+# ONLY POST /v1/chat/completions hangs, and it hangs with NO entry in apicalls.log. That is
+# diagnostic: the proxy writes its log line at authproxy2.py:273, immediately AFTER it has read a
+# response head from upstream. No log line => upstream never sent a response head at all.
+#
+#   $ ss -tnp | grep :8080
+#   ESTAB 127.0.0.1:41082 -> 127.0.0.1:8080  users:(("python3",pid=89355,fd=6))
+#   ESTAB 127.0.0.1:45808 -> 127.0.0.1:8080  users:(("python3",pid=89355,fd=8))
+#   ESTAB 127.0.0.1:48846 -> 127.0.0.1:8080  users:(("python3",pid=89355,fd=10))
+# -> THREE proxy->upstream connections open, all with empty queues, all waiting for a response.
+#
+#   $ ss -tnp | grep 89355   (client side)
+#   ESTAB      127.0.0.1:8081 <- 127.0.0.1:57632  recv-q=6720  fd=4    <- goose's original stream
+#   CLOSE-WAIT 127.0.0.1:8081 <- 127.0.0.1:42710  fd=7                 <- my abandoned curl
+#   CLOSE-WAIT 127.0.0.1:8081 <- 127.0.0.1:40782  fd=5                 <- my abandoned curl
+#
+# And llama-server is NOT idle. `ps` %CPU is a LIFETIME AVERAGE and reported a misleading 0.7%,
+# so it was measured instantaneously from /proc instead:
+#   $ r1=$(awk '{print $14+$15}' /proc/7270/stat); sleep 5; r2=...  -> 39.2% of one core over 5s
+#   $ awk '/^State|^Threads/' /proc/7270/status -> State: S (sleeping), Threads: 31
+# It is actively generating.
+#
+# CHAIN:
+#  1. goose issues chat with stream:true and, per its own model_config dump (J0B raw/42),
+#     max_tokens: None — i.e. an UNBOUNDED generation.
+#  2. The first stream failed (trigger not yet identified — see WHAT THIS DID NOT ESTABLISH).
+#  3. goose's retry policy fires 3x per run (its log: "Request failed, retrying (1/3..3/3)"), and
+#     this gate ran three turns, so ~9 unbounded generations were started and abandoned.
+#  4. Abandoning the CLIENT does not stop the SERVER: llama-server keeps generating to its context
+#     limit. It serves the queue serially, so each abandoned generation must run to completion
+#     before the next request is even looked at.
+#  5. Every subsequent chat call — goose's and my curl's alike — queues behind them and appears to
+#     hang. A 240 s curl and a 420 s goose run both timed out inside that queue.
+#
+# This is why the two EARLIEST chat POSTs (22:09:52, 22:10:14) DID log 200 and everything after
+# them did not: the queue had not built up yet.
+
+# ---------------------------------------------------------------------------------
+# WHAT I AM NOT AUTHORIZED TO DO ABOUT IT
+#
+# The clean fix is to restart the model server and drain the queue. `wrought-inference.service` is
+# a `wrought-*` unit and EXECUTOR-RAILS §1 is explicit: no start/stop/restart, hands off. The gate
+# child also has no sudo by the prompt's own terms. So the recovery action is the operator's, not
+# mine, and I did not take it or ask for a sudo allowlist entry.
+#
+# The available non-privileged move is to WAIT for the queue to drain and retry once, bounded.
+# That is what happens next (raw/63).

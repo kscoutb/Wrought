@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-28T22:09:00Z
+updated:  2026-08-28T22:31:00Z
 gate:     GATE-J0B-RESUME
-state:    RUNNING PA
-last:     Phase A boot#1 done — Goose v1.46.0 fetched at pinned tag, sha256 MATCHES pin, installed, guest powered off clean
-next:     boot #2 egress-LOCKED, then re-prove the pinhole from inside (DNS fail / 8080 refused / 8081 200)
-usage:    n/a (wrought-runner gate child)
+state:    BUNDLED
+last:     Seam POSITIVE (BUILD); pinhole re-proved; agent turn reached model but wrote no FORGE.txt; F-1..F-5 recorded
+next:     advisor adjudication; F-1 (rails §2 vs hook) and F-4 (goose rc) need rulings
+usage:    ~$6.7 of the $8.00 cap; ~27 min wall clock

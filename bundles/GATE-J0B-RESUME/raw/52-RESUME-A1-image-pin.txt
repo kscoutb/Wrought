@@ -1,0 +1,16 @@
+# GATE-J0B-RESUME Phase A.1 — base image pin re-verify, seed rebuild, fresh overlay
+# date: 2026-08-28T22:05:20Z
+
+$ grep -n -B2 -A6 "0533b065" /home/kalib/foundry/pins.lock
+682-    file: noble-server-cloudimg-amd64.img
+683-    url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+684:    sha256: 0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe   # verify on EVERY pull
+685-    size_bytes: 624239616
+686-    release: "Ubuntu 24.04 LTS (noble) cloud image"
+687-    upstream_last_modified: "2026-08-01T13:17:55Z"   # quoted: an unquoted timestamp resolves to a
+688-                                                     # datetime and stops comparing equal as text
+689-    format: "qcow2 v3, 3758096384 bytes virtual"
+690-    path: /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+
+$ sha256sum /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe  /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img

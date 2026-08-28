@@ -1,0 +1,28 @@
+# GATE-J0B-RESUME Phase A.2 — BOOT #1, egress OPEN (proven two-boot shape, B-2)
+# date: 2026-08-28T22:06:17Z
+
+# FINDING F-2 — the guest had to be RESIZED, and J0B's proven shape would have killed this gate.
+# J0B booted -m 8192 as an ATTENDED session with no cgroup above it. This gate is a RUNNER CHILD:
+$ cat /proc/self/cgroup
+0::/user.slice/user-1000.slice/user@1000.service/app.slice/wrought-gate-gate-j0b-resume-1787954507-1.scope
+$ cat /sys/fs/cgroup/<that scope>/memory.max   -> 8589934592  (8G, from runner.conf limits.memory_max)
+# The guest launches as a scope DESCENDANT (rails §13.1), so guest RAM comes out of the SAME 8G
+# budget as the claude child itself. -m 8192 + the agent = scope OOM, which kills the gate, not
+# just the guest. Guest sized to -m 3072 instead: Ubuntu noble cloud image + one CLI agent fits
+# comfortably, and 3G + ~2G child leaves >3G headroom under the cap. Host has 84G available;
+# the binding constraint is the SCOPE, not the box.
+
+$ echo "launch command (as run):"
+qemu-system-x86_64 -machine q35,accel=kvm -cpu host -smp 4 -m 3072 -drive file=/var/lib/wrought/j0b/overlay-resume.qcow2,if=virtio,format=qcow2 -drive file=/var/lib/wrought/j0b/seed.img,if=virtio,format=raw -netdev user,id=n0,hostfwd=tcp:127.0.0.1:2222-:22 -device virtio-net-pci,netdev=n0 -display none -serial file:/var/lib/wrought/j0b/serial-resume-boot1.log -daemonize -pidfile /var/lib/wrought/j0b/qemu-resume-b1.pid
+
+rc=0
+
+$ ps -o pid,user,etime,args -p $(cat qemu-resume-b1.pid) | cut -c1-160
+    PID USER         ELAPSED COMMAND
+  89965 kalib          00:03 qemu-system-x86_64 -machine q35,accel=kvm -cpu host -smp 4 -m 3072 -drive file=/var/lib/wrought/j0b/overlay-resume.qcow2,if=virtio,
+
+# SCOPE CONTAINMENT PROOF — the guest's cgroup vs the gate child's:
+$ cat /proc/$(cat qemu-resume-b1.pid)/cgroup
+0::/user.slice/user-1000.slice/user@1000.service/app.slice/wrought-gate-gate-j0b-resume-1787954507-1.scope
+# -daemonize double-forks, but cgroup membership is INHERITED and unaffected by reparenting,
+# so the guest sits in the gate scope's cgroup and the reaper/scope teardown covers it.

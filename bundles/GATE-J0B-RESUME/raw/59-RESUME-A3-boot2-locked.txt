@@ -1,0 +1,17 @@
+# GATE-J0B-RESUME Phase A.3 — BOOT #2, egress LOCKED, SAME overlay
+# date: 2026-08-28T22:08:59Z
+
+# restrict=on isolates the guest from everything except the two explicit forwards:
+#   hostfwd tcp:127.0.0.1:2222-:22            ssh in
+#   guestfwd tcp:10.0.2.100:8081-tcp:127.0.0.1:8081   the pinhole to the operator's proxy
+# This is the guest all of Phase B runs in.
+
+$ echo "launch command (as run):"
+qemu-system-x86_64 -machine q35,accel=kvm -cpu host -smp 4 -m 3072 -drive file=/var/lib/wrought/j0b/overlay-resume.qcow2,if=virtio,format=qcow2 -drive file=/var/lib/wrought/j0b/seed.img,if=virtio,format=raw -netdev user,id=n0,restrict=on,hostfwd=tcp:127.0.0.1:2222-:22,guestfwd=tcp:10.0.2.100:8081-tcp:127.0.0.1:8081 -device virtio-net-pci,netdev=n0 -display none -serial file:/var/lib/wrought/j0b/serial-resume-boot2.log -daemonize -pidfile /var/lib/wrought/j0b/qemu-resume-b2.pid
+
+rc=0
+
+$ ps -o pid,user,etime -p $(cat qemu-resume-b2.pid); cat /proc/<pid>/cgroup
+    PID USER         ELAPSED
+  90207 kalib          00:03
+0::/user.slice/user-1000.slice/user@1000.service/app.slice/wrought-gate-gate-j0b-resume-1787954507-1.scope

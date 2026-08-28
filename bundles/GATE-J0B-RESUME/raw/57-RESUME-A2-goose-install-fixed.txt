@@ -1,0 +1,75 @@
+# GATE-J0B-RESUME Phase A.2 (cont) — install, after a deviation worth recording
+# date: 2026-08-28T22:07:32Z
+
+# DEVIATION D-1: the noble cloud image has NO bzip2, so plain `tar -xjf` fails:
+#   tar (child): bzip2: Cannot exec: No such file or directory   (recorded in raw/56)
+# Resolved WITHOUT apt: python3 is in the base image and its stdlib bz2 module decompresses
+# the asset. This keeps the guest's package set identical to the pinned image (user-data sets
+# package_update/package_upgrade false precisely so boot-to-ssh stays a clean measurement),
+# and avoids a second network dependency in a phase whose whole point is egress control.
+
+$ ssh probe@guest -- python3 -c "bz2 decompress" ; tar -xf ; sudo install -m0755
+--- tarball contents ---
+./
+./goose
+tar: .: Cannot utime: Operation not permitted
+tar: .: Cannot change mode to rwxr-xr-t: Operation not permitted
+tar: Exiting with failure status due to previous errors
+
+# D-1b: `tar -xf ... -C /tmp` also tried to restore the archive's './' entry onto /tmp itself
+# (sticky, root-owned) -> 'Cannot utime / Cannot change mode', non-fatal but fatal under set -e.
+# Extract into a private dir and take only the ./goose member:
+$ ssh probe@guest -- mkdir -p ~/gooseinst && tar -xf /tmp/goose.tar -C ~/gooseinst ./goose && sudo install -m0755 ~/gooseinst/goose /usr/local/bin/goose
+tar: ./goose: Wrote only 7168 of 10240 bytes
+tar: Exiting with failure status due to previous errors
+
+# D-1c: 'Wrote only 7168 of 10240 bytes' = the GUEST DISK FILLED. Diagnose before retrying:
+$ ssh probe@guest -- df -h / /tmp ; ls -l /tmp/goose*
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda1       2.4G  2.4G     0 100% /
+/dev/vda1       2.4G  2.4G     0 100% /
+
+-rwxr-xr-x 1 probe probe 306057864 Aug 12 15:51 /tmp/goose
+-rw-rw-r-- 1 probe probe 306063360 Aug 28 22:07 /tmp/goose.tar
+-rw-rw-r-- 1 probe probe  84957951 Aug 28 22:07 /tmp/goose.tar.bz2
+
+/home/probe/gooseinst/:
+total 73520
+-rwxr-xr-x 1 probe probe 75280384 Aug 12 15:51 goose
+
+# FINDING F-3 — guest disk headroom is a REAL constraint on this surface, not an incident.
+# The noble cloud image root is 2.4G. The Goose x86_64 binary is 306,057,864 bytes UNCOMPRESSED
+# (~12% of the whole guest disk) and the install path stages it three times: .tar.bz2 (85MB) +
+# .tar (306MB) + extracted (306MB) = ~700MB, which filled the disk. Any future gate that puts
+# this agent in a disposable guest must either grow the overlay or stream the install.
+
+# The FIRST extract had in fact completed the ./goose member (306,057,864 bytes, archive mtime
+# Aug 12 15:51); only the archive's './' directory-metadata entry failed against sticky /tmp.
+# So the binary is already on disk and correct — verify it, then RENAME it into place (same
+# filesystem => no second copy, which is the only way it fits).
+
+# Enumerated deletes (rails §3) — each a scratch file THIS session created in the guest:
+#   /tmp/goose.tar          306,063,360 B  intermediate tar, superseded by the extracted binary
+#   /tmp/goose.tar.bz2       84,957,951 B  downloaded asset, sha256 already verified in raw/55
+#   /home/probe/gooseinst/goose  75,280,384 B  TRUNCATED partial from the out-of-space extract
+$ ssh probe@guest -- sha256sum /tmp/goose ; rm <3 enumerated paths> ; sudo mv /tmp/goose /usr/local/bin/goose
+--- verify the staged binary BEFORE deleting its sources ---
+-rwxr-xr-x 1 probe probe 306057864 Aug 12 15:51 /tmp/goose
+29b3340ef3d80fd146bf01f752667549c212a09cfd1035acd7ac16457a2e4a89  /tmp/goose
+--- installed ---
+-rwxr-xr-x 1 root root 306057864 Aug 12 15:51 /usr/local/bin/goose
+29b3340ef3d80fd146bf01f752667549c212a09cfd1035acd7ac16457a2e4a89  /usr/local/bin/goose
+--- df after ---
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda1       2.4G  2.0G  445M  82% /
+--- version ---
+ 1.46.0
+--- goose info ---
+goose Version:
+  Version:                  1.46.0
+
+Paths:
+Config dir:              /home/probe/.config/goose                              
+Config yaml:             /home/probe/.config/goose/config.yaml                  
+Sessions DB (sqlite):    /home/probe/.local/share/goose/sessions/sessions.db    missing (can create)
+Logs dir:                /home/probe/.local/state/goose/logs                    

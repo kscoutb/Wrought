@@ -1,0 +1,21 @@
+
+# ---- THE PINHOLE, RE-PROVED FROM INSIDE THE LOCKED GUEST (the J0B result, re-established) ----
+# date: 2026-08-28T22:09:15Z
+$ ssh probe@guest -- three-way egress test
+=== 1. EXTERNAL DNS / general egress — must FAIL ===
+curl: (6) Could not resolve host: github.com
+curl exit=6  (6=DNS could not resolve, 7=refused, 28=timeout)
+
+=== 2. SLIRP gateway to the HOST model server 10.0.2.2:8080 — must be REFUSED ===
+curl: (7) Failed to connect to 10.0.2.2 port 8080 after 0 ms: Couldn't connect to server
+curl exit=7
+
+=== 3. THE PINHOLE 10.0.2.100:8081 — must answer 200 ===
+http_code=200
+curl exit=0
+
+=== 3b. the pinhole also carries /props (the model the agent will actually talk to) ===
+{"default_generation_settings":{"params":{"seed":4294967295,"temperature":1.0,"dynatemp_range":0.0,"dynatemp_exponent":1.0,"top_k":20,"top_p":0.949999988079071,"min_p":0.05000000074505806,"top_n_sigma":-1.0,"xtc_probability":0.0,"xtc_threshold":0.10000000149011612,"typical_p":1.0,"repeat_last_n":64,"repeat_penalty":1.0,"presence_penalty":0.0,"frequency_penalty":0.0,"dry_multiplier":0.0,"dry_base":
+
+=== 4. control: DNS resolution itself ===
+getent exit=2  (2 = no resolution)

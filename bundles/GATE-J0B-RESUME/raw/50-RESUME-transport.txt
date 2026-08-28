@@ -1,0 +1,12 @@
+# GATE-J0B-RESUME v2.1 — transport check (rails §7)
+# date: 2026-08-28T22:03:03Z
+
+$ sha256sum /home/kalib/courier/Wrought/prompts/GATE-J0B-RESUME.md
+88897e4432e2856f685494b0d20d7fc7c65dda522ecf6c1c2d588ffee80beb9d  /home/kalib/courier/Wrought/prompts/GATE-J0B-RESUME.md
+
+# claimed block count: 2   measured: 2   VERDICT: TRANSPORT-OK
+# block 1 = goose pin (3 lines), block 2 = operator proxy launch (4 lines). Neither empty, neither garbled.
+# sha matches the value the v2.1 pre-flight recorded in the QUEUE row: 88897e44...beb9d
+
+# NOTE on raw/ numbering: this gate shares workdir /var/lib/wrought/j0b with GATE-J0B-SURFACE,
+# whose evidence occupies raw/00-42. Rails §4 forbids overwriting it, so GATE-J0B-RESUME uses raw/50+.

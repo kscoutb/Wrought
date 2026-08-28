@@ -1,0 +1,48 @@
+# GATE-J0B-RESUME Phase A.1 — seed + overlay build
+# date: 2026-08-28T22:05:31Z
+
+$ cat /var/lib/wrought/j0a/user-data   (the surviving J0A cloud-init source)
+#cloud-config
+# GATE-J0A-SUBSTRATE — disposable guest seed.
+#
+# RECONSTRUCTED, and flagged as such: the session prompt's user-data block arrived EMPTY
+# (rendered as a bare "Yaml" placeholder), as did its qemu boot block and its virt-install
+# block. This file is a constrained reconstruction from the constraints the prompt DOES
+# state elsewhere: ssh user `probe`, key `j0a_key`, host-forward 2222 -> 22, passwordless
+# sudo (the prompt's own steps run `sudo tee /root/mutation-marker` and `sudo poweroff`
+# over ssh as this user), and `systemd-detect-virt` run from inside.
+#
+# NOT USED THIS SESSION. Phase 1 aborted before installing cloud-image-utils, so
+# `cloud-localds seed.img user-data` could not be run and no guest was ever booted.
+# Kept for J0b reuse alongside j0a_key/j0a_key.pub and the verified base image.
+
+hostname: j0a-probe
+manage_etc_hosts: true
+
+users:
+  - name: probe
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    shell: /bin/bash
+    lock_passwd: true
+    ssh_authorized_keys:
+      - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILTvqirPo1PzXmVdA/CQFQU+2H7G1Z0Pka+XZ0+cIPhd j0a-probe
+
+ssh_pwauth: false
+disable_root: true
+
+# The guest is disposable and its whole purpose is the seam test; keep first boot minimal
+# so boot-to-ssh is the measurement it claims to be, not an apt run in disguise.
+package_update: false
+package_upgrade: false
+
+$ cloud-localds /var/lib/wrought/j0b/seed.img /var/lib/wrought/j0a/user-data
+rc=0
+
+$ qemu-img create -f qcow2 -F qcow2 -b /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img /var/lib/wrought/j0b/overlay-resume.qcow2
+Formatting '/var/lib/wrought/j0b/overlay-resume.qcow2', fmt=qcow2 cluster_size=65536 extended_l2=off compression_type=zlib size=3758096384 backing_file=/var/lib/wrought/j0a/noble-server-cloudimg-amd64.img backing_fmt=qcow2 lazy_refcounts=off refcount_bits=16
+rc=0
+
+$ ls -la seed.img overlay-resume.qcow2 ; sha256sum seed.img
+-rw-r--r-- 1 kalib kalib 196664 Aug 28 18:05 overlay-resume.qcow2
+-rw-rw-r-- 1 kalib kalib 374784 Aug 28 18:05 seed.img
+f71c87dad793ef416a6a01d81e966d0abf3092c4a4d6f1b656b2d611f58c21ca  seed.img

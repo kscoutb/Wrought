@@ -1,0 +1,18 @@
+# GATE-J0B-RESUME Phase A.2 — POWER OFF boot #1 (the two-boot shape, B-2)
+# date: 2026-08-28T22:08:39Z
+
+$ ssh probe@guest -- sudo poweroff
+(ssh rc=0 — connection drop on poweroff is expected)
+
+$ kill -0 $(cat qemu-resume-b1.pid) ; ps
+GONE — qemu pid  has exited, guest is off
+
+$ tail -5 serial-resume-boot1.log   (power-down recorded on the serial console)
+[[0;32m  OK  [0m] Reached target [0;1;39mshutdown.target[0m - System Shutdown.
+[[0;32m  OK  [0m] Reached target [0;1;39mfinal.target[0m - Late Shutdown Services.
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-poweroff.service[0m - System Power Off.
+[[0;32m  OK  [0m] Reached target [0;1;39mpoweroff.target[0m - System Power Off.
+[  142.149264] reboot: Power down
+
+$ ss -ltn | grep 2222 || echo "(2222 no longer listening — hostfwd gone with the guest)"
+(2222 no longer listening — hostfwd gone with the guest)

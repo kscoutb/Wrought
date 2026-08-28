@@ -1,0 +1,72 @@
+# GATE-J0B-RESUME Phase B.6 — THE INTERCEPTION SEAM: does goose expose a stdio MCP server?
+# date: 2026-08-28T22:25:24Z
+
+$ ssh probe@guest -- goose mcp --help ; goose --help
+### goose mcp --help ###
+Run one of the mcp servers bundled with goose
+
+Usage: goose mcp <SERVER>
+
+Arguments:
+  <SERVER>  
+
+Options:
+  -h, --help  Print help
+
+### top-level subcommands ###
+Commands:
+  configure     Configure goose settings
+  info          Display goose information
+  doctor        Check that your Goose setup is working
+  mcp           Run one of the mcp servers bundled with goose
+  acp           Run goose as an ACP agent server on stdio
+  serve         Start ACP server over HTTP and WebSocket
+  session       Start or resume interactive chat sessions [aliases: s]
+  run           Execute commands from an instruction file or stdin
+  recipe        Recipe utilities for validation and deeplinking
+  skills        Skill utilities
+  plugin        Manage plugins
+  schedule      Manage scheduled jobs [aliases: sched]
+  gateway       Manage gateways for external platform integrations [aliases: gw]
+  update        Update the goose CLI version
+  term          Terminal-integrated goose session
+  tui           Launch the goose terminal UI
+  local-models  Manage local inference models [aliases: lm]
+  completion    Generate the autocompletion script or Nushell module for the specified shell
+  review        Review the current diff using goose
+  help          Print this message or the help of the given subcommand(s)
+
+
+# ================= PHASE 6 RESULT: THE SEAM EXISTS. DECISION-1 = BUILD. =================
+# date: 2026-08-28T22:28:07Z
+# goose mcp <SERVER> exists. 'developer' is NOT one of them (it is in-process); the bundled
+# stdio servers were enumerated by probing, because the CLI does not list them:
+$ for s in developer computercontroller memory tutorial autovisualiser todo devtools shell filesystem platform google_drive jetbrains; do goose mcp "$s" </dev/null; done
+#   developer          -> error: invalid value for <SERVER>: Invalid command
+#   computercontroller -> VALID (Error: connection closed: initialize request)
+#   memory             -> VALID (Error: connection closed: initialize request)
+#   tutorial           -> VALID (Error: connection closed: initialize request)
+#   autovisualiser     -> VALID (Error: connection closed: initialize request)
+# 'connection closed: initialize request' IS the confirmation: each waits for a JSON-RPC
+# initialize on stdin. Four bundled stdio MCP servers, tappable.
+
+# TEE SHIM ATTACHED, frames captured in BOTH directions:
+$ { initialize; notifications/initialized; tools/list; tools/call } | tee mcp-in.log | goose mcp memory | tee mcp-out.log
+#   mcp-in.log   438 bytes    mcp-out.log  3196 bytes
+# DECODED SERVER->CLIENT FRAMES:
+#   id=1 jsonrpc=2.0 RESULT initialize -> protocolVersion=2024-11-05 serverInfo={'name':'goose-memory','version':'1.46.0'}
+#   id=2 jsonrpc=2.0 RESULT tools/list -> 4 tools: ['remember_memory','remove_memory_category','remove_specific_memory','retrieve_memories']
+#   id=3 jsonrpc=2.0 RESULT tools/call -> {'content':[{'type':'text','text':'Stored memory in category: wrought'}],'isError':False}
+# RAW first 200 bytes of the out-frame log:
+#   {"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{}},"serverInfo":{"name":"goose-memory","version":"1.46.0"},"instructions":"This extension stores and retrieves
+
+# VERDICT: initialize, tools/list AND a tools/call all traverse a stdio JSON-RPC transport that
+# an unprivileged shim intercepts in full, in both directions, with a two-line wrapper script.
+# The log-tap can be BUILT. No vendor product is required for this seam.
+
+# LIMIT, stated: the shim was driven by a HAND-WRITTEN client, not by goose's own agent loop.
+# Attaching the shim through config.yaml 'extensions:' did NOT load (raw/64) — the 1.46 schema
+# for a stdio extension was not established by this gate. What is proven is that the TRANSPORT
+# is interceptable; what is NOT proven is goose driving its own tools through that shim.
+
+# ---- verbatim frame logs pulled out of the guest ----
