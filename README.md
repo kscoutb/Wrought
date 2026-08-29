@@ -42,7 +42,27 @@ next prompt. When a prompt carries a `PRIOR-ADJUDICATION` block, the box records
 `bundles/<prior-gate>/ADJUDICATION.md` and sets that gate's `QUEUE.md` row to `ADJUDICATED` as its
 **first** courier action. Canonical rule: `docs/EXECUTOR-RAILS.md` §10.
 
-**4. A gate runs only when APPROVED, and only if it declares its tools.** `QUEUED` means the prompt exists; `APPROVED` means the advisor and operator agreed at the ferry that it may run — the only status the batch runner starts. Every prompt declares an `ALLOWED-TOOLS:` header; one that does not is halted, not given a default. Canonical: `docs/EXECUTOR-RAILS.md` §12.
+**4. A gate runs only when APPROVED, and only if it declares its tools.** `QUEUED` means the prompt exists; `APPROVED` means the advisor and operator agreed at the ferry that it may run — the only status the batch runner starts. Every prompt declares an `ALLOWED-TOOLS:` header; one that does not is halted, not given a default. **Every `Bash` entry must be SCOPED (`Bash(cmd:*)`), never bare `Bash`** — the runner refuses a bare one — and every out-of-cwd tree the gate needs must be named in `ADD-DIRS:`. Canonical: `docs/EXECUTOR-RAILS.md` §12.
+
+The full status vocabulary the runner's parser accepts. Only `APPROVED` is runnable; the rest are
+waiting states or terminal side-exits:
+
+| Status | Meaning | Set by |
+|---|---|---|
+| `QUEUED` | Prompt written and dispatched; the box has not started it. | advisor |
+| `APPROVED` | Advisor **and** operator agreed at the ferry that this gate may run. **The only runnable status.** | advisor + operator |
+| `RUNNING` | Prompt archived to `prompts/`; the gate is executing. | box / runner |
+| `BUNDLED` | `bundles/<GATE-NAME>/` pushed; awaiting review. | box |
+| `ADJUDICATED` | Advisor has reviewed the bundle; the gate is closed. | advisor |
+| `RESET` | Started but produced no bundle. Partial evidence preserved, residue cleaned; must be re-dispatched fresh. Terminal. | box |
+| `NOT RUN` | Dispatched, then deliberately **never started** — superseded, withdrawn, or overtaken before it ever ran. Unlike `QUEUED` it is a decision, not a waiting state; unlike `RESET` nothing executed. Terminal. | advisor + operator |
+| `FOLDED INTO <gate>` | Never ran as its own session; its items were completed inside the named gate. Parametric — matched by prefix. Terminal. | box |
+| `HALTED` | The runner stopped this gate on a breaker. Terminal until re-dispatched. | runner |
+
+`NOT RUN` was **documented** on 2026-08-29 by `GATE-RUNNER-POLISH`, not introduced: it had been in
+the runner's accept-set and in no document at all. It has **never appeared in a row** (`git log -S
+'NOT RUN' -- QUEUE.md README.md` finds no such commit) and the runner never writes it, so the
+meaning above is the minimal one the vocabulary needs and its **wording is flagged for the ferry**.
 
 **5. Nothing a gate starts may outlive it.** The runner diffs {qemu processes, libvirt domains, listening sockets} across every gate and treats any new survivor as a latching fault — because `GATE-J0B-SURFACE` left a guest running for seven days with an API key in a proxy's memory. Canonical: `docs/EXECUTOR-RAILS.md` §13–14.
 

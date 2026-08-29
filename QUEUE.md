@@ -12,6 +12,7 @@ One row per gate, newest at the bottom. See `README.md` for the loop.
 | `BUNDLED` | Box has pushed `bundles/<GATE-NAME>/` and the gate is awaiting review. | box |
 | `ADJUDICATED` | Advisor has reviewed the bundle; the gate is closed and the next one queued. | advisor |
 | `RESET` | Gate started but produced no bundle. Partial evidence preserved, residue cleaned; it must be **re-dispatched fresh**. A terminal status — never left `RUNNING`. | box |
+| `NOT RUN` | Gate was dispatched and then deliberately **never started** — superseded, withdrawn, or overtaken before it ever ran. Unlike `QUEUED` this is a decision, not a waiting state; unlike `RESET` nothing executed. Terminal, never runnable. **Documented (not introduced) 2026-08-29 by `GATE-RUNNER-POLISH`** — it had been in `wrought-runner`'s accept-set and in no document. It has never appeared in a row and the runner never writes it, so this wording is the minimum the vocabulary needs and is **flagged for the ferry**. | advisor + operator |
 | `FOLDED INTO <gate>` | Gate never ran as its own session; its items were completed inside another gate, which names it. Terminal. | box |
 
 **Dispatch**
