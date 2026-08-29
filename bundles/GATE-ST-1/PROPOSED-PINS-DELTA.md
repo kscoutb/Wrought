@@ -82,3 +82,35 @@ should be marked resolved **by this gate**, not deleted — the history is the p
   an open question for the advisor (pins.lock:569). This gate did not touch them.
 - **A `long_context` trigger prompt** — see the report's A-2. The trigger set has no
   long-context member, so no pin claim about long context is made here.
+
+---
+
+## ADDENDUM 2026-08-29, same session — APPLIED
+
+The header above says **"Not applied"** and that was true when it was written. It is left
+standing rather than rewritten, because it is the true record of what the gate *proposed* at
+bundling time; this addendum records what happened next.
+
+The operator was asked in-session — the same channel that authorized the serving-unit stop —
+and ruled: **apply the kernel delta now (foundry commit only), and take AppArmor Option A**
+(the new key, under the file's own OPERATOR-AUTHORIZED provenance convention).
+
+Applied in foundry commit **`e3dd90c`**. A mechanical leaf-diff of `pins.lock` before/after
+confirms **exactly** the intended values moved:
+
+```
+  substrate.kernel               7.0.0-28-generic -> 7.0.0-30-generic
+  substrate.apparmor             NEW KEY, 5.0.2-0ubuntu1~26.04.1
+  substrate.kernel_cmdline_full  BOOT_IMAGE=...vmlinuz-7.0.0-28-generic -> -30-generic
+  drift_observed                 three entries resolved BY APPENDING, never rewritten
+```
+
+`pins.lock` still parses as YAML. The only remaining `7.0.0-28` strings are inside the
+historical drift narratives, which should say what was pinned at the time.
+
+**Both scope limits travelled into the file itself, not just into this report:** the
+`apparmor` key carries, in `pins.lock`, that its evidence is GATE-21's bwrap smoke and that
+**the GATE-23/25 exit-code taxonomy is still not re-classified**; the kernel drift entry
+carries that **`linux-headers-7.0.0-28` remain removed**, so validating `-30` does not restore
+`-28`'s rebuildability. A pin whose limits live only in a report is a pin that will be read
+without them.

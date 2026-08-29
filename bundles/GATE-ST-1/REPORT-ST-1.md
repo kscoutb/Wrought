@@ -131,3 +131,23 @@ says the re-pin commit is operator-authored; the box prepared the diff and left 
 the operator. Note the AppArmor "re-pin" **cannot be a move**: no `apparmor` key has ever
 existed in `pins.lock`, so it is a new key or a drift-entry edit, and the box will not invent
 a configuration key. Both options are laid out.
+
+---
+
+## CORRECTION BY ADDITION (same session, before adjudication)
+
+**"The kernel was the only variable" — as written above and in `PROPOSED-PINS-DELTA` §1 — is
+too broad.** What this gate *verified* is the **held-constant** set: `llama-server`, `llama-cli`
+and the model GGUF by sha256, Mesa by version, the batch shape, and the four trigger prompts.
+It did **not** enumerate the full *changed* set: alongside the kernel, the box also took
+AppArmor `5.0.0~beta1` → `5.0.2` and the 15-package libvirt closure, plus 27 days of other
+unattended-upgrade movement this gate never listed.
+
+**The accurate claim is the stronger one.** With `{binary, model, Mesa, shape, stimulus}` held
+constant and verified, what varied is **the substrate as a whole**. Byte-identical token
+streams across that is a *broader* validation than "the kernel did not break the model" — and
+it is exactly what ST-1 exists to assert. The compressed phrasing simultaneously over-claimed
+the isolation and under-claimed the result.
+
+Recorded by addition rather than by editing the sentences above, following the precedent set
+when `GATE-RUNNER-POLISH`'s own over-generalisation was narrowed. Full statement: `raw/14` A-8.

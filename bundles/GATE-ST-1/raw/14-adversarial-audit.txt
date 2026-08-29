@@ -79,3 +79,29 @@ $ /opt/wrought/bin/llama-server --help | grep -A1 -- '--ubatch-size'
 ==      depending on an unpinned default. That sharpens A-1's recommendation from
 ==      "would be tidier" to "the harness is the weaker of the two and should match
 ==      production": pass -ub 512 explicitly.
+
+== A-8. CORRECTION BY ADDITION — "THE KERNEL WAS THE ONLY VARIABLE" IS TOO BROAD,
+==      and it is the SAME over-generalisation class this repo keeps catching.
+==
+==      raw/09, the report, the QUEUE row and PROPOSED-PINS-DELTA §1 all compress the
+==      finding to "the kernel is the ONLY variable". What was actually VERIFIED is the
+==      HELD-CONSTANT set: {llama-server sha256, llama-cli sha256, model GGUF sha256,
+==      mesa version, batch shape, the four trigger prompts} -- each checked, none
+==      assumed. What was NOT enumerated is the full CHANGED set. Between 2026-08-02
+==      and today the box also took AppArmor 5.0.0~beta1 -> 5.0.2 (raw/12's subject),
+==      the 15-package libvirt closure 12.0.0-1ubuntu5.2 -> 5.3 (pins.lock drift entry),
+==      and whatever else unattended-upgrades moved in 27 days, which this gate did not
+==      enumerate. raw/09's own header names kernel AND AppArmor; the one-line
+==      compressions dropped the rest.
+==
+==      THE ACCURATE CLAIM IS ALSO THE STRONGER ONE FOR ST-1: the held-constant set is
+==      exactly {binary, model, Mesa, shape, stimulus}, so what varied is THE SUBSTRATE
+==      AS A WHOLE -- kernel, AppArmor, and the rest of the 27 days of package drift.
+==      Byte-identical token streams across that is a BROADER validation than "the
+==      kernel did not break the model", and it is precisely what ST-1 exists to assert.
+==      The narrower phrasing under-claimed the result while over-claiming the isolation.
+==
+==      This is corrected BY ADDITION rather than by editing the compressions, following
+==      the precedent set when GATE-RUNNER-POLISH's own over-generalisation was narrowed
+==      (a note appended, the bundle re-manifested) -- rewriting the original text would
+==      erase the record that the over-claim was made.
