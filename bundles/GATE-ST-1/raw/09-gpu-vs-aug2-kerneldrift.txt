@@ -1,0 +1,21 @@
+# GATE-ST-1 raw/09 — THE KERNEL-DRIFT MEASUREMENT: today's GPU arm vs 2026-08-02's
+# UTC: 2026-08-29T17:38:33Z
+#
+# This is the sharpest probe available and it is the one ST-1 actually needs.
+# Held constant (all verified, not assumed): llama-server sha256 (raw/03), the model
+# GGUF sha256 (raw/03), Mesa 26.0.3-1ubuntu1 (raw/02, unchanged vs pin), the batch
+# shape, and the four trigger prompts verbatim. Both runs are FRESH-PROCESS FIRST
+# REQUEST, which §11.2 measured to be byte-reproducible 16/16 — so the ordinal is
+# fixed and benign argmax flips are excluded BY CONSTRUCTION.
+# Changed: kernel 7.0.0-28-generic -> 7.0.0-30-generic, AppArmor beta1 -> 5.0.2.
+
+$ diff -q build-evidence/gate-16-17/gpu-math.tokens /var/lib/wrought/st1-correctness/gpu-math.tokens
+   math: token IDs IDENTICAL  (96 tokens, sha 91badb59cb1a55dc)
+$ diff -q build-evidence/gate-16-17/gpu-code.tokens /var/lib/wrought/st1-correctness/gpu-code.tokens
+   code: token IDs IDENTICAL  (81 tokens, sha 53f3217ccabc696c)
+$ diff -q build-evidence/gate-16-17/gpu-reason.tokens /var/lib/wrought/st1-correctness/gpu-reason.tokens
+   reason: token IDs IDENTICAL  (96 tokens, sha a468d9c4a6a6aca7)
+$ diff -q build-evidence/gate-16-17/gpu-struct.tokens /var/lib/wrought/st1-correctness/gpu-struct.tokens
+   struct: token IDs IDENTICAL  (96 tokens, sha fae7408c7a9ce09f)
+
+KERNEL-DRIFT VERDICT (today GPU vs 2026-08-02 GPU, same binary+model+shape): **PASS**

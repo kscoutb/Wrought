@@ -1,0 +1,10 @@
+
+
+To find the average speed, we use the formula:
+\[ \text{Average Speed} = \frac{\text{Total Distance}}{\text{Total Time}} \]
+Given:
+- Total Distance = 120 km
+- Total Time = 1.5 hours
+
+Substituting the values into the formula:
+\[ \text{Average Speed} = \frac{120 \text{ km}}{1.5 \text

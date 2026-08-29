@@ -1,0 +1,62 @@
+# GATE-ST-1 raw/07 — serving-unit stop/start transcript (OPERATOR-AUTHORIZED)
+# UTC: 2026-08-29T17:37:16Z
+#
+# AUTHORITY: rails make wrought-* units READ-ONLY to the box. The operator was asked
+# in-session and explicitly authorized 'Box stops and restarts it', for this one
+# purpose: GATE-16's operator-ratified criterion (J-40) requires BOTH arms at
+# FRESH-PROCESS FIRST REQUEST, and only 5.71 GiB VRAM is free against ~18.3 needed.
+# This transcript exists so the touch is auditable rather than merely asserted.
+
+== BEFORE ==
+$ systemctl is-active wrought-inference.service
+active
+$ systemctl show wrought-inference.service -p MainPID -p ActiveEnterTimestamp
+ActiveEnterTimestamp=Fri 2026-08-28 08:51:04 EDT
+MainPID=7270
+$ cat /sys/class/drm/card0/device/mem_info_vram_used
+19626766336
+
+== STOP ==
+$ sudo systemctl stop wrought-inference.service
+rc=0
+$ systemctl is-active wrought-inference.service
+inactive
+$ pgrep -af "[l]lama-server"
+102332 /bin/bash -c source /home/kalib/.claude/shell-snapshots/snapshot-bash-1788009658750-3xlyyf.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval '{   echo "# GATE-ST-1 raw/07 — serving-unit stop/start transcript (OPERATOR-AUTHORIZED)"   echo "# UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"   echo "#"   echo "# AUTHORITY: rails make wrought-* units READ-ONLY to the box. The operator was asked"   echo "# in-session and explicitly authorized '"'"'Box stops and restarts it'"'"', for this one"   echo "# purpose: GATE-16'"'"'s operator-ratified criterion (J-40) requires BOTH arms at"   echo "# FRESH-PROCESS FIRST REQUEST, and only 5.71 GiB VRAM is free against ~18.3 needed."   echo "# This transcript exists so the touch is auditable rather than merely asserted."   echo   echo "== BEFORE =="   echo '"'"'$ systemctl is-active wrought-inference.service'"'"'; systemctl is-active wrought-inference.service   echo '"'"'$ systemctl show wrought-inference.service -p MainPID -p ActiveEnterTimestamp'"'"'   systemctl show wrought-inference.service -p MainPID -p ActiveEnterTimestamp   echo '"'"'$ cat /sys/class/drm/card0/device/mem_info_vram_used'"'"'; cat /sys/class/drm/card0/device/mem_info_vram_used   echo   echo "== STOP =="   echo '"'"'$ sudo systemctl stop wrought-inference.service'"'"'   sudo systemctl stop wrought-inference.service 2>&1; echo "rc=$?"   sleep 5   echo '"'"'$ systemctl is-active wrought-inference.service'"'"'; systemctl is-active wrought-inference.service 2>&1   echo '"'"'$ pgrep -af "[l]lama-server"'"'"'; pgrep -af '"'"'[l]lama-server'"'"' || echo "(none — server gone)"   echo '"'"'$ cat /sys/class/drm/card0/device/mem_info_vram_used   # must drop to ~idle'"'"'   cat /sys/class/drm/card0/device/mem_info_vram_used   echo '"'"'$ /opt/wrought/bin/llama-server --list-devices | grep NAVI31   # free VRAM now?'"'"'   /opt/wrought/bin/llama-server --list-devices 2>/dev/null | grep NAVI31 } | tee build-evidence/st-1/raw/07-service-stop-start.txt' < /dev/null && pwd -P >| /tmp/claude-d742-cwd
+102334 /bin/bash -c source /home/kalib/.claude/shell-snapshots/snapshot-bash-1788009658750-3xlyyf.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval '{   echo "# GATE-ST-1 raw/07 — serving-unit stop/start transcript (OPERATOR-AUTHORIZED)"   echo "# UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"   echo "#"   echo "# AUTHORITY: rails make wrought-* units READ-ONLY to the box. The operator was asked"   echo "# in-session and explicitly authorized '"'"'Box stops and restarts it'"'"', for this one"   echo "# purpose: GATE-16'"'"'s operator-ratified criterion (J-40) requires BOTH arms at"   echo "# FRESH-PROCESS FIRST REQUEST, and only 5.71 GiB VRAM is free against ~18.3 needed."   echo "# This transcript exists so the touch is auditable rather than merely asserted."   echo   echo "== BEFORE =="   echo '"'"'$ systemctl is-active wrought-inference.service'"'"'; systemctl is-active wrought-inference.service   echo '"'"'$ systemctl show wrought-inference.service -p MainPID -p ActiveEnterTimestamp'"'"'   systemctl show wrought-inference.service -p MainPID -p ActiveEnterTimestamp   echo '"'"'$ cat /sys/class/drm/card0/device/mem_info_vram_used'"'"'; cat /sys/class/drm/card0/device/mem_info_vram_used   echo   echo "== STOP =="   echo '"'"'$ sudo systemctl stop wrought-inference.service'"'"'   sudo systemctl stop wrought-inference.service 2>&1; echo "rc=$?"   sleep 5   echo '"'"'$ systemctl is-active wrought-inference.service'"'"'; systemctl is-active wrought-inference.service 2>&1   echo '"'"'$ pgrep -af "[l]lama-server"'"'"'; pgrep -af '"'"'[l]lama-server'"'"' || echo "(none — server gone)"   echo '"'"'$ cat /sys/class/drm/card0/device/mem_info_vram_used   # must drop to ~idle'"'"'   cat /sys/class/drm/card0/device/mem_info_vram_used   echo '"'"'$ /opt/wrought/bin/llama-server --list-devices | grep NAVI31   # free VRAM now?'"'"'   /opt/wrought/bin/llama-server --list-devices 2>/dev/null | grep NAVI31 } | tee build-evidence/st-1/raw/07-service-stop-start.txt' < /dev/null && pwd -P >| /tmp/claude-d742-cwd
+$ cat /sys/class/drm/card0/device/mem_info_vram_used   # must drop to ~idle
+49246208
+$ /opt/wrought/bin/llama-server --list-devices | grep NAVI31   # free VRAM now?
+  Vulkan0: AMD Radeon RX 7900 XTX (RADV NAVI31) (24560 MiB, 24513 MiB free)
+
+# NOTE ON THE pgrep OUTPUT ABOVE — it is a FALSE POSITIVE, and the same class the
+# reaper work fixed. The pattern "[l]lama-server" appears LITERALLY inside this
+# script's own echoed command text, so pgrep -af matched this very shell. The
+# self-match-proof bracket trick does not help when the bracketed string is itself
+# in the command line being matched. The AUTHORITATIVE evidence that the server is
+# gone is the pair that cannot self-match:
+#   systemctl is-active -> inactive
+#   mem_info_vram_used  -> 19626766336 (18.28 GiB) dropped to 49246208 (47 MiB)
+#   --list-devices      -> 24513 MiB free, i.e. the whole card
+
+== START (restore) ==
+# UTC: 2026-08-29T17:38:06Z
+$ sudo systemctl start wrought-inference.service
+rc=0
+$ systemctl is-active wrought-inference.service
+active
+
+# wait for health, polling the loopback endpoint
+   healthy after 1s (HTTP 200; 401 = up and demanding the API key, which is also 'serving')
+
+$ systemctl show wrought-inference.service -p MainPID -p ActiveEnterTimestamp -p NRestarts
+ActiveEnterTimestamp=Sat 2026-08-29 13:38:12 EDT
+MainPID=102501
+NRestarts=0
+$ cat /sys/class/drm/card0/device/mem_info_vram_used   # model resident again?
+19619987456
+$ ss -lnt | grep 8080
+LISTEN 0      512                      127.0.0.1:8080       0.0.0.0:*   
+
+# SERVICE RESTORED. Downtime window is the delta between the STOP and START
+# timestamps in this file; the GPU arm ran entirely inside it.

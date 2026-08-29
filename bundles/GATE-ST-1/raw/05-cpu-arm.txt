@@ -1,0 +1,15 @@
+================ GATE-ST-1 :: cpu arm ================
+date(UTC): 2026-08-29T15:55:31Z
+kernel:    7.0.0-30-generic
+model:     /var/lib/wrought/models/Qwen3.6-27B-UD-Q4_K_XL.gguf
+shape:     -c 8192 -b 2048 -ub(default 512) -np 1 --temp 0 top_k 1 seed 42 cache_prompt=false
+n_predict: 96
+device:    none  (F-31: -ngl 0 may still touch the GPU; --device none is the verified CPU arm)
+
+-- server up; generating --
+   math done  (predicted_ms prompt_ms = 24398.3 741.2)  tokens=96
+   code done  (predicted_ms prompt_ms = 20648.4 969.2)  tokens=81
+   reason done  (predicted_ms prompt_ms = 25226.3 1373.7)  tokens=96
+   struct done  (predicted_ms prompt_ms = 24709.0 1204.4)  tokens=96
+
+-- cpu arm complete; outputs in /var/lib/wrought/st1-correctness --

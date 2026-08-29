@@ -1,0 +1,26 @@
+# GATE-ST-1 raw/03 — binary + model provenance vs pins.lock (ST-2 discipline)
+# UTC: 2026-08-29T15:53:19Z
+# WHY THIS MATTERS BEYOND HYGIENE: if the binary and model are byte-identical to the
+# ones GATE-16 measured on 2026-08-02, then a fresh-process GPU run today can be diffed
+# DIRECTLY against the committed 2026-08-02 token streams. That is a sharper measurement
+# of KERNEL drift than CPU-vs-GPU, because it holds binary/model/shape constant and
+# varies only the substrate. If either hash moved, that comparison is VOID.
+
+$ /opt/wrought/bin/llama-server --version
+version: 10233 (0ab9d6fed)
+built with GNU 15.2.0 for Linux x86_64
+
+$ sha256sum /opt/wrought/bin/llama-server
+23e27c09ac05b8e419b6500a93ba374142e428bd16bf8325451914df1e8fcd82  /opt/wrought/bin/llama-server
+  pins.lock llama_cpp.binary_sha256.llama-server:
+  23e27c09ac05b8e419b6500a93ba374142e428bd16bf8325451914df1e8fcd82
+
+$ sha256sum /opt/wrought/bin/llama-cli
+d29df4016753fa208b35c1c63c01d8f99b2d8be6a9221116eef03e67926975a1  /opt/wrought/bin/llama-cli
+  pins.lock llama_cpp.binary_sha256.llama-cli:
+  d29df4016753fa208b35c1c63c01d8f99b2d8be6a9221116eef03e67926975a1
+
+$ sha256sum /var/lib/wrought/models/Qwen3.6-27B-UD-Q4_K_XL.gguf   # ~16.7 GiB, slow
+4085665ee36d82a672a238a43f0e5643f2f0e39f2d7bd5d373f0ef10ecf53095  /var/lib/wrought/models/Qwen3.6-27B-UD-Q4_K_XL.gguf
+  serving.env WROUGHT_MODEL_SHA256:
+  4085665ee36d82a672a238a43f0e5643f2f0e39f2d7bd5d373f0ef10ecf53095

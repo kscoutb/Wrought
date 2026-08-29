@@ -1,0 +1,13 @@
+# GATE-ST-1 raw/01 — transport integrity check (rails §7)
+# UTC: 2026-08-29T15:52:22Z
+# The prompt's OWN criterion: 'this prompt is a FILE and contains ZERO indented blocks'.
+# Checked mechanically against the archived copy, not by eye.
+
+$ grep -c "" $P     # line count
+57
+
+$ grep -nE "^( {4,}|\t)" $P   # markdown indented-code-block lines; expect ZERO
+(none — ZERO indented blocks, criterion SATISFIED)
+
+$ sha256sum $P
+e49214629f9535525edea7d6880284775a2c25c9e82f298b5191cdc3b338de57  /home/kalib/courier/Wrought/prompts/GATE-ST-1-v1.0.md

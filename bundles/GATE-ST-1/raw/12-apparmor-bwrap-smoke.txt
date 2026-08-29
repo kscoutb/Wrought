@@ -1,0 +1,59 @@
+# GATE-ST-1 raw/12 — the APPARMOR half of the drift, measured rather than assumed
+# UTC: 2026-08-29T17:39:38Z
+#
+# WHY THIS IS HERE AT ALL. ST-1's correctness suite never touches bwrap, so a model
+# PASS would validate AppArmor 5.0.0~beta1 -> 5.0.2 only BY ASSOCIATION. That gap was
+# put to the operator in-session and the ruling was to measure it: run the project's
+# own GATE-21 bwrap smoke, which is the minimal real exercise of the oracle's sandbox
+# on the CURRENT kernel + AppArmor. Unmodified script, run as-is.
+#
+# The 2026-08-11 drift note (pins.lock:571) recorded this pair as 'smoke-tested only:
+# kernel.apparmor_restrict_unprivileged_userns = 1 and bwrap --unshare-all still
+# builds a clean netns; the exit-code taxonomy of GATE-23/25 was NOT re-classified.'
+# That scope limit still applies to what follows: this is GATE-21, not GATE-23/25.
+
+$ sysctl kernel.apparmor_restrict_unprivileged_userns
+kernel.apparmor_restrict_unprivileged_userns = 1
+$ aa-status --enabled && echo "apparmor ENABLED"
+apparmor ENABLED (rc=0)
+
+$ bash bin/gate21-bwrap-smoke
+================ GATE-21: bwrap smoke on this kernel ================
+kernel : 7.0.0-30-generic
+bwrap  : bubblewrap 0.11.1
+host merged-/usr layout:
+   /bin    -> usr/bin
+   /sbin   -> usr/sbin
+   /lib    -> usr/lib
+   /lib64  -> usr/lib64
+
+-- 1. interpreter resolves through the merged-/usr symlinks --
+   system python3.14 via /usr/bin                 OK    ok
+   system python3.14 via /bin symlink             OK    ok
+   venv python (absolute, F-22)                   OK    ok
+
+-- 2. the rail's named import triad --
+   import ssl,secrets,multiprocessing             OK    imports ok
+   same, under the venv interpreter               OK    imports ok
+
+   (ssl matters because it dlopens libssl through the bind layout; secrets needs a
+    working /dev/urandom; multiprocessing needs /proc and semaphores — the triad is
+    chosen to exercise three different failure modes, not three imports.)
+
+-- 3. /dev/urandom present and readable --
+   /dev/urandom readable                          OK    32
+   secrets.token_bytes actually works             OK    32
+
+-- 4. multiprocessing needs working semaphores (a classic sandbox tripwire) --
+   mp.Pool round-trip                             OK    6
+
+-- 5. offline by construction: the network ns must hold only lo --
+   ifaces: (no /sys/class/net)
+   connect refused/unreachable, as required: OSError
+
+================ VERDICT ================
+checks passed: 9   failed: 0
+GATE-21: **PASS** — merged-/usr symlink layout resolves the interpreter on this
+kernel; the bwrap #686 --ro-bind fallback is NOT required here.
+======== END ========
+(gate21 exit: 0)

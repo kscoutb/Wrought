@@ -1,0 +1,31 @@
+# GATE-ST-1 raw/10 — GATE-16 PROPER: CPU-vs-GPU temp-0 diff, TODAY, both fresh-process
+# UTC: 2026-08-29T17:38:42Z
+#
+# CRITERION APPLIED — the OPERATOR-RATIFIED one (J-40, docs/07-build-rail.md:132-142
+# and docs/03-verification.md SPEC-R11.1), NOT the retired byte-identity bar:
+#   (a) GPU self-reproducible across fresh processes;
+#   (b) NO corruption signature;
+#   (c) CPU-vs-GPU agreement within top-N logit tolerance at any divergent token.
+# The RETIRED bar was 'byte-identical CPU-vs-GPU / ANY divergence -> D13 swap'. It was
+# retired on measurement: on 2026-08-02, 3 of 4 prompts matched and the 4th diverged at
+# token 85/96 as ' primes' vs ' prime numbers' — coherent English, no corruption. That
+# is floating-point non-associativity between two BACKENDS, and it must not trigger D13.
+
+$ diff -q /var/lib/wrought/st1-correctness/gpu-math.tokens /var/lib/wrought/st1-correctness/cpu-math.tokens
+   math: token IDs IDENTICAL (96 tokens)
+$ diff -q /var/lib/wrought/st1-correctness/gpu-code.tokens /var/lib/wrought/st1-correctness/cpu-code.tokens
+   code: token IDs IDENTICAL (81 tokens)
+$ diff -q /var/lib/wrought/st1-correctness/gpu-reason.tokens /var/lib/wrought/st1-correctness/cpu-reason.tokens
+   reason: token IDs IDENTICAL (96 tokens)
+$ diff -q /var/lib/wrought/st1-correctness/gpu-struct.tokens /var/lib/wrought/st1-correctness/cpu-struct.tokens
+   struct: diverges in 10 token positions; first divergence at token index 85 of 96: gpu=47770 cpu=9944
+
+# (b) corruption signature, checked independently on BOTH arms
+   gpu-math: clean
+   gpu-code: clean
+   gpu-reason: clean
+   gpu-struct: clean
+   cpu-math: clean
+   cpu-code: clean
+   cpu-reason: clean
+   cpu-struct: clean

@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# GATE-ST-1 — substrate correctness suite.
+#
+# PROVENANCE: this is a TRIMMED COPY of build-evidence/gate-16-17/gate16-17-19-correctness
+# (the harness GATE-16/17/19 ran on 2026-08-02). The original is NOT modified; the diff
+# between the two is recorded at build-evidence/st-1/raw/04-harness-diff.txt.
+#
+# WHAT WAS TRIMMED AND WHY: ST-1 is defined (docs/07-build-rail.md:464) as
+# "GATE-11 + GATE-16 + canary suite". GATE-17's 20x determinism sweep and GATE-19's MTP
+# promotion are NOT in ST-1's scope, and GATE-19 alone would load two more GPU servers.
+# They are dropped rather than run-and-ignored, so the cost matches the scope.
+#
+# WHAT WAS ADDED: an arm selector (the two arms must run at different times because the
+# GPU arm needs VRAM the resident service holds), and a comparison step that diffs against
+# the 2026-08-02 committed token streams. That diff is the sharpest available measurement
+# of the kernel drift: llama-server, llama-cli and the model GGUF all still hash EXACTLY
+# to their pins (raw/03), and Mesa is unchanged, so binary/model/shape are constant and
+# the substrate is the only variable.
+#
+# The instrument is the server API, not llama-cli — see the original's header for why
+# (llama-cli renders an interactive TUI that produced a 1.37 GB file of banner junk).
+
+set -uo pipefail
+
+CONF=${WROUGHT_CONF:-/etc/wrought/serving.env}
+# shellcheck disable=SC1090
+. "$CONF"
+LLAMA=${LLAMA_SERVER:-/opt/wrought/bin/llama-server}
+OUT=${ST1_OUT:-/var/lib/wrought/st1-correctness}
+PORT=${ST1_PORT:-8083}
+NPRED=${ST1_NPRED:-96}
+ARM=${1:?usage: st1-correctness <gpu|cpu>}
+mkdir -p "$OUT"
+
+MODEL=$WROUGHT_MODEL_PATH
+TOKEN=$("$LLAMA" --list-devices 2>/dev/null | grep -F "$WROUGHT_DGPU_DESC" | sed -n 's/^[[:space:]]*\([A-Za-z0-9_]*\):.*/\1/p')
+[ -n "$TOKEN" ] || { echo "FATAL: device token unresolved"; exit 1; }
+
+SRV_PID=""
+start_server() {
+	"$LLAMA" -m "$MODEL" --host 127.0.0.1 --port "$PORT" --parallel 1 \
+		-c 8192 -b 2048 -ctk q8_0 -ctv q8_0 -fa on --no-warmup "$@" \
+		> "$OUT/server-$ARM.log" 2>&1 &
+	SRV_PID=$!
+	for _ in $(seq 1 900); do
+		c=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "http://127.0.0.1:$PORT/health" 2>/dev/null || echo 000)
+		[ "$c" = "200" ] && return 0
+		kill -0 "$SRV_PID" 2>/dev/null || return 1
+		sleep 1
+	done
+	return 1
+}
+stop_server() { [ -n "$SRV_PID" ] && kill "$SRV_PID" 2>/dev/null; wait "$SRV_PID" 2>/dev/null; SRV_PID=""; sleep 3; }
+trap stop_server EXIT INT TERM
+
+gen() {
+	local prompt=$1 pref=$2
+	python3 - "$prompt" > "$OUT/req.json" <<'PY'
+import json,sys,os
+print(json.dumps({"prompt":sys.argv[1],"n_predict":int(os.environ.get("NPRED","96")),
+ "temperature":0,"top_k":1,"seed":42,"cache_prompt":False,"return_tokens":True}))
+PY
+	curl -s --max-time 3600 -X POST "http://127.0.0.1:$PORT/completion" \
+		-H 'Content-Type: application/json' --data-binary "@$OUT/req.json" 2>/dev/null \
+	| python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+open('$OUT/$pref.tokens','w').write(' '.join(map(str,d.get('tokens') or [])))
+open('$OUT/$pref.txt','w').write(d.get('content',''))
+t=d.get('timings',{})
+print(f\"{t.get('predicted_ms',0):.1f} {t.get('prompt_ms',0):.1f}\")
+" 2>/dev/null
+}
+export NPRED
+
+# The four trigger prompts, VERBATIM from the 2026-08-02 harness. Not re-authored:
+# the whole point is that the stimulus is identical to the known-good run.
+declare -A PROMPTS=(
+	[math]="Explain the Fourier transform in exactly three sentences."
+	[code]="Write a Python function that returns the nth Fibonacci number iteratively. Code only."
+	[reason]="If a train travels 120 km in 1.5 hours, what is its average speed? Show the arithmetic."
+	[struct]="List the first 10 prime numbers as a comma-separated line, nothing else."
+)
+ORDER=(math code reason struct)
+
+echo "================ GATE-ST-1 :: $ARM arm ================"
+echo "date(UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "kernel:    $(uname -r)"
+echo "model:     $MODEL"
+echo "shape:     -c 8192 -b 2048 -ub(default 512) -np 1 --temp 0 top_k 1 seed 42 cache_prompt=false"
+echo "n_predict: $NPRED"
+case "$ARM" in
+  gpu) DEVARG=(--device "$TOKEN"); echo "device:    $TOKEN ($WROUGHT_DGPU_DESC)";;
+  cpu) DEVARG=(--device none);     echo "device:    none  (F-31: -ngl 0 may still touch the GPU; --device none is the verified CPU arm)";;
+  *)   echo "FATAL: arm must be gpu or cpu"; exit 1;;
+esac
+echo
+
+start_server "${DEVARG[@]}" || { echo "FATAL: $ARM server failed to start; see $OUT/server-$ARM.log"; exit 1; }
+echo "-- server up; generating --"
+for p in "${ORDER[@]}"; do
+	r=$(gen "${PROMPTS[$p]}" "$ARM-$p")
+	echo "   $p done  (predicted_ms prompt_ms = $r)  tokens=$(wc -w < "$OUT/$ARM-$p.tokens")"
+done
+stop_server
+echo
+echo "-- $ARM arm complete; outputs in $OUT --"

@@ -1,0 +1,45 @@
+# GATE-ST-1 raw/13 — canary suite (extraction-based, PRIMARY layer)
+# UTC: 2026-08-29T17:40:07Z
+$ ./build-evidence/st-1/st1-canaries /var/lib/wrought/st1-correctness
+GATE-ST-1 canary suite — extraction-based (PRIMARY layer, SPEC-R11.1)
+outputs: /var/lib/wrought/st1-correctness
+
+== GPU arm ==
+   [PASS] math: names the transform and its frequency-domain purpose
+          derived from -> gpu-math.txt 2026-08-02: 'Decomposes a signal/function into its constituent frequencies'
+   [PASS] math: respects the three-sentence constraint in its plan
+          derived from -> gpu-math.txt: '**Constraint:** Exactly three sentences'
+   [PASS] code: emits a syntactically plausible iterative fibonacci
+          derived from -> gpu-code.txt: 'def fibonacci(n):' ... 'return b'
+   [PASS] code: is ITERATIVE as asked, not recursive
+          derived from -> gpu-code.txt: 'for _ in range(2, n + 1)' with no self-call
+   [PASS] reason: carries both given quantities
+          derived from -> gpu-reason.txt: 'Total Distance = 120 km' / 'Total Time = 1.5 hours'
+   [PASS] reason: sets up distance-over-time rather than some other relation
+          derived from -> gpu-reason.txt: 'Average Speed} = \\frac{Total Distance}{Total Time}'
+   [PASS] struct: defines primality correctly
+          derived from -> gpu-struct.txt: exact sentence present in the known-good
+   [PASS] struct: begins the list at 2
+          derived from -> gpu-struct.txt: '- 2' is the last content before the 96-token cut
+
+== CPU arm ==
+   [PASS] math: names the transform and its frequency-domain purpose
+          derived from -> gpu-math.txt 2026-08-02: 'Decomposes a signal/function into its constituent frequencies'
+   [PASS] math: respects the three-sentence constraint in its plan
+          derived from -> gpu-math.txt: '**Constraint:** Exactly three sentences'
+   [PASS] code: emits a syntactically plausible iterative fibonacci
+          derived from -> gpu-code.txt: 'def fibonacci(n):' ... 'return b'
+   [PASS] code: is ITERATIVE as asked, not recursive
+          derived from -> gpu-code.txt: 'for _ in range(2, n + 1)' with no self-call
+   [PASS] reason: carries both given quantities
+          derived from -> gpu-reason.txt: 'Total Distance = 120 km' / 'Total Time = 1.5 hours'
+   [PASS] reason: sets up distance-over-time rather than some other relation
+          derived from -> gpu-reason.txt: 'Average Speed} = \\frac{Total Distance}{Total Time}'
+   [PASS] struct: defines primality correctly
+          derived from -> gpu-struct.txt: exact sentence present in the known-good
+   [PASS] struct: begins the list at 2
+          derived from -> gpu-struct.txt: '- 2' is the last content before the 96-token cut
+
+EXTRACTION CANARIES: 16 passed, 0 failed
+VERDICT: **PASS**
+(exit 0)

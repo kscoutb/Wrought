@@ -1,0 +1,73 @@
+#!/usr/bin/env python3
+"""GATE-ST-1 — the canary suite, §11.1 SPEC-R11.1.
+
+EXTRACTION canaries are PRIMARY: each asserts that specific semantic content is
+present, never that bytes match. That is what makes them ordinal-robust and so the
+only layer that is sound on a resident server.
+
+The assertions below are DERIVED FROM the 2026-08-02 known-good outputs, not invented.
+Deriving matters: the outputs are truncated at n_predict=96, so the obvious guesses are
+WRONG — 'struct' never reaches the primes list (it is still inside <think> at token 96)
+and 'reason' never reaches '80 km/h'. An assertion written from expectation rather than
+from the recorded known-good would fail on a perfectly healthy model. Each canary
+therefore cites the known-good substring it was read off.
+"""
+import sys, pathlib, re
+
+OUT = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else "/var/lib/wrought/st1-correctness")
+REF = pathlib.Path("/var/lib/wrought/correctness")   # the 2026-08-02 texts
+
+# (prompt, description, predicate, the known-good evidence it was derived from)
+CANARIES = [
+    ("math", "names the transform and its frequency-domain purpose",
+     lambda t: "Fourier" in t and re.search(r"frequenc", t, re.I) is not None,
+     "gpu-math.txt 2026-08-02: 'Decomposes a signal/function into its constituent frequencies'"),
+    ("math", "respects the three-sentence constraint in its plan",
+     lambda t: "three sentences" in t.lower(),
+     "gpu-math.txt: '**Constraint:** Exactly three sentences'"),
+    ("code", "emits a syntactically plausible iterative fibonacci",
+     lambda t: "def fibonacci(n)" in t and "return" in t,
+     "gpu-code.txt: 'def fibonacci(n):' ... 'return b'"),
+    ("code", "is ITERATIVE as asked, not recursive",
+     lambda t: ("for " in t or "while " in t) and "fibonacci(n-1)" not in t.replace(" ", ""),
+     "gpu-code.txt: 'for _ in range(2, n + 1)' with no self-call"),
+    ("reason", "carries both given quantities",
+     lambda t: "120" in t and "1.5" in t,
+     "gpu-reason.txt: 'Total Distance = 120 km' / 'Total Time = 1.5 hours'"),
+    ("reason", "sets up distance-over-time rather than some other relation",
+     lambda t: re.search(r"average\s+speed", t, re.I) is not None
+               and re.search(r"distance", t, re.I) is not None,
+     "gpu-reason.txt: 'Average Speed} = \\\\frac{Total Distance}{Total Time}'"),
+    ("struct", "defines primality correctly",
+     lambda t: re.search(r"prime number is a natural number greater than 1", t) is not None,
+     "gpu-struct.txt: exact sentence present in the known-good"),
+    ("struct", "begins the list at 2",
+     lambda t: re.search(r"-\s*2\b", t) is not None,
+     "gpu-struct.txt: '- 2' is the last content before the 96-token cut"),
+]
+
+def run(arm):
+    print(f"\n== {arm.upper()} arm ==")
+    npass = nfail = 0
+    for name, desc, pred, derivation in CANARIES:
+        f = OUT / f"{arm}-{name}.txt"
+        if not f.exists():
+            print(f"   [SKIP] {name}: {desc}  (no {f})"); continue
+        t = f.read_text()
+        ok = pred(t)
+        print(f"   [{'PASS' if ok else 'FAIL'}] {name}: {desc}")
+        print(f"          derived from -> {derivation}")
+        if ok: npass += 1
+        else:
+            nfail += 1
+            print(f"          *** got: {t[:200]!r}")
+    return npass, nfail
+
+print("GATE-ST-1 canary suite — extraction-based (PRIMARY layer, SPEC-R11.1)")
+print(f"outputs: {OUT}")
+tp = tf = 0
+for arm in ("gpu", "cpu"):
+    p, f = run(arm); tp += p; tf += f
+print(f"\nEXTRACTION CANARIES: {tp} passed, {tf} failed")
+print("VERDICT: **" + ("PASS" if tf == 0 else "FAIL") + "**")
+sys.exit(1 if tf else 0)

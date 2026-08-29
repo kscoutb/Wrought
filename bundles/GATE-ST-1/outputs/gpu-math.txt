@@ -1,0 +1,14 @@
+
+
+<think>
+Here's a thinking process:
+
+1.  **Analyze User Input:**
+   - **Topic:** Fourier transform
+   - **Constraint:** Exactly three sentences
+   - **Goal:** Explain the concept clearly within the constraint
+
+2.  **Identify Key Concepts of Fourier Transform:**
+   - Decomposes a signal/function into its constituent frequencies
+   - Transforms from time/space domain to frequency domain
+   - Mathematical tool with wide applications (

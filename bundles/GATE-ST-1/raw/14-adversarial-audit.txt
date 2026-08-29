@@ -1,0 +1,81 @@
+# GATE-ST-1 raw/14 — adversarial audit: the claims this gate CANNOT support
+# UTC: 2026-08-29T17:40:43Z
+# Rails §6: the audit's job is to find the claim the report cannot support and say
+# so IN the report, rather than leaving it for the reviewer.
+
+== A-1. Is the batch shape ACTUALLY the pinned one? The harness passes -b 2048 but
+==      NOT -ub 512; it relies on the default. SPEC-R11.1 makes exact-match canaries
+==      valid ONLY at '-b 2048 -ub 512 -np 1'. If the default were not 512, the
+==      exact-match layer would be invalid. Checked, not assumed:
+$ grep -oiE "ubatch|n_batch" server-gpu.log   -> NO MATCH: this build's server log
+  does not print the batch shape at verbosity 3, so the log cannot answer it.
+  Resolved from the binary's OWN default instead, which is the authority for an
+  unpassed flag:
+
+$ /opt/wrought/bin/llama-server --help | grep -A1 -- '--ubatch-size'
+-ub,   --ubatch-size N                  physical maximum batch size (default: 512)
+                                        (env: LLAMA_ARG_UBATCH)
+
+  So the effective shape IS -b 2048 -ub 512 -np 1 = THE PINNED SHAPE, and the
+  exact-match layer is valid. Note also that this cuts the same way for both runs:
+  the 2026-08-02 baseline came from the SAME harness with the SAME unpassed flag and
+  the SAME binary (sha256 verified identical, raw/03), so even had the default been
+  something else, both sides of the drift diff would still share it. The finding is
+  therefore: the shape is correct AND the comparison was never at risk from it. The
+  latent hazard worth recording is that the harness DEPENDS ON A DEFAULT it does not
+  pin -- a future llama.cpp bump that changes the -ub default would silently move the
+  shape out from under the canaries. Passing -ub 512 explicitly would close that, and
+  is left as a recommendation rather than an edit (the harness is Aug-2 evidence).
+
+== A-2. TRIGGER-PROMPT COVERAGE — a real gap, pre-existing, surfaced not absorbed.
+==      SPEC-R11.1 names three trigger families: a technical/math prompt, a code
+==      prompt, AND A LONG-CONTEXT PROMPT. The ST-1 prompt repeats that wording.
+==      The 2026-08-02 harness implements math/code/reason/struct — reason and
+==      struct are both short. THERE IS NO LONG-CONTEXT TRIGGER PROMPT in the set.
+==      So the long-context family is UNTESTED by this gate, as it was by GATE-16.
+==      Long context is exercised elsewhere (GATE-18, and the 32K/64K ordered-recall
+==      probe named in the §11.1 PRIMARY row) but NOT here, and this gate must not
+==      be read as having cleared it.
+
+== A-3. GENERATION WINDOW. n_predict = 96 tokens. Corruption that begins after
+==      token 96 is outside what any of these diffs can see. The 2026-08-02 baseline
+==      used the same 96, so the COMPARISON is sound apples-to-apples; it is the
+==      ABSOLUTE claim ('the model is correct') that is bounded, not the drift claim.
+
+== A-4. THE PRIMARY CANARY LAYER WAS NOT RUN WHERE §11.1 PUTS IT. §11.1 binds
+==      extraction canaries to the RESIDENT server. They were run here against
+==      fresh-process outputs instead, because querying the resident instance needs
+==      the TPM2-sealed API key, which rails §5 forbids the box from touching.
+==      The standing gate that covers the resident layer is ST-6 (weekly canary
+==      against the LIVE warm server) and it remains the operator's to run.
+==      What the canaries here DO add is a written, re-runnable suite; what they do
+==      NOT add is much independent signal, since the exact-match layer already
+==      passed 4/4 on the same outputs. Stated plainly rather than counted twice.
+
+== A-5. WHAT 'APPARMOR VALIDATED' MAY AND MAY NOT MEAN. GATE-21 passed 9/9 on this
+==      kernel + AppArmor 5.0.2 (raw/12). That covers the sandbox BUILDING and
+==      staying offline. It does NOT re-classify the GATE-23/25 exit-code taxonomy,
+==      which pins.lock:571 explicitly flagged as not re-done. Same scope limit.
+
+== A-6. The GPU arm required STOPPING a production unit. Downtime and restoration
+==      are in raw/07 with timestamps; NRestarts=0 and the model is resident again.
+==      The box touched a wrought-* unit, which rails otherwise forbid, under an
+==      explicit in-session operator authorization. Recorded, not glossed.
+
+== A-7. ADDENDUM to A-1, found while scanning the bundle for secret-shaped strings.
+==      The pre-push grep flagged raw/02 line 20 on 'api[_-]?key'. Inspected: it is
+==      `--api-key-file /run/credentials/wrought-inference.service/inference-api-key`
+==      — a PATH, not a value. The secret scanner's own docstring makes exactly this
+==      distinction ("The only argv that ever carries anything credential-shaped is a
+==      PATH ... which is public information"). No credential is in the bundle; the
+==      dedicated scanner independently returns 0 occurrences against both the staged
+==      diff and the bundle tree.
+==
+==      The line carries a genuine finding, though. The PRODUCTION unit's command line
+==      reads `--batch-size 2048 --ubatch-size 512`: production pins the ubatch shape
+==      EXPLICITLY. Only the TEST HARNESS relies on the -ub default (A-1). So the two
+==      surfaces disagree about how the pinned shape is asserted, and it is the harness
+==      — the instrument that decides whether the model is corrupt — that is the one
+==      depending on an unpinned default. That sharpens A-1's recommendation from
+==      "would be tidier" to "the harness is the weaker of the two and should match
+==      production": pass -ub 512 explicitly.

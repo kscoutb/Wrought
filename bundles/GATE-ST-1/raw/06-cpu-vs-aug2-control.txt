@@ -1,0 +1,29 @@
+# GATE-ST-1 raw/06 — CONTROL: today's CPU arm vs the 2026-08-02 committed CPU arm
+# UTC: 2026-08-29T16:00:52Z
+#
+# WHAT THIS ISOLATES. The CPU arm runs --device none, so it never touches the GPU,
+# Mesa or the amdgpu driver. Binary, model and shape are bit-identical to 2026-08-02
+# (raw/03) and the four trigger prompts are verbatim. The ONLY thing that changed
+# underneath this arm is the KERNEL (7.0.0-28 -> 7.0.0-30) and AppArmor.
+#
+# So this is a CONTROL, and it is the cleanest one available: if these streams are
+# byte-identical, the harness, the model and the stimulus all reproduce exactly, and
+# any divergence later seen on the GPU arm CANNOT be blamed on drift in the fixture.
+
+$ diff -q build-evidence/gate-16-17/cpu-math.tokens /var/lib/wrought/st1-correctness/cpu-math.tokens
+   math: token IDs IDENTICAL  (96 tokens, sha 91badb59cb1a55dc)
+$ diff -q build-evidence/gate-16-17/cpu-code.tokens /var/lib/wrought/st1-correctness/cpu-code.tokens
+   code: token IDs IDENTICAL  (81 tokens, sha 53f3217ccabc696c)
+$ diff -q build-evidence/gate-16-17/cpu-reason.tokens /var/lib/wrought/st1-correctness/cpu-reason.tokens
+   reason: token IDs IDENTICAL  (96 tokens, sha a468d9c4a6a6aca7)
+$ diff -q build-evidence/gate-16-17/cpu-struct.tokens /var/lib/wrought/st1-correctness/cpu-struct.tokens
+   struct: token IDs IDENTICAL  (96 tokens, sha 62b8f27a5218ca0d)
+
+# GDN corruption signature, checked INDEPENDENTLY of the diff — a pure diff would
+# pass if both arms were corrupted identically (the original harness's own logic).
+   math: no corruption signature
+   code: no corruption signature
+   reason: no corruption signature
+   struct: no corruption signature
+
+CONTROL VERDICT (today CPU vs 2026-08-02 CPU): **PASS**

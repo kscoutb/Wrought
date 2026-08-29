@@ -1,0 +1,74 @@
+# GATE-ST-1 raw/02 — PHASE 1 device identity assertion
+# UTC: 2026-08-29T15:52:38Z
+# Every value below carries the exact command that produced it (CLAUDE.md / J-95).
+
+== 1. dGPU is the RX 7900 XTX by device id 0x744c ==
+$ lspci -nn | grep -i vga
+c7:00.0 VGA compatible controller [0300]: Advanced Micro Devices, Inc. [AMD/ATI] Navi 31 [Radeon RX 7900 XT/7900 XTX/7900 GRE/7900M] [1002:744c] (rev c8)
+
+== 2. served device is the real NAVI31; NO llvmpipe anywhere in the enumeration ==
+$ /opt/wrought/bin/llama-server --list-devices
+Available devices:
+  Vulkan0: AMD Radeon RX 7900 XTX (RADV NAVI31) (24560 MiB, 5842 MiB free)
+  Vulkan1: AMD Radeon 890M Graphics (RADV STRIX1) (49009 MiB, 48846 MiB free)
+
+$ /opt/wrought/bin/llama-server --list-devices 2>&1 | grep -ci llvmpipe   # expect 0
+0
+
+== 3. the RUNNING served instance: which device token did serve-model resolve? ==
+$ pgrep -af "[l]lama-server"
+7270 /opt/wrought/bin/llama-server --model /var/lib/wrought/models/Qwen3.6-27B-UD-Q4_K_XL.gguf --alias primary-qwen27b --n-gpu-layers 99 --ctx-size 65536 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --batch-size 2048 --ubatch-size 512 --no-mmproj --reasoning on --reasoning-budget 24000 --device Vulkan0 --host 127.0.0.1 --port 8080 --parallel 1 --metrics --api-key-file /run/credentials/wrought-inference.service/inference-api-key
+101268 /bin/bash -c source /home/kalib/.claude/shell-snapshots/snapshot-bash-1788009658750-3xlyyf.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval '{   echo "# GATE-ST-1 raw/02 — PHASE 1 device identity assertion"   echo "# UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"   echo "# Every value below carries the exact command that produced it (CLAUDE.md / J-95)."   echo   echo "== 1. dGPU is the RX 7900 XTX by device id 0x744c =="   echo '"'"'$ lspci -nn | grep -i vga'"'"'   lspci -nn | grep -i vga   echo   echo "== 2. served device is the real NAVI31; NO llvmpipe anywhere in the enumeration =="   echo '"'"'$ /opt/wrought/bin/llama-server --list-devices'"'"'   /opt/wrought/bin/llama-server --list-devices 2>&1   echo   echo '"'"'$ /opt/wrought/bin/llama-server --list-devices 2>&1 | grep -ci llvmpipe   # expect 0'"'"'   /opt/wrought/bin/llama-server --list-devices 2>&1 | grep -ci llvmpipe   echo   echo "== 3. the RUNNING served instance: which device token did serve-model resolve? =="   echo '"'"'$ pgrep -af "[l]lama-server"'"'"'   pgrep -af '"'"'[l]lama-server'"'"'   echo   echo "# NOTE: --device Vulkan0 is the RESOLVED token, not a hard-coded index."   echo "# /etc/wrought/serving.env pins the stable DESCRIPTION and serve-model re-resolves"   echo "# description -> token at every start (CR-3, SPEC-R3.1, F-17). The enumeration above"   echo "# shows Vulkan0 == '"'"'AMD Radeon RX 7900 XTX (RADV NAVI31)'"'"', so the resolution is correct"   echo "# at this boot. This is NOT the bare-index selection CLAUDE.md forbids."   echo '"'"'$ grep WROUGHT_DGPU_DESC /etc/wrought/serving.env'"'"'   grep WROUGHT_DGPU_DESC /etc/wrought/serving.env   echo   echo "== 4. amdgpu.runpm=0 on the LIVE cmdline =="   echo '"'"'$ cat /proc/cmdline'"'"'   cat /proc/cmdline   echo   echo '"'"'$ grep -c "amdgpu.runpm=0" /proc/cmdline   # expect 1'"'"'   grep -c '"'"'amdgpu.runpm=0'"'"' /proc/cmdline   echo   echo "== 5. VRAM used ~= the resident 27B =="   echo '"'"'$ for c in /sys/class/drm/card*/device; do echo "--- $c"; cat $c/mem_info_vram_total; cat $c/mem_info_vram_used; done
+# (connector pseudo-dirs have no mem_info_* and print empty; card0 = the XTX, card1 = the 890M iGPU)'"'"'   for c in /sys/class/drm/card*/device; do     echo "--- $c"     echo -n "  total: "; cat "$c/mem_info_vram_total" 2>/dev/null     echo -n "  used:  "; cat "$c/mem_info_vram_used" 2>/dev/null   done   echo   echo "== 6. kernel + Mesa + AppArmor versions (the drift under test) =="   echo '"'"'$ uname -r'"'"'; uname -r   echo '"'"'$ dpkg-query -W -f=${Version} libgl1-mesa-dri'"'"'; dpkg-query -W -f='"'"'${Version}\n'"'"' libgl1-mesa-dri   echo '"'"'$ dpkg-query -W -f=${Version} apparmor'"'"'; dpkg-query -W -f='"'"'${Version}\n'"'"' apparmor   echo '"'"'$ uptime -p'"'"'; uptime -p } | tee build-evidence/st-1/raw/02-phase1-device-assert.txt | tail -32' < /dev/null && pwd -P >| /tmp/claude-6696-cwd
+101270 /bin/bash -c source /home/kalib/.claude/shell-snapshots/snapshot-bash-1788009658750-3xlyyf.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval '{   echo "# GATE-ST-1 raw/02 — PHASE 1 device identity assertion"   echo "# UTC: $(date -u +%Y-%m-%dT%H:%M:%SZ)"   echo "# Every value below carries the exact command that produced it (CLAUDE.md / J-95)."   echo   echo "== 1. dGPU is the RX 7900 XTX by device id 0x744c =="   echo '"'"'$ lspci -nn | grep -i vga'"'"'   lspci -nn | grep -i vga   echo   echo "== 2. served device is the real NAVI31; NO llvmpipe anywhere in the enumeration =="   echo '"'"'$ /opt/wrought/bin/llama-server --list-devices'"'"'   /opt/wrought/bin/llama-server --list-devices 2>&1   echo   echo '"'"'$ /opt/wrought/bin/llama-server --list-devices 2>&1 | grep -ci llvmpipe   # expect 0'"'"'   /opt/wrought/bin/llama-server --list-devices 2>&1 | grep -ci llvmpipe   echo   echo "== 3. the RUNNING served instance: which device token did serve-model resolve? =="   echo '"'"'$ pgrep -af "[l]lama-server"'"'"'   pgrep -af '"'"'[l]lama-server'"'"'   echo   echo "# NOTE: --device Vulkan0 is the RESOLVED token, not a hard-coded index."   echo "# /etc/wrought/serving.env pins the stable DESCRIPTION and serve-model re-resolves"   echo "# description -> token at every start (CR-3, SPEC-R3.1, F-17). The enumeration above"   echo "# shows Vulkan0 == '"'"'AMD Radeon RX 7900 XTX (RADV NAVI31)'"'"', so the resolution is correct"   echo "# at this boot. This is NOT the bare-index selection CLAUDE.md forbids."   echo '"'"'$ grep WROUGHT_DGPU_DESC /etc/wrought/serving.env'"'"'   grep WROUGHT_DGPU_DESC /etc/wrought/serving.env   echo   echo "== 4. amdgpu.runpm=0 on the LIVE cmdline =="   echo '"'"'$ cat /proc/cmdline'"'"'   cat /proc/cmdline   echo   echo '"'"'$ grep -c "amdgpu.runpm=0" /proc/cmdline   # expect 1'"'"'   grep -c '"'"'amdgpu.runpm=0'"'"' /proc/cmdline   echo   echo "== 5. VRAM used ~= the resident 27B =="   echo '"'"'$ for c in /sys/class/drm/card*/device; do echo "--- $c"; cat $c/mem_info_vram_total; cat $c/mem_info_vram_used; done
+# (connector pseudo-dirs have no mem_info_* and print empty; card0 = the XTX, card1 = the 890M iGPU)'"'"'   for c in /sys/class/drm/card*/device; do     echo "--- $c"     echo -n "  total: "; cat "$c/mem_info_vram_total" 2>/dev/null     echo -n "  used:  "; cat "$c/mem_info_vram_used" 2>/dev/null   done   echo   echo "== 6. kernel + Mesa + AppArmor versions (the drift under test) =="   echo '"'"'$ uname -r'"'"'; uname -r   echo '"'"'$ dpkg-query -W -f=${Version} libgl1-mesa-dri'"'"'; dpkg-query -W -f='"'"'${Version}\n'"'"' libgl1-mesa-dri   echo '"'"'$ dpkg-query -W -f=${Version} apparmor'"'"'; dpkg-query -W -f='"'"'${Version}\n'"'"' apparmor   echo '"'"'$ uptime -p'"'"'; uptime -p } | tee build-evidence/st-1/raw/02-phase1-device-assert.txt | tail -32' < /dev/null && pwd -P >| /tmp/claude-6696-cwd
+
+# NOTE: --device Vulkan0 is the RESOLVED token, not a hard-coded index.
+# /etc/wrought/serving.env pins the stable DESCRIPTION and serve-model re-resolves
+# description -> token at every start (CR-3, SPEC-R3.1, F-17). The enumeration above
+# shows Vulkan0 == 'AMD Radeon RX 7900 XTX (RADV NAVI31)', so the resolution is correct
+# at this boot. This is NOT the bare-index selection CLAUDE.md forbids.
+$ grep WROUGHT_DGPU_DESC /etc/wrought/serving.env
+WROUGHT_DGPU_DESC="AMD Radeon RX 7900 XTX (RADV NAVI31)"
+
+== 4. amdgpu.runpm=0 on the LIVE cmdline ==
+$ cat /proc/cmdline
+BOOT_IMAGE=/boot/vmlinuz-7.0.0-30-generic root=UUID=d05b8e41-3ced-4c77-83e0-b1fbf56589c6 ro amdgpu.runpm=0 quiet splash crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M
+
+$ grep -c "amdgpu.runpm=0" /proc/cmdline   # expect 1
+1
+
+== 5. VRAM used ~= the resident 27B ==
+$ for c in /sys/class/drm/card*/device; do echo "--- $c"; cat $c/mem_info_vram_total; cat $c/mem_info_vram_used; done
+# (connector pseudo-dirs have no mem_info_* and print empty; card0 = the XTX, card1 = the 890M iGPU)
+--- /sys/class/drm/card0/device
+  total: 25753026560
+  used:  19626766336
+--- /sys/class/drm/card0-DP-1/device
+  total:   used:  --- /sys/class/drm/card0-DP-2/device
+  total:   used:  --- /sys/class/drm/card0-HDMI-A-1/device
+  total:   used:  --- /sys/class/drm/card0-HDMI-A-2/device
+  total:   used:  --- /sys/class/drm/card0-Writeback-1/device
+  total:   used:  --- /sys/class/drm/card1/device
+  total: 4294967296
+  used:  154058752
+--- /sys/class/drm/card1-DP-10/device
+  total:   used:  --- /sys/class/drm/card1-DP-3/device
+  total:   used:  --- /sys/class/drm/card1-DP-4/device
+  total:   used:  --- /sys/class/drm/card1-DP-5/device
+  total:   used:  --- /sys/class/drm/card1-DP-6/device
+  total:   used:  --- /sys/class/drm/card1-DP-7/device
+  total:   used:  --- /sys/class/drm/card1-DP-8/device
+  total:   used:  --- /sys/class/drm/card1-DP-9/device
+  total:   used:  --- /sys/class/drm/card1-HDMI-A-3/device
+  total:   used:  --- /sys/class/drm/card1-Writeback-2/device
+  total:   used:  
+== 6. kernel + Mesa + AppArmor versions (the drift under test) ==
+$ uname -r
+7.0.0-30-generic
+$ dpkg-query -W -f=${Version} libgl1-mesa-dri
+26.0.3-1ubuntu1
+$ dpkg-query -W -f=${Version} apparmor
+5.0.2-0ubuntu1~26.04.1
+$ uptime -p
+up 1 day, 3 hours, 2 minutes

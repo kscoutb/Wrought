@@ -1,0 +1,233 @@
+# GATE-ST-1 raw/04 — harness provenance: the trimmed ST-1 copy vs the 2026-08-02 original
+# UTC: 2026-08-29T15:55:16Z
+# The original is UNMODIFIED (rails §4: evidence is never overwritten). Proof:
+$ sha256sum build-evidence/gate-16-17/gate16-17-19-correctness build-evidence/st-1/st1-correctness
+e3fa6daf8f00cc7eaf7a9006279747bfd74e67ae2a9fda1e8bfcaf2e85e8626f  build-evidence/gate-16-17/gate16-17-19-correctness
+8e6ec7eb5a1f7d1056d3e02e6c53642b75edc2b895358c3ddbf4275717c8d6cc  build-evidence/st-1/st1-correctness
+
+$ diff -u build-evidence/gate-16-17/gate16-17-19-correctness build-evidence/st-1/st1-correctness
+--- build-evidence/gate-16-17/gate16-17-19-correctness	2026-08-02 17:11:21.218996239 -0400
++++ build-evidence/st-1/st1-correctness	2026-08-29 11:55:16.646570031 -0400
+@@ -1,19 +1,24 @@
+ #!/usr/bin/env bash
+-# GATE-16 / GATE-17 / GATE-19 — correctness gates, driven through the SERVER API.
++# GATE-ST-1 — substrate correctness suite.
+ #
+-# WHY NOT llama-cli: in this pinned build llama-cli renders an interactive TUI (ASCII
+-# banner + a variable-length "Loading model... |/-\" spinner) and `-no-cnv` does not
+-# suppress it. Measured: the first attempt produced a 1.37 GB file of repeating "> "
+-# prompts, and stdin from /dev/null made it worse (1.29 GB of EOF-looping). Even with
+-# `-st`, which does terminate, the banner and a variable-length spinner sit in stdout
+-# and would make any byte-diff fail or pass for reasons unrelated to the model.
++# PROVENANCE: this is a TRIMMED COPY of build-evidence/gate-16-17/gate16-17-19-correctness
++# (the harness GATE-16/17/19 ran on 2026-08-02). The original is NOT modified; the diff
++# between the two is recorded at build-evidence/st-1/raw/04-harness-diff.txt.
+ #
+-# The server API is the correct instrument here, not a workaround:
+-#   - `"return_tokens": true` returns the RAW GENERATED TOKEN IDS (README.md:523), which
+-#     is literally what GATE-19 requires ("COMMITTED GREEDY TOKEN IDs byte-identical").
+-#     Comparing decoded text could mask a divergence that re-encodes to the same string.
+-#   - output is clean JSON with no terminal decoration to strip.
+-#   - `"cache_prompt": false` guarantees a true prefill per request.
++# WHAT WAS TRIMMED AND WHY: ST-1 is defined (docs/07-build-rail.md:464) as
++# "GATE-11 + GATE-16 + canary suite". GATE-17's 20x determinism sweep and GATE-19's MTP
++# promotion are NOT in ST-1's scope, and GATE-19 alone would load two more GPU servers.
++# They are dropped rather than run-and-ignored, so the cost matches the scope.
++#
++# WHAT WAS ADDED: an arm selector (the two arms must run at different times because the
++# GPU arm needs VRAM the resident service holds), and a comparison step that diffs against
++# the 2026-08-02 committed token streams. That diff is the sharpest available measurement
++# of the kernel drift: llama-server, llama-cli and the model GGUF all still hash EXACTLY
++# to their pins (raw/03), and Mesa is unchanged, so binary/model/shape are constant and
++# the substrate is the only variable.
++#
++# The instrument is the server API, not llama-cli — see the original's header for why
++# (llama-cli renders an interactive TUI that produced a 1.37 GB file of banner junk).
+ 
+ set -uo pipefail
+ 
+@@ -21,10 +26,10 @@
+ # shellcheck disable=SC1090
+ . "$CONF"
+ LLAMA=${LLAMA_SERVER:-/opt/wrought/bin/llama-server}
+-OUT=${GATE16_OUT:-/var/lib/wrought/correctness}
+-PORT=${GATE16_PORT:-8083}
+-NPRED=${GATE16_NPRED:-96}
+-REPEATS=${GATE17_REPEATS:-20}
++OUT=${ST1_OUT:-/var/lib/wrought/st1-correctness}
++PORT=${ST1_PORT:-8083}
++NPRED=${ST1_NPRED:-96}
++ARM=${1:?usage: st1-correctness <gpu|cpu>}
+ mkdir -p "$OUT"
+ 
+ MODEL=$WROUGHT_MODEL_PATH
+@@ -32,12 +37,12 @@
+ [ -n "$TOKEN" ] || { echo "FATAL: device token unresolved"; exit 1; }
+ 
+ SRV_PID=""
+-start_server() {   # $@ = extra args (device, ubatch, spec flags…)
++start_server() {
+ 	"$LLAMA" -m "$MODEL" --host 127.0.0.1 --port "$PORT" --parallel 1 \
+ 		-c 8192 -b 2048 -ctk q8_0 -ctv q8_0 -fa on --no-warmup "$@" \
+-		> "$OUT/server.log" 2>&1 &
++		> "$OUT/server-$ARM.log" 2>&1 &
+ 	SRV_PID=$!
+-	for _ in $(seq 1 300); do
++	for _ in $(seq 1 900); do
+ 		c=$(curl -s -o /dev/null -w '%{http_code}' --max-time 3 "http://127.0.0.1:$PORT/health" 2>/dev/null || echo 000)
+ 		[ "$c" = "200" ] && return 0
+ 		kill -0 "$SRV_PID" 2>/dev/null || return 1
+@@ -48,14 +53,14 @@
+ stop_server() { [ -n "$SRV_PID" ] && kill "$SRV_PID" 2>/dev/null; wait "$SRV_PID" 2>/dev/null; SRV_PID=""; sleep 3; }
+ trap stop_server EXIT INT TERM
+ 
+-gen() {  # $1=prompt  $2=outfile-prefix ; writes .tokens (space-separated ids) and .txt
++gen() {
+ 	local prompt=$1 pref=$2
+ 	python3 - "$prompt" > "$OUT/req.json" <<'PY'
+-import json,sys
+-print(json.dumps({"prompt":sys.argv[1],"n_predict":int(__import__("os").environ.get("NPRED","96")),
++import json,sys,os
++print(json.dumps({"prompt":sys.argv[1],"n_predict":int(os.environ.get("NPRED","96")),
+  "temperature":0,"top_k":1,"seed":42,"cache_prompt":False,"return_tokens":True}))
+ PY
+-	curl -s --max-time 900 -X POST "http://127.0.0.1:$PORT/completion" \
++	curl -s --max-time 3600 -X POST "http://127.0.0.1:$PORT/completion" \
+ 		-H 'Content-Type: application/json' --data-binary "@$OUT/req.json" 2>/dev/null \
+ 	| python3 -c "
+ import json,sys
+@@ -68,6 +73,8 @@
+ }
+ export NPRED
+ 
++# The four trigger prompts, VERBATIM from the 2026-08-02 harness. Not re-authored:
++# the whole point is that the stimulus is identical to the known-good run.
+ declare -A PROMPTS=(
+ 	[math]="Explain the Fourier transform in exactly three sentences."
+ 	[code]="Write a Python function that returns the nth Fibonacci number iteratively. Code only."
+@@ -76,108 +83,25 @@
+ )
+ ORDER=(math code reason struct)
+ 
+-######################## GATE-16 ########################
+-echo "================ GATE-16: CPU-vs-GPU temp-0 diff ================"
+-echo "Comparing RAW TOKEN IDS, not decoded text: two different token streams can decode"
+-echo "to the same string, so a text diff could pass while the streams diverged."
++echo "================ GATE-ST-1 :: $ARM arm ================"
++echo "date(UTC): $(date -u +%Y-%m-%dT%H:%M:%SZ)"
++echo "kernel:    $(uname -r)"
++echo "model:     $MODEL"
++echo "shape:     -c 8192 -b 2048 -ub(default 512) -np 1 --temp 0 top_k 1 seed 42 cache_prompt=false"
++echo "n_predict: $NPRED"
++case "$ARM" in
++  gpu) DEVARG=(--device "$TOKEN"); echo "device:    $TOKEN ($WROUGHT_DGPU_DESC)";;
++  cpu) DEVARG=(--device none);     echo "device:    none  (F-31: -ngl 0 may still touch the GPU; --device none is the verified CPU arm)";;
++  *)   echo "FATAL: arm must be gpu or cpu"; exit 1;;
++esac
+ echo
+-echo "-- GPU arm (--device $TOKEN) --"
+-start_server --device "$TOKEN" || { echo "GPU server failed to start"; exit 1; }
+-for p in "${ORDER[@]}"; do gen "${PROMPTS[$p]}" "gpu-$p" >/dev/null; echo "   $p done"; done
+-stop_server
+ 
+-echo "-- CPU arm (--device none; F-31: -ngl 0 may still touch the GPU) --"
+-start_server --device none || { echo "CPU server failed to start"; exit 1; }
+-for p in "${ORDER[@]}"; do gen "${PROMPTS[$p]}" "cpu-$p" >/dev/null; echo "   $p done"; done
+-stop_server
+-echo
+-G16=PASS
++start_server "${DEVARG[@]}" || { echo "FATAL: $ARM server failed to start; see $OUT/server-$ARM.log"; exit 1; }
++echo "-- server up; generating --"
+ for p in "${ORDER[@]}"; do
+-	if diff -q "$OUT/gpu-$p.tokens" "$OUT/cpu-$p.tokens" >/dev/null 2>&1; then
+-		echo "   $p: token IDs IDENTICAL ($(wc -w < "$OUT/gpu-$p.tokens") tokens)"
+-	else
+-		echo "   $p: *** TOKEN STREAMS DIVERGE ***"
+-		echo "     gpu: $(head -c 120 "$OUT/gpu-$p.tokens")"
+-		echo "     cpu: $(head -c 120 "$OUT/cpu-$p.tokens")"
+-		G16=FAIL
+-	fi
+-	# GDN corruption signature, checked independently of the diff: a pure diff would
+-	# pass if BOTH arms were corrupted identically.
+-	if grep -qE '(!"){4,}|([^[:alnum:][:space:]]{12,})' "$OUT/gpu-$p.txt" 2>/dev/null; then
+-		echo "     *** GDN corruption signature in GPU text ***"; G16=FAIL
+-	fi
+-done
+-echo
+-echo "GATE-16: **$G16**"
+-
+-######################## GATE-17 ########################
+-echo
+-echo "================ GATE-17: determinism envelope ================"
+-start_server --device "$TOKEN" || { echo "server failed"; exit 1; }
+-REF=""; G17=PASS
+-for i in $(seq 1 "$REPEATS"); do
+-	gen "${PROMPTS[struct]}" "det-$i" >/dev/null
+-	h=$(sha256sum "$OUT/det-$i.tokens" | cut -d' ' -f1)
+-	[ -z "$REF" ] && REF=$h
+-	[ "$h" = "$REF" ] || { echo "   run $i DIVERGED (${h:0:16} != ${REF:0:16})"; G17=FAIL; }
++	r=$(gen "${PROMPTS[$p]}" "$ARM-$p")
++	echo "   $p done  (predicted_ms prompt_ms = $r)  tokens=$(wc -w < "$OUT/$ARM-$p.tokens")"
+ done
+ stop_server
+-[ "$G17" = PASS ] && echo "   all $REPEATS runs byte-identical at the pinned shape (${REF:0:16})"
+-echo "GATE-17 pinned-shape determinism: **$G17**"
+-echo
+-echo "-- brittleness probe: -ub 512 -> 256 (DOCUMENTED, not a failure) --"
+-start_server --device "$TOKEN" -ub 256 || { echo "server failed"; exit 1; }
+-gen "${PROMPTS[struct]}" "ub256" >/dev/null
+-stop_server
+-if diff -q "$OUT/det-1.tokens" "$OUT/ub256.tokens" >/dev/null 2>&1; then
+-	echo "   ub=256 produced the SAME token stream — stable across this shape change"
+-else
+-	echo "   ub=256 DIFFERS from ub=512 — the expected brittleness, RECORDED not failed."
+-	echo "   This is exactly why §11 pins -b/-ub and why canaries are valid only at the pinned shape."
+-fi
+-
+-######################## GATE-19 ########################
+-echo
+-echo "================ GATE-19: MTP promotion ================"
+-BK=$(strings "$LLAMA" | grep -oE '^ggml_(vulkan|cuda|hip|rocm|sycl)' | sort -u | tr '\n' ' ')
+-HIPLINK=$(ldd "$LLAMA" 2>/dev/null | grep -ciE 'hip|rocm|cuda' || true)
+-echo "-- precondition (issue #23199): backends='${BK}' HIP/ROCm/CUDA linkage=$HIPLINK"
+-[ "$BK" = "ggml_vulkan " ] && [ "$HIPLINK" -eq 0 ] || { echo "   *** dual-backend build — refusing to measure MTP ***"; exit 1; }
+-echo "   Vulkan-only confirmed"
+-echo
+-echo "-- baseline (MTP off) --"
+-start_server --device "$TOKEN" || exit 1
+-BASE_MS=0
+-for p in "${ORDER[@]}"; do r=$(gen "${PROMPTS[$p]}" "base-$p"); BASE_MS=$(echo "$BASE_MS + $(echo $r|cut -d' ' -f1) + $(echo $r|cut -d' ' -f2)"|bc); done
+-stop_server
+-echo "-- candidate (--spec-type draft-mtp --spec-draft-n-max 2) --"
+-start_server --device "$TOKEN" --spec-type draft-mtp --spec-draft-n-max 2 || exit 1
+-MTP_MS=0
+-for p in "${ORDER[@]}"; do r=$(gen "${PROMPTS[$p]}" "mtp-$p"); MTP_MS=$(echo "$MTP_MS + $(echo $r|cut -d' ' -f1) + $(echo $r|cut -d' ' -f2)"|bc); done
+-stop_server
+-echo
+-IDENT=1
+-for p in "${ORDER[@]}"; do
+-	if diff -q "$OUT/base-$p.tokens" "$OUT/mtp-$p.tokens" >/dev/null 2>&1; then
+-		echo "   $p: token IDs identical"
+-	else
+-		echo "   $p: *** DIVERGED — issue #23335, automatic fail ***"; IDENT=0
+-	fi
+-done
+-echo
+-printf '   baseline total ms (predict+prefill): %s\n' "$BASE_MS"
+-printf '   MTP      total ms (predict+prefill): %s\n' "$MTP_MS"
+ echo
+-echo "================ GATE-19 VERDICT ================"
+-if [ "$IDENT" -eq 0 ]; then
+-	echo "CRITERION 1 FAILED — greedy token stream NOT byte-identical under MTP."
+-	echo "Per §5.4 / issue #23335 that is an AUTOMATIC fail regardless of speed."
+-	echo "**MTP NOT PROMOTED — qwen36.args (MTP off) remains the serving default.**"
+-	echo "This is the EXPECTED outcome under G-01's inverted default, not a gate failure."
+-else
+-	echo "CRITERION 1 PASSED — greedy stream byte-identical at draft-n 2."
+-	echo "Criteria 2-4 (net wall-clock win incl. prefill, acceptance >=0.6 through a long"
+-	echo "soak, GATE-16/17 clean under MTP) must ALL still hold before promotion."
+-	echo "**PROMOTION IS AN OPERATOR DECISION — active-profile NOT flipped by this script.**"
+-fi
+-echo "======== END ========"
++echo "-- $ARM arm complete; outputs in $OUT --"
+(diff exit 1; 1 = differs as expected)
