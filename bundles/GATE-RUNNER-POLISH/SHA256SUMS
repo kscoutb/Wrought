@@ -1,4 +1,4 @@
-5dcbdf480924b7ae9095d8e55a36bfc9a07450d1de72d309aeb2119c5384d266  AUDIT.md
+6aa691141b77019fb28f4bb3b9a7339bc6d196470eaf9933c8217f0005c9e2e7  AUDIT.md
 52acf25f4b93772031d89c0c9531ed2b421c5b59056a05f32c302d00c5412905  raw/00-byte-freeze-baseline.txt
 713a9445861a4ecbbe681434ef7f8a6c45142dbdc054de281fb717cf7162ef2a  raw/01-transport-verdict.txt
 b28f77a064df816bdadf201c5ef01f1581ce29eae895d85e985243195148c4c3  raw/02-health.txt
@@ -33,6 +33,7 @@ b840921f23ad97f2e39732b444aa0b87d2d133b2db44ae7a39064fb35c0bb82b  raw/61-wrought
 faee6fe420b5b7a13519cc6138a3e345e00a2b6333e324c29c2ead61be26be9d  raw/62-runner.conf.diff
 f686f4f65eed8c501a83cada566d7c76190620fa1947c6fbad95f4ac9ae79a62  raw/63-EXECUTOR-RAILS.diff
 7c53389a4cdd86838a92380c1d7141b4dc3f624a06e77fc449977fd9ba66555f  raw/64-precommit-scan-first-use.txt
+8278f055db4fd3982c07b3453ad90b55159e7a63a216d5c0eaab13d1d13abac2  raw/65-manifest-check-measured.txt
 b8261e3967e03b9a5b5450715b2c30df12f8b6cf12f7441de49642d90d143b1f  raw/99b-byte-freeze-verdict.txt
 56b2da7eb25e7ba716d6b64cdbb47400f3cafcefa720a5913eca09adf06d6df5  raw/99-byte-freeze-reassert.txt
 260c7e75cd51d78ed3e04cdcdef3e653103447b1e71d6515b67df7982fcc376d  REPORT-RUNNER-POLISH.md

@@ -2,13 +2,13 @@
 
 Rails §6: *"A short adversarial audit runs before any report ships. Its job is to find the claim the
 report cannot support, and to say so in the report rather than leaving it for the reviewer."*
-Run against `REPORT-RUNNER-POLISH.md` and the 35 raw captures, 2026-08-29.
+Run against `REPORT-RUNNER-POLISH.md` and the 37 raw captures, 2026-08-29. (§A's row was written at 35; `raw/64` and `raw/65` were added afterwards by the wind-down itself, so the live count is 37 — re-derived below rather than left stale.)
 
 ## A. Counts, re-derived rather than trusted
 
 | Claim in the report | Command | Result |
 |---|---|---|
-| 35 raw files | `find raw -maxdepth 1 -type f \| wc -l` | **35** ✅ |
+| raw files (report said 35 at the time of writing) | `find raw -type f \| wc -l` | **37** now — `raw/64` (the scan's first production use) and `raw/65` (the manifest measurement in §E) were added during wind-down ✅ |
 | runner 1163 → 1489 lines | `wc -l` on the BEFORE/AFTER copies | **1163 / 1489** ✅ |
 | 9 new functions | `grep -cE '^\+def ' raw/61-…diff` | **9** ✅ |
 | config: 104 leaves, 9 changed | printed by the harness in `raw/41` | **104 / 9** ✅ |
@@ -73,13 +73,26 @@ caught each time only because the probe output sat in the same file. The mitigat
 mid-gate (compute the verdict from the data, as `raw/53b` does) should be the default for any
 harness this project writes, and that is a recommendation to the advisor, not a completed fix.
 
-## E. Minor, recorded for completeness
+## E. A FIFTH reasoned-not-measured claim, caught at the closing bracket
+
+Phase 6 added a correction file into `build-evidence/runner-arm/raw/` and I **reasoned** that an
+unlisted file cannot fail `sha256sum -c` — without running it. That is the defect class this whole
+gate is about, committed in the gate's own wind-down. Measured in `raw/65`: `build-evidence/
+runner-arm/` **carries no manifest at all** (the GATE-RUNNER-ARM manifest lives in the courier
+bundle, a separate copy this gate never wrote to, and it still verifies **37/37**). So the
+conclusion held — **for a reason I had not checked, and the reason I gave was not the true one.**
+
+That makes **four** pre-written or unverified conclusions in one session (`raw/22`, `raw/42`,
+`raw/53`, and this). §D's reading stands and strengthens: this is a habit, and computing conclusions
+from measurements rather than typing them ahead should be the default for every harness here.
+
+## F. Minor, recorded for completeness
 
 - **Numbering gap.** There is no `raw/30-*` file: `raw/30-scratch/` is a directory (the scratch
   config for the reset-provenance proof) and the proof itself is `raw/31`. `raw/31`'s own header
   line reads `raw/30` as a result. Cosmetic; left standing rather than edited (rails §4).
 - **Scratch directories are NOT bundled** — `raw/10-scratch`, `20-scratch`, `30-scratch`,
   `40-scratch` hold git repos, a fake-secret file and derived configs. The bundle carries the 35
-  top-level raw files and the harnesses that produced them, which is what is reviewable as text.
+  top-level raw files (37 of them) and the harnesses that produced them, which is what is reviewable as text.
 - **This gate's own prompt declares bare `Bash`**, the spelling Phase 6 retires. No mechanical
   effect (attended-direct), but the next dispatched prompt must be scoped or the runner refuses it.

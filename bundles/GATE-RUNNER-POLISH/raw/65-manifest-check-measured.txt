@@ -1,0 +1,26 @@
+# GATE-RUNNER-POLISH raw/65 — the manifest question I REASONED about instead of measuring
+# date: 2026-08-29T14:05:10Z
+
+THE ASSUMPTION. Phase 6 added a correction file into `build-evidence/runner-arm/raw/`. At the time
+I reasoned that an unlisted file cannot fail `sha256sum -c`, and moved on WITHOUT RUNNING IT.
+Reasoned-not-measured is the defect class this entire gate is about, and shipping one in the gate's
+own closing is not acceptable. Measured now.
+
+## cmd: find build-evidence/runner-arm courier/bundles/GATE-RUNNER-ARM -name SHA256SUMS
+   /home/kalib/courier/Wrought/bundles/GATE-RUNNER-ARM/SHA256SUMS
+
+   => `build-evidence/runner-arm/` carries NO manifest at all. The premise of my own reasoning was
+   wrong in a way that made the conclusion accidentally right: there was no `sha256sum -c` in that
+   tree to break, because there is no manifest there. The GATE-RUNNER-ARM manifest lives in the
+   COURIER BUNDLE, which is a separate copy and which this gate never wrote to.
+
+## cmd: cd courier/bundles/GATE-RUNNER-ARM && sha256sum -c SHA256SUMS
+   entries: 37
+   OK:      37
+   FAILED:  0
+   the correction file listed there: 0  (0 = it is not in the bundle copy)
+
+=== VERDICT: GATE-RUNNER-ARM's bundle manifest verifies 37/37, unchanged. The correction file was
+=== written into the foundry's `build-evidence/` copy, which carries no manifest, so nothing was
+=== invalidated. The CONCLUSION I asserted earlier holds — but it held for a reason I had not
+=== checked, and the reason I gave was not the true one.
