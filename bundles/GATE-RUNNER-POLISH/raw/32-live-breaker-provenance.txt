@@ -1,0 +1,78 @@
+# GATE-RUNNER-POLISH raw/32 — replacing the FALSE provenance record in LIVE runner state
+# date: 2026-08-29T13:45:24Z
+
+WHY THIS IS DONE AT ALL. Fixing the code stops NEW false records; it does not remove the one
+already sitting in live state. /var/lib/wrought/runner-state/breaker.json still carries
+`"reset_by": "operator via --reset-breaker"` from 2026-08-28, and that sentence is false — the BOX
+ran that reset. Leaving a known-false provenance string in the live file while writing a report
+about false provenance would be the defect one level up again.
+
+WHY IT IS SAFE. The breaker is NOT latched and consecutive_failures is already 0, so the reset
+changes no safety state; it only rewrites the provenance fields. No runner is running (raw/02).
+`--reset-breaker` returns BEFORE the lock is taken and never touches the courier. The old file is
+captured verbatim below FIRST, so nothing is lost — the false record is preserved as evidence,
+which is the opposite of erasing it.
+
+## cmd: cat /var/lib/wrought/runner-state/breaker.json      [BEFORE — the false record, preserved here]
+{
+  "at": "2026-08-28T18:50:24Z",
+  "consecutive_failures": 0,
+  "halted": false,
+  "reason": null,
+  "reset_by": "operator via --reset-breaker"
+}
+
+## cmd: sha256sum /var/lib/wrought/runner-state/breaker.json   [BEFORE]
+63c0cc9dcc11282da01b9788e978fdf89170fddf298f7fb69ea50e46f86cb4ac  /var/lib/wrought/runner-state/breaker.json
+
+## cmd: pgrep -a '[w]rought-runner'    (confirm again that no runner is live before writing)
+(no match — no runner running)
+
+## cmd: /home/kalib/foundry/bin/wrought-runner --reset-breaker      [the real config]
+breaker reset
+
+## cmd: cat /var/lib/wrought/runner-state/breaker.json      [AFTER]
+{
+  "_reset_provenance_note": "reset_interactive is EVIDENCE, not proof, of an operator at a keyboard: it is only 'stdin was a tty'. uid cannot tell the operator from the box on this host \u2014 both are kalib. Nothing here asserts WHO; it records WHAT was observable.",
+  "at": "2026-08-29T13:45:24Z",
+  "consecutive_failures": 0,
+  "halted": false,
+  "reason": null,
+  "reset_euid": 1000,
+  "reset_interactive": false,
+  "reset_method": "--reset-breaker",
+  "reset_pid": 97818,
+  "reset_stdin_tty": null,
+  "reset_uid": 1000,
+  "reset_user": "kalib"
+}
+
+## cmd: /home/kalib/foundry/bin/wrought-runner --status      (breaker + ledger, read-only)
+{
+  "breaker": {
+    "_reset_provenance_note": "reset_interactive is EVIDENCE, not proof, of an operator at a keyboard: it is only 'stdin was a tty'. uid cannot tell the operator from the box on this host \u2014 both are kalib. Nothing here asserts WHO; it records WHAT was observable.",
+    "at": "2026-08-29T13:45:24Z",
+    "consecutive_failures": 0,
+    "halted": false,
+    "reason": null,
+    "reset_euid": 1000,
+    "reset_interactive": false,
+    "reset_method": "--reset-breaker",
+    "reset_pid": 97818,
+    "reset_stdin_tty": null,
+    "reset_uid": 1000,
+    "reset_user": "kalib"
+  },
+  "ledger": {
+    "GATE-J0B-RESUME": {
+      "at": "2026-08-28T22:31:05Z",
+      "run": "20260828T220144Z",
+      "verdict": "PASS"
+    }
+  }
+}
+
+=== VERDICT: the `reset_by` string is gone from live state and from the code. What replaced it is
+=== measured, and it correctly records THIS reset as non-interactive — i.e. the box did it, which
+=== is exactly the fact the old hardcoded string got wrong. `halted` is still false and
+=== `consecutive_failures` is still 0; the ledger's GATE-J0B-RESUME PASS row is untouched.

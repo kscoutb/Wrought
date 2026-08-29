@@ -1,0 +1,77 @@
+# GATE-RUNNER-POLISH raw/12 — Phase 2 scrutiny of the OTHER two probes, and the reap guards
+# date: 2026-08-29T13:34:28Z
+# cmd: python3 - <<'PY'  (this file's own source is embedded in raw/13-commands.txt)
+
+## A. TWO FACTS THE PROOF RUN (raw/11) PRODUCED THAT WERE NOT ITS OBJECTIVE
+
+A1. THE OLD TEST MATCHED THIS SESSION'S OWN TOOL-CALL SHELL. In raw/11 STEP 3 the
+    `pgrep -a -f qemu-system` line lists pid 97446:
+      97446 /bin/bash -c source /home/kalib/.claude/shell-snapshots/snapshot-bash-...sh ...
+    That is the Bash wrapper of the very session running the proof — matched because the
+    harness source it was executing MENTIONS `qemu-system`. It is the hazard in its most
+    literal form: under the old test, a gate that so much as quotes a qemu command line
+    would have had the runner enumerate, SIGTERM and SIGKILL the shell running the gate,
+    and then LATCH a gate-residue breaker. Not theoretical, not reconstructed — printed by
+    the probe itself, unprompted.
+
+A2. THE SIGKILL ESCALATION BRANCH EXECUTED FOR THE FIRST TIME. docs/PHASE-J-STATE records
+    `reaper.terminate_grace_sec` as PROVISIONAL and UNMEASURED because 'every stub died on
+    the first SIGTERM, so the SIGKILL escalation branch is untested'. raw/11 STEP 5:
+      REAPED pid 97460 (...): SIGTERM ignored for 5s, SIGKILLed
+    A real `qemu-system-x86_64 -S -machine none` did NOT die on SIGTERM. The grace loop ran
+    its full 5 s and the escalation fired. So the branch is now EXERCISED, and 5 s was
+    sufficient for this shape. STILL PROVISIONAL as a NUMBER — one observation of one
+    guest shape is not a calibration, and a guest with a disk to flush may need longer.
+
+## B. THE OTHER TWO PROBES — do they share the `pgrep -f` flaw? Answered by reading what
+##    they actually parse, then measuring.
+
+B1. THE DOMAIN PROBE DOES NOT. `virsh list --all --name` returns one DOMAIN NAME per line;
+    the code takes `d.stdout.split()`. There is no pattern and no substring: the set is
+    whatever libvirt itself says exists. Measured now:
+    ## cmd: systemctl is-active --quiet libvirtd.service ; echo $?   -> 0 (ACTIVE, so the probe runs)
+    ## cmd: virsh list --all --name   -> []
+
+B2. THE LISTENER PROBE DOES NOT SUBSTRING-MATCH EITHER — it parses `ss -lntpH`'s own
+    columns. But it HAD a different, real defect, now fixed: it took
+    `re.search(r'pid=(\d+)', line)` — the FIRST owner only. A listening socket can have
+    several owning processes (pre-fork, or SO_REUSEPORT), and the sweep would have killed
+    one and left its siblings holding the port. It now collects ALL of them, and records
+    the owning process NAMES so a reap is enumerated by name, not just by pid.
+    ## cmd: ss -lntpH | (count listeners, and any with >1 owning pid)
+    listeners seen: 14; with more than one owning pid: none right now
+    (None on this box at this moment. The parse is fixed against the shape, not against a
+     sighting — the single-owner case is simply the common one.)
+
+B3. RESIDUAL, STATED NOT FIXED — THE DIFF WINDOW. Both probes are before/after snapshots,
+    so ANY listener or domain that appears between them is attributed to the gate, even if
+    an unrelated system service created it. That is inherent to a diff and is NOT a
+    substring bug; it is bounded by `_reap_refusals()` below and by the fact that an
+    unprivileged runner cannot signal a root-owned service. It remains a way for an
+    innocent listener to be reaped and to latch a breaker. Recorded as a known limit.
+
+## C. THE REAP GUARDS — new, and unit-proven here because raw/11's happy path never hits them.
+##    A sweep that can signal its own supervisor turns one false positive into a lost batch
+##    with no evidence and no STATUS push.
+
+    ## cmd: wr._reap_refusals('1')  [pid 1 (init)]
+       -> REFUSED — pid <= 1 (init); the sweep never signals it
+    ## cmd: wr._reap_refusals('97475')  [the runner process itself]
+       -> REFUSED — this IS the runner process
+    ## cmd: wr._reap_refusals('97475')  [a pid in the runner's own process group]
+       -> REFUSED — this IS the runner process
+    ## cmd: wr._reap_refusals('not-a-pid')  [a nonsense pid]
+       -> REFUSED — unparseable pid 'not-a-pid'
+    ## cmd: wr._reap_refusals('609')  [an ordinary unrelated pid (systemd-journald)]
+       -> would be signalled (no refusal)
+
+    Note the last row: an ordinary unrelated pid is NOT refused. That is deliberate — the
+    guard is a floor against self-harm, not a substitute for matching the right process in
+    the first place. The matching is what Phase 2 fixed.
+
+=== PHASE 2 SUMMARY ===
+  * survivor test: `pgrep -a -f <substring>` -> /proc/<pid>/exe basename prefix (comm fallback)
+  * zombies excluded (found by this gate's own proof; a corpse is not a survivor)
+  * listener probe: all owning pids, not the first; owning process names recorded
+  * reap: refuses to signal pid<=1, itself, its own process group or session
+  * domain probe: unchanged — it never had the flaw (structured libvirt output)

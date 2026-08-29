@@ -1,0 +1,14 @@
+# GATE-RUNNER-POLISH raw/03 — who else is on the box (peer-session hygiene, PHASE-J-STATE advisor note)
+# date: 2026-08-29T13:29:26Z
+
+## cmd: ps -o pid,ppid,lstart,etime,cmd -p $(pgrep -d, '[c]laude')
+    PID    PPID                  STARTED     ELAPSED CMD
+  87699    9527 Fri Aug 28 17:16:55 2026    16:12:31 claude --dangerously-skip-permissions
+  96907   96738 Sat Aug 29 09:20:50 2026       08:36 claude --dangerously-skip-permissions
+
+## cmd: this session's own PID chain — $$ then its ancestors
+$$ = 97351
+  97351 bash
+  96907 claude
+  96738 bash
+   9526 tmux: server

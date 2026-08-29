@@ -1,0 +1,50 @@
+# GATE-RUNNER-POLISH raw/53 — the batch-cost cap RE-PROVED after the ordering fix
+# date: 2026-08-29T13:52:49Z
+
+WHY THIS RE-RUN EXISTS. raw/52 proved the cap fires — and its own `ran.json` dump showed the
+defect the cap introduced: `GATE-SCRATCH-COST-A` had run, cost $0.0801 and tripped the cap, and it
+was ABSENT from the ledger, because the cost check sat before write_ledger(). The next morning's
+start would have picked that gate up again and met it as a `stale-row` halt (its QUEUE row was
+already RUNNING). A gate the batch paid for must be in the ledger before anything stops the batch.
+
+FIXED by moving the cost check AFTER write_ledger() and after the consecutive-failures breaker —
+the latching fault is evaluated first, because it wants an operator, while the cap only says "that
+is enough for today". raw/52 stands as the record of the defect; this is the re-proof.
+
+## cmd: python3 -c '<reset the scratch queue to TWO fresh APPROVED gates; clear scratch ledger>'
+   scratch ledger cleared; TWO fresh gates APPROVED
+
+## cmd: timeout 600 python3 bin/wrought-runner --config <scratch, cap 0.05>
+   [2026-08-29T13:52:49Z] GATE-SCRATCH-COST-C: private HOME /var/lib/wrought/runner-state/ephemeral-homes/GATE-SCRATCH-COST-C-1788011569 (seeded ['.claude/.credentials.json', '.gitconfig', '.git-credentials']), private runtime dir /var/lib/wrought/runner-state/ephemeral-homes/GATE-SCRATCH-COST-C-1788011569/xdg-runtime
+   [2026-08-29T13:52:50Z] GATE-SCRATCH-COST-C: launching. tools='Bash(echo:*)' add_dirs=['/var/lib/wrought/runner-polish/raw/40-scratch/courier'] budget=$0.4 mode=dontAsk MemoryMax=8G RuntimeMaxSec=5400
+   [2026-08-29T13:52:53Z] GATE-SCRATCH-COST-C: FAIL — child=COMPLETED (terminal_reason='completed'); postconditions: ["QUEUE row for GATE-SCRATCH-COST-C is 'RUNNING', not BUNDLED", '/var/lib/wrought/runner-polish/raw/40-scratch/courier/bundles/GATE-SCRATCH-COST-C does not exist']
+   [2026-08-29T13:52:53Z] GATE-SCRATCH-COST-C: orphan sweep CLEAN — no new guest, domain or listener survived
+   [2026-08-29T13:52:53Z] HALT [consecutive-failures]: 2 consecutive non-PASS gates (cap 2)
+   
+   wrought-runner: 1 gate(s); STOPPED [consecutive-failures] 2 consecutive non-PASS gates (cap 2)  — BREAKER LATCHED, operator must --reset-breaker
+   evidence: /var/lib/wrought/runner-polish/raw/40-scratch/state/runs/20260829T135249Z
+   [runner exit: 2]
+
+## cmd: cat <scratch>/state/ran.json    (THE POINT OF THIS RE-RUN: the paid gate must be recorded)
+   {
+     "GATE-SCRATCH-COST-C": {
+       "at": "2026-08-29T13:52:53Z",
+       "run": "20260829T135249Z",
+       "verdict": "FAIL"
+     }
+   }
+
+## cmd: grep GATE-SCRATCH-COST-D <scratch>/courier/QUEUE.md   (the second gate must still be APPROVED, never started)
+   | `GATE-SCRATCH-COST-D` | `APPROVED` | batch-cost re-proof, second — MUST NEVER RUN |
+
+## cmd: ls <scratch>/state/runs/<this run>/    (a directory exists only for a gate that was set up)
+   GATE-SCRATCH-COST-C
+   run.jsonl
+
+## cmd: cat <scratch>/state/breaker.json    (batch-cost is NON-LATCHING)
+   halted=True
+   consecutive_failures=2
+
+=== VERDICT: the paid gate is now IN THE LEDGER before the cap stops the run; the second APPROVED
+=== gate was never started and its row is untouched; the breaker did not latch. Exit 4 = "batch
+=== bounded by its own cap", which is the normal, non-alarming exit.

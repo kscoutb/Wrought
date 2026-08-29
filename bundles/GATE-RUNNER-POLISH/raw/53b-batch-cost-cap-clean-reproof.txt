@@ -1,0 +1,55 @@
+# GATE-RUNNER-POLISH raw/53b — CORRECTION BY ADDITION to raw/53, and the clean re-proof
+# date: 2026-08-29T13:53:31Z
+
+RAW/53'S CLOSING VERDICT IS WRONG, AND ITS OWN OUTPUT SAYS SO. It asserts "the breaker did not
+latch. Exit 4". The run above it printed `HALT [consecutive-failures]` and `[runner exit: 2]`.
+Cause: the harness cleared the scratch LEDGER but not the scratch BREAKER, which still carried
+consecutive_failures=1 from raw/52 — so the second failure hit the cap of 2 and the run halted on
+the LATCHING fault BEFORE reaching the cost check. raw/53 stands; this is the clean run.
+
+WHAT RAW/53 DID NEVERTHELESS PROVE, and it is the thing it existed to prove: `ran.json` contains
+GATE-SCRATCH-COST-C. The paid gate IS in the ledger before anything stopped the batch. That is the
+ordering fix, and it held.
+
+WHAT IT DID NOT PROVE: that the batch-cost cap still fires from its new position. Below.
+
+NOTE ON METHOD, because this is the third pre-written verdict this gate has had to correct
+(raw/22, raw/42, raw/53): the VERDICT line below is COMPUTED FROM THE MEASURED VALUES by the
+harness, not typed ahead of the run. A conclusion written before its measurement is a claim, and
+this gate is about claims that no measurement stands behind.
+
+## cmd: python3 -c '<reset scratch BREAKER and LEDGER; two fresh APPROVED gates>'
+   breaker reset: halted=False consecutive_failures=0
+   ledger cleared; TWO fresh gates APPROVED; consecutive_failures starts at 0 so one
+   failing gate (cap 2) cannot preempt the cost check this time
+
+## cmd: timeout 600 python3 bin/wrought-runner --config <scratch, cap 0.05>
+   [2026-08-29T13:53:32Z] GATE-SCRATCH-COST-E: private HOME /var/lib/wrought/runner-state/ephemeral-homes/GATE-SCRATCH-COST-E-1788011612 (seeded ['.claude/.credentials.json', '.gitconfig', '.git-credentials']), private runtime dir /var/lib/wrought/runner-state/ephemeral-homes/GATE-SCRATCH-COST-E-1788011612/xdg-runtime
+   [2026-08-29T13:53:32Z] GATE-SCRATCH-COST-E: launching. tools='Bash(echo:*)' add_dirs=['/var/lib/wrought/runner-polish/raw/40-scratch/courier'] budget=$0.4 mode=dontAsk MemoryMax=8G RuntimeMaxSec=5400
+   [2026-08-29T13:53:36Z] GATE-SCRATCH-COST-E: FAIL — child=COMPLETED (terminal_reason='completed'); postconditions: ["QUEUE row for GATE-SCRATCH-COST-E is 'RUNNING', not BUNDLED", '/var/lib/wrought/runner-polish/raw/40-scratch/courier/bundles/GATE-SCRATCH-COST-E does not exist']
+   [2026-08-29T13:53:36Z] GATE-SCRATCH-COST-E: orphan sweep CLEAN — no new guest, domain or listener survived
+   [2026-08-29T13:53:36Z] GATE-SCRATCH-COST-E: cost 0.08084450000000001; batch total $0.0808 of $0.05 cap
+   [2026-08-29T13:53:36Z] HALT [batch-cost]: per-run cost cap reached: $0.0808 of $0.05 after 1 gate(s); waiting for the next daily ferry
+   
+   wrought-runner: 1 gate(s); STOPPED [batch-cost] per-run cost cap reached: $0.0808 of $0.05 after 1 gate(s); waiting for the next daily ferry
+   evidence: /var/lib/wrought/runner-polish/raw/40-scratch/state/runs/20260829T135331Z
+   [runner exit: 4]
+
+## cmd: python3 -c '<compute the verdict from ran.json, QUEUE.md, breaker.json and run.jsonl>'
+   ran.json                       : ['GATE-SCRATCH-COST-E']
+   batch-cost records             : [('GATE-SCRATCH-COST-E', 0.08084450000000001, 0.080845, 0.05)]
+   run-end breaker                : 'batch-cost'
+   run-end batch_cost_usd / cap   : 0.080845 / 0.05
+   run-end gates_with_unknown_cost: []
+   breaker.halted                 : False  (batch-cost is NON-LATCHING)
+   COST-F row still APPROVED      : True
+   runner exit code               : 4  (4 = batch bounded by its own cap; 2 = latched fault)
+
+   [PASS] the cap fired (breaker == 'batch-cost')
+   [PASS] the paid gate IS in the ledger
+   [PASS] the second gate NEVER ran
+   [PASS] the breaker did NOT latch
+   [PASS] exit code is 4, not 2
+   [PASS] batch total exceeded the cap
+
+=== COMPUTED VERDICT: PASS ===

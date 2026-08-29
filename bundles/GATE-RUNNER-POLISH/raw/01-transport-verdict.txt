@@ -1,0 +1,24 @@
+# GATE-RUNNER-POLISH raw/01 — transport verdict
+# date: 2026-08-29T13:28:26Z
+
+## cmd: awk over the archived prompt, counting contiguous 4-space-indented block groups
+$ awk '/^    /{if(!inb){inb=1;n++}} !/^    /{inb=0} END{print n}' <prompt>
+2
+
+## cmd: sha256sum <prompt>
+0d46fad502194cf6d41efecfbdbe4f310362df748a675e5e51100e4efdc78990  /home/kalib/courier/Wrought/prompts/GATE-RUNNER-POLISH-v1.0.md
+
+VERDICT: TRANSPORT-OK ON CONTENT — exactly 2 indented blocks, both non-empty, both intact.
+
+DEVIATION, RECORDED NOT ABSORBED: the prompt's own integrity line asserts 'this prompt is a
+FILE'. IT DID NOT ARRIVE AS ONE. It arrived as pasted chat text, so the archive above is a
+TRANSCRIPTION by the box, not a byte-for-byte copy of an operator-supplied file (rails §7).
+Tally: GATE-RUNNER, GATE-RECONCILE, GATE-RUNNER-HARDEN, GATE-RUNNER-ARM arrived as chat text;
+GATE-J0B-RESUME arrived as a FILE (the only one); GATE-RUNNER-POLISH is chat text again.
+=> 5 misses in 6 runner-era prompts. The rail is still not being met.
+
+SECOND OBSERVATION, and it is this gate's own subject matter: this prompt's ALLOWED-TOOLS
+header declares BARE `Bash` (line 11) — the exact spelling Phase 6 exists to retire. No
+mechanical consequence here (this gate is ATTENDED-DIRECT and is not launched by the
+runner, so no ALLOWED-TOOLS parsing happens), but it is the 7th consecutive prompt to do
+it, and after Phase 6 lands the runner will REFUSE a prompt spelled this way.

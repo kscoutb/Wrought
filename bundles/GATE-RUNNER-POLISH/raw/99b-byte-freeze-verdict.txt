@@ -1,0 +1,7 @@
+# GATE-RUNNER-POLISH raw/99b — byte-freeze VERDICT, diffed mechanically
+# date: 2026-08-29T13:53:52Z
+# cmd: diff <(grep -E '^[0-9a-f]{64}' raw/00-byte-freeze-baseline.txt) <(grep -E '^[0-9a-f]{64}' raw/99-byte-freeze-reassert.txt)
+
+(no output from diff — the two captures are identical)
+
+=== BYTE FREEZE: HOLD — all three frozen paths byte-identical across the session. ===

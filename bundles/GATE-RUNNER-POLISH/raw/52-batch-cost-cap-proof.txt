@@ -1,0 +1,56 @@
+# GATE-RUNNER-POLISH raw/52 — the per-batch cost cap: fires, and its absence refuses the start
+# date: 2026-08-29T13:51:55Z
+
+Two things must hold, and both are measured against the REAL bin/wrought-runner on the SCRATCH
+courier + SCRATCH state built in Phase 6. Nothing production is touched.
+
+## A. A CONFIG WITHOUT `breakers.max_batch_cost_usd` MUST REFUSE TO START.
+##    (Not "default to unlimited". A run with no cumulative ceiling is not a bounded run, and the
+##     same doctrine already applies to ephemeral_home and reaper.)
+## cmd: python3 -c '<strip breakers.max_batch_cost_usd from the scratch config>'
+   scratch config written with the key REMOVED
+## cmd: python3 bin/wrought-runner --config <scratch, key removed> --status
+   wrought-runner: config breakers.max_batch_cost_usd is missing. A run with no cumulative cost ceiling is not a bounded run.  (refusing to start)
+   [exit: 1]
+
+## B. THE CAP FIRES. The scratch config's cap is set to a value BELOW what one real child already
+##    cost, so the very first gate crosses it. This uses the cost the Phase-6 child ACTUALLY
+##    reported ($0.192711) — the cap is set to $0.05, which that gate is already over.
+## cmd: python3 -c '<set breakers.max_batch_cost_usd = 0.05 in the scratch config>'
+   scratch config written with max_batch_cost_usd = 0.05
+   queue: TWO gates APPROVED; the second must never start
+
+## cmd: timeout 600 python3 bin/wrought-runner --config <scratch, cap 0.05>
+   [2026-08-29T13:51:55Z] GATE-SCRATCH-COST-A: private HOME /var/lib/wrought/runner-state/ephemeral-homes/GATE-SCRATCH-COST-A-1788011515 (seeded ['.claude/.credentials.json', '.gitconfig', '.git-credentials']), private runtime dir /var/lib/wrought/runner-state/ephemeral-homes/GATE-SCRATCH-COST-A-1788011515/xdg-runtime
+   [2026-08-29T13:51:55Z] GATE-SCRATCH-COST-A: launching. tools='Bash(echo:*)' add_dirs=['/var/lib/wrought/runner-polish/raw/40-scratch/courier'] budget=$0.4 mode=dontAsk MemoryMax=8G RuntimeMaxSec=5400
+   [2026-08-29T13:51:59Z] GATE-SCRATCH-COST-A: FAIL — child=COMPLETED (terminal_reason='completed'); postconditions: ["QUEUE row for GATE-SCRATCH-COST-A is 'RUNNING', not BUNDLED", '/var/lib/wrought/runner-polish/raw/40-scratch/courier/bundles/GATE-SCRATCH-COST-A does not exist']
+   [2026-08-29T13:51:59Z] GATE-SCRATCH-COST-A: orphan sweep CLEAN — no new guest, domain or listener survived
+   [2026-08-29T13:51:59Z] GATE-SCRATCH-COST-A: cost 0.0801215; batch total $0.0801 of $0.05 cap
+   [2026-08-29T13:51:59Z] HALT [batch-cost]: per-run cost cap reached: $0.0801 of $0.05 after 1 gate(s); waiting for the next daily ferry
+   
+   wrought-runner: 1 gate(s); STOPPED [batch-cost] per-run cost cap reached: $0.0801 of $0.05 after 1 gate(s); waiting for the next daily ferry
+   evidence: /var/lib/wrought/runner-polish/raw/40-scratch/state/runs/20260829T135155Z
+   [runner exit: 4]
+
+## cmd: python3 -c '<the batch-cost and run-end records from the run log>'
+   {"cost_usd": 0.0801215, "detail": "terminal_reason='completed'", "disposition": "COMPLETED", "gate": "GATE-SCRATCH-COST-A", "kind": "gate-verdict", "memory": "unchanged", "postcondition_failures": ["QUEUE row for GATE-SCRATCH-COST-A is 'RUNNING', not BUNDLED", "/var/lib/wrought/runner-polish/raw/40-scratch/courier/bundles/GATE-SCRATCH-COST-A does not exist"], "verdict": "FAIL"}
+   {"batch_cost_usd": 0.080121, "cap_usd": 0.05, "gate": "GATE-SCRATCH-COST-A", "gate_cost_usd": 0.0801215, "gates_with_unknown_cost": [], "kind": "batch-cost"}
+   {"batch_cost_cap_usd": 0.05, "batch_cost_usd": 0.080121, "breaker": "batch-cost", "gates_run": 1, "gates_with_unknown_cost": [], "halted": true, "kind": "run-end", "reason": "per-run cost cap reached: $0.0801 of $0.05 after 1 gate(s); waiting for the next daily ferry", "wall_sec": 3.7}
+
+## cmd: cat <scratch>/state/breaker.json    (batch-cost is NON-LATCHING: halted MUST be false)
+   halted=False
+   reason=[batch-cost] per-run cost cap reached: $0.0801 of $0.05 after 1 gate(s); waiting for the next daily ferry
+
+## cmd: cat <scratch>/state/ran.json    (which gates actually ran)
+   {
+     "GATE-SCRATCH-BOUNDARY": {
+       "at": "2026-08-29T13:48:29Z",
+       "run": "20260829T134820Z",
+       "verdict": "FAIL"
+     }
+   }
+
+=== VERDICT: the cap fires after the gate that crosses it, the SECOND approved gate never starts,
+=== and the breaker does NOT latch — so a batch that merely spent its allowance cannot poison the
+=== next morning's manual start. A config lacking the key refuses to start rather than running
+=== unbounded.

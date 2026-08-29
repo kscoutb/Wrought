@@ -1,0 +1,52 @@
+# GATE-RUNNER-POLISH Phase 1 — health baseline
+# date: 2026-08-29T13:29:17Z
+# Command forms reused verbatim from build-evidence/runner-arm/raw/01-health.txt (J-95).
+
+## cmd: systemctl is-active wrought-inference.service
+active
+
+## cmd: curl -sS -o /dev/null -w '%{http_code}\n' --max-time 10 http://127.0.0.1:8080/health
+200
+
+## cmd: for d in /sys/class/drm/card*/device; do printf "%s vendor=%s device=%s runpm=%s\n" ... done   (dGPU only)
+/sys/class/drm/card0/device vendor=0x1002 device=0x744c runpm=on
+/sys/class/drm/card1/device vendor=0x1002 device=0x150e runpm=on
+
+## cmd: cat /sys/module/amdgpu/parameters/runpm   (expect 0)
+0
+
+## cmd: cat /sys/class/drm/card0/device/mem_info_vram_{total,used}   (dGPU 0x744c)
+vram_total: 25753026560
+vram_used:  19626766336
+
+## cmd: uname -r
+7.0.0-30-generic
+
+## cmd: pgrep -a "[w]rought-runner"   (is a runner live? bracket-quoted, per the J-164 lesson)
+(no match — no wrought-runner process is running)
+
+## cmd: pgrep -a "[c]laude"    (other Claude Code sessions on the box)
+87699 claude --dangerously-skip-permissions
+96907 claude --dangerously-skip-permissions
+
+## cmd: /home/kalib/foundry/bin/wrought-runner --status   (READ-ONLY: exits before taking the lock and never touches the courier)
+{
+  "breaker": {
+    "at": "2026-08-28T18:50:24Z",
+    "consecutive_failures": 0,
+    "halted": false,
+    "reason": null,
+    "reset_by": "operator via --reset-breaker"
+  },
+  "ledger": {
+    "GATE-J0B-RESUME": {
+      "at": "2026-08-28T22:31:05Z",
+      "run": "20260828T220144Z",
+      "verdict": "PASS"
+    }
+  }
+}
+
+## cmd: free -g | head -2
+               total        used        free      shared  buff/cache   available
+Mem:              87           9          52           0          26          78

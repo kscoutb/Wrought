@@ -1,0 +1,26 @@
+# GATE-RUNNER-POLISH raw/12c — does the new session guard NEUTER the reaper? No. Measured.
+# date: 2026-08-29T13:35:29Z
+# NOTE ON THIS FILE: the first write of raw/12c was mangled by an UNQUOTED heredoc — backticks
+# around the word `claude` were taken as command substitution, which dropped the word and ran the
+# CLI. Rewritten here with a quoted heredoc. Nothing measured changed; the defect was in the
+# rendering of this note, not in any measurement. Recorded rather than silently re-run.
+
+THE QUESTION. _reap_refusals() refuses to signal a process in the runner's own SESSION.
+If a real gate's guest were in that session, the guard would silently disable the sweep —
+a safety fix that breaks the safety control it protects.
+
+THE ANSWER, from the code and from the proof run:
+
+## cmd: grep -n 'start_new_session' bin/wrought-runner
+748:                                cwd=cfg["gate_cwd"], start_new_session=True)
+
+The gate child is launched with start_new_session=True, so the `claude` process is a SESSION
+LEADER of its own new session, and every guest it starts is a descendant inside THAT session —
+never the runner's. The guard therefore cannot fire on a real guest.
+
+MEASURED, not just argued: raw/11's REAL arm launched its guest through exactly that shape
+(subprocess.Popen(..., start_new_session=True) wrapping systemd-run --user --scope), and the
+guest WAS reaped — "SIGTERM ignored for 5s, SIGKILLed". If the session guard reached real
+guests, that reap could not have happened.
+
+=== VERDICT: the guard is a floor under the runner, not a ceiling on the reaper. ===

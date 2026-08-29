@@ -1,0 +1,223 @@
+--- /var/lib/wrought/runner-polish/raw/06-EXECUTOR-RAILS.BEFORE.md	2026-08-29 09:30:19.961897566 -0400
++++ /home/kalib/foundry/docs/EXECUTOR-RAILS.md	2026-08-29 09:47:21.583772754 -0400
+@@ -23,14 +23,38 @@
+ 
+ ## 2. Byte freeze on the orchestrator store
+ 
++**Any difference is STOP EVERYTHING**, not a line in the report. Production state is the one thing
++a docs, recon, or audit session has no business moving, and the freeze is what makes "I did not
++touch it" a measurement instead of a claim.
++
++**Who performs it depends on how the session was launched, and the two cases are different duties.**
++
++### 2.1 A DIRECT session (attended, launched by the operator) does the freeze itself
++
+ At session start and again before finalizing, hash all three files and diff the two captures
+ mechanically — `raw/00` and `raw/99`:
+ 
+     sha256sum /var/lib/wrought/state/orchestrator.db{,-wal,-shm}
+ 
+-**Any difference is STOP EVERYTHING**, not a line in the report. Production state is the one thing
+-a docs, recon, or audit session has no business moving, and the freeze is what makes "I did not
+-touch it" a measurement instead of a claim.
++### 2.2 UNDER `wrought-runner`, the freeze is the RUNNER's duty, and a gate child MUST NOT attempt it
++
++The runner hashes the three frozen paths **before and after** the child runs, from outside it,
++and writes `freeze-before.json`, `freeze-after.json` and `freeze-verdict.txt` into its run dir.
++Any drift halts the entire batch on a `byte-freeze` breaker.
++
++**A gate child cannot take this measurement and does not need to.** `bin/wrought-runner-hook`
++serialises the whole `tool_input` and denies on `orchestrator\.db`, so **any** command naming the
++store is refused — *including a read-only `sha256sum` of it*, and including a command that merely
++quotes the filename while writing about the denial. **That denial is the control working, not a
++failure.** Log it as evidence, say in the report that the runner holds the freeze, and proceed.
++Do not look for a workaround: a child that could measure its own containment is a child that
++could also edit it.
++
++This is strictly the better arrangement, and not only because the hook forces it — the runner's
++capture is taken by a process the child cannot influence, which is a stronger claim than a child
++attesting about itself. Measured `GATE-J0B-RESUME`, 2026-08-28 (`preflight-v2.1-raw/11`, and the
++batch's own three logged denials); raised as **F-1** by the gate child, ruled on and written here
++by `GATE-RUNNER-POLISH`.
+ 
+ ## 3. Deletes are enumerated, never globbed
+ 
+@@ -68,6 +92,42 @@
+ 
+ Record: `bundles/RECONCILE/raw/20-secret-scan-method-defect.txt`.
+ 
++### 5.1 The scan has a committed home. Use it; do not improvise one.
++
++**The scan itself was never the problem — the fact that it had no committed command was.** It has
++now been improvised three times and leaked the secret twice:
++
++| | The improvised command | What it cost |
++|---|---|---|
++| **J-92**, 2026-08-03 | `sudo -n grep -rIal -- "$KEY" /var/lib/wrought/trackb` | `sudo` journals its argv → **both** sealed credentials written to the journal, 5 entries each. `inference-api-key` **rotated**; the other is a standing risk acceptance (**D24**). |
++| **GATE-RECONCILE**, 2026-08-28 | `KEY=$(sudo cat …); grep -rlF "$KEY" <tree>` | key in `grep`'s `argv`. Caught by the gate itself. |
++| **J-164**, 2026-08-28 | `KEY=$(sudo -n cat …); git diff --cached \| grep -c -- "$KEY"` | key in `grep`'s `argv`, for the pre-commit scan of the very entry recording it. |
++
++All three were run by someone doing the right thing. That is exactly why prose is not enough here:
++an unwritten procedure gets re-derived at wind-down by whoever is committing, and **the
++re-derivation is where the leak lives**. So there are two tools, and between them they cover every
++surface a session actually touches:
++
++| Surface | Tool | Invocation |
++|---|---|---|
++| A whole **tree** (state dirs, the journal, `/etc`) | `bin/secret-leak-scan` (GATE-30) | `sudo systemd-creds decrypt /etc/credstore.encrypted/<name> - \| sudo bin/secret-leak-scan` |
++| The **staged diff** before a commit, and a **bundle** before it is pushed | `bin/wrought-precommit-secret-scan` | `sudo -n bin/wrought-precommit-secret-scan --repo /home/kalib/foundry [--tree <bundle dir>]` |
++
++Both take the secret into process memory and compare **in-process**; neither ever puts a value on
++a command line, in a file, or in an environment variable. The only credential-shaped thing in any
++`argv` is a **path**, which is public. Output is **counts and paths only**.
++
++**Read the exit code, and do not collapse its three meanings** — `0` clean, `1` **a sealed
++credential is in the scanned material**, `2` **the scan could not run**. A `2` is not a pass: a
++scan that did not happen has proven nothing, and the most likely cause is a missing `sudo`.
++(`GATE-RUNNER-POLISH` shipped this tool with `2` collapsing into `1` on the unprivileged path and
++caught it in its own evidence — `raw/22` asserts a `2` and `raw/22b` measures the `1`.)
++
++Proof that the corrected form both detects and does not expose:
++`bundles/GATE-RUNNER-POLISH/raw/21-secret-scan-argv-proof.txt` — the old form and the new one
++parked on the same FIFO with their `argv` fixed, `/proc` walked while both are blocked: **1
++exposed process** for the old form, **0** for the new, and both detect the planted token.
++
+ ## 6. Ultracode discipline
+ 
+ - **Subagents are read-only.** They search, read, and report; they do not edit, install, or
+@@ -169,11 +229,38 @@
+ is a control nobody can review.
+ 
+ **12.1 `APPROVED` is a QUEUE status, and it is the only runnable one.** The vocabulary is
+-`QUEUED → APPROVED → RUNNING → BUNDLED → ADJUDICATED`, with `RESET`, `FOLDED INTO <gate>` and
+-`HALTED` as terminal side-exits. `QUEUED` means the prompt exists; **`APPROVED` means the advisor
+-and the operator agreed at the daily ferry that this gate may actually run.** The runner walks the
+-queue and starts nothing else — `wrought-runner`'s `RUNNABLE_STATUS`. The gap between the two
+-statuses is deliberate: it is where a human still sits on the unattended path.
++`QUEUED → APPROVED → RUNNING → BUNDLED → ADJUDICATED`, with `RESET`, `NOT RUN`,
++`FOLDED INTO <gate>` and `HALTED` as terminal side-exits. `QUEUED` means the prompt exists;
++**`APPROVED` means the advisor and the operator agreed at the daily ferry that this gate may
++actually run.** The runner walks the queue and starts nothing else — `wrought-runner`'s
++`RUNNABLE_STATUS`. The gap between the two statuses is deliberate: it is where a human still sits
++on the unattended path.
++
++The full set the parser accepts, with who sets each:
++
++| Status | Meaning | Set by | Runnable |
++|---|---|---|---|
++| `QUEUED` | The prompt exists and is dispatched; nothing has started. | advisor | no |
++| `APPROVED` | Advisor **and** operator agreed at the ferry that this gate may run. | advisor + operator | **yes — the only one** |
++| `RUNNING` | Prompt archived to `prompts/`; the gate is executing. | box / runner | no |
++| `BUNDLED` | `bundles/<GATE>/` is pushed; awaiting review. | box | no |
++| `ADJUDICATED` | The advisor has reviewed it; the gate is closed. | advisor | no |
++| `RESET` | Started, produced no bundle. Partial evidence preserved, residue cleaned; must be **re-dispatched fresh**. Terminal. | box | no |
++| `NOT RUN` | Dispatched, then deliberately **never started** — superseded, withdrawn, or overtaken before it ever ran. Distinguished from `QUEUED` by being a **decision** rather than a waiting state, and from `RESET` by nothing having executed. Terminal. | advisor + operator | no |
++| `FOLDED INTO <gate>` | Never ran as its own session; its items were completed inside the named gate. **Parametric** — matched by prefix. Terminal. | box | no |
++| `HALTED` | The runner stopped this gate on a breaker. Terminal until re-dispatched. | runner | no |
++
++**`NOT RUN` is newly DOCUMENTED, not newly introduced, and its history is worth one line.** It had
++been in `wrought-runner`'s accept-set since GATE-RUNNER and in **no document whatever** — not here,
++not in the courier README, not in `QUEUE.md`'s own legend. `GATE-RUNNER-ARM` found it and correctly
++declined to rule; `GATE-RUNNER-POLISH` wrote it down. Before writing it down the box **measured**
++whether it was in use, because its dispatching prompt described it as *"ratified-in-use"*:
++`git log -S 'NOT RUN' -- QUEUE.md README.md` over the courier returns **no commit that ever put it
++in a row**, and the runner **never writes it** — its two `set_queue_status()` call sites write
++`RUNNING` and `HALTED`. So it is **RESERVED, never used**, the meaning above is the minimal one the
++vocabulary needs rather than a reconstruction of an intent nobody recorded, and **the wording is
++flagged for the ferry to confirm or replace**. It is deliberately not runnable: accepting a status
++is not the same as running it.
+ 
+ **12.2 Every gate prompt declares its minimal tool surface in an `ALLOWED-TOOLS:` header.**
+ A gate that does not declare one is **not given a default** — the runner halts on
+@@ -181,6 +268,53 @@
+ `ADD-DIRS:`. Keep every one of them minimal; each entry widens the gate's surface, and
+ `ADD-DIRS` in particular is what lets a gate write outside its own cwd at all.
+ 
++**12.2.1 Every `Bash` entry must be SCOPED. A bare `Bash` is refused.**
++
++    ALLOWED-TOOLS: Read, Edit, Write, Bash(git:*), Bash(sha256sum:*), Bash(python3:*)
++
++not
++
++    ALLOWED-TOOLS: Read, Edit, Write, Bash
++
++**A bare `Bash` entry escapes the `--add-dir` workspace boundary entirely.** Measured with one
++variable — the allowlist spelling — and ground truth taken from disk
++(`bundles/GATE-J0B-RESUME/preflight-v2.1-raw/10`, 2026-08-28):
++
++| `--allowedTools` | write outside cwd, no `--add-dir` | result |
++|---|---|---|
++| `Bash(touch:*)` | `touch <outside>/canary` | **DENIED**, canary absent |
++| `… , Bash` (bare) | the same write | **ALLOWED**, zero denials, canary on disk |
++
++Every gate dispatched before that date declared bare `Bash`, so **the boundary had never once
++constrained a real gate child on this box** — while `runner.conf`'s `_add_dirs_note`,
++`build-evidence/runner-arm/raw/31` and `docs/PHASE-J-STATE.md` all described it as unconditional.
++`wrought-runner` now **halts on `bare-bash`** before launching. The refusal is unconditional and
++has no config key: a safety property that can be switched off in a file is one that will eventually
++be found switched off.
++
++**12.2.2 `ADD-DIRS:` must name every out-of-cwd tree the gate touches — and this is a
++prompt-author duty, not something the runner can check for you.** The two halves ship together and
++must stay together: **scoping the Bash rules re-arms the boundary, so an incomplete `ADD-DIRS:`
++turns from harmless into a hard denial.** That is precisely why `GATE-J0B-RESUME` declined to
++"just scope the Bash rules" as a launch-night tweak, and why `GATE-RUNNER-POLISH` did both at once.
++
++What the runner **does** check mechanically, because neither is a judgement call:
++
++- **`ADD-DIR:` (singular) halts** on `add-dirs-header`. It matches nothing and used to be ignored
++  *without a word* — that one missing `S` made `GATE-J0B-RESUME` v2.0's entire workdir unreachable
++  (pre-flight **BLOCKER B-1**). A header one character from correct that fails in silence is not a
++  header, it is a landmine.
++- **A named directory that does not exist halts** on `add-dirs`. Otherwise the child meets the typo
++  twenty minutes in, as an inexplicable permission denial with the cause nowhere in view.
++
++What it cannot check is whether the declared set is the *right* set. That stays with whoever writes
++the prompt. Before dispatching, walk the prompt's own commands and confirm every path outside
++`gate_cwd` is named — the courier is already in `runner.conf`'s `add_dirs`, so what a prompt
++usually needs to add is its own `/var/lib/wrought/<gate>/` workdir and any evidence tree it reads.
++
++Proof that both halves hold together, through the real runner on a scratch courier:
++`bundles/GATE-RUNNER-POLISH/raw/41-boundary-armed-proof.txt`.
++
+ ## 13. Nothing a gate starts may outlive it
+ 
+ `GATE-J0B-SURFACE` stopped mid-Phase-4 and left its guest running for **seven days**, with the
+@@ -210,6 +344,37 @@
+ sweep exists to prevent. Nothing is lost — a libvirt domain always has a `qemu-system` process,
+ and the PID scan sees it whoever its parent is.)*
+ 
++*(The PID scan matches the process's **executable** — `/proc/<pid>/exe`, `comm` as the fallback —
++not its command line. It used to be `pgrep -f qemu-system`, which matched anything that merely
++**mentioned** a guest: a gate prompt quoting a qemu command, a monitoring command, the shell
++running the gate. A false positive there is enumerated, killed, and **latches**. Fixed and proven
++by `GATE-RUNNER-POLISH`, `bundles/GATE-RUNNER-POLISH/raw/11-reaper-precision-proof.txt`.)*
++
++### 13.3 A guest under the runner is budgeted against the SCOPE, never against the box
++
++**`limits.memory_max` in `/etc/wrought/runner.conf` is the binding constraint on guest RAM, not
++host free memory.** The gate child runs inside a `systemd-run --scope` with `MemoryMax` **and**
++`MemorySwapMax=0`, and a guest it launches is a **descendant of that scope** — so the guest's
++memory is charged to the gate's own 8 G cgroup, and an overrun is an immediate OOM **kill of the
++gate**, not a slowdown. `MemorySwapMax=0` is exactly what makes it a kill rather than a swap-out
++(measured, `GATE-RUNNER-HARDEN raw/11`), so there is no soft landing here.
++
++Concretely, from `GATE-J0B-RESUME` (**F-2**, 2026-08-28): J0B's proven attended invocation is
++`qemu-system-x86_64 … -m 8192`. Under the runner that is **the whole scope**, and it would have
++OOM-killed the gate that launched it. The box had **84 GiB free at the time** — which is precisely
++why this needs writing down: every instinct and every `free -g` reading points the wrong way. The
++gate used **`-m 3072`** and completed.
++
++- **Current scope size: `limits.memory_max` = `8G`** (PROVISIONAL — the first supervised batch was
++  meant to set it, and has not yet been ratified at a ferry).
++- **Headroom a guest plus an agent needs:** the `claude` gate child itself, its tool subprocesses,
++  the QEMU process's own overhead above `-m`, and anything the gate builds all share that 8 G.
++  `-m 3072` is the only guest size measured to work inside it. Treat **guest `-m` + ~2 G** as the
++  floor for what the rest of the gate has left, and **do not raise a guest above `-m 4096` inside
++  an 8 G scope** without raising `memory_max` first — which is a ferry decision, not a gate's.
++- A gate that needs a bigger guest states so **in its prompt**, so the size is a reviewed number
++  rather than a discovery made by an OOM kill at 3 a.m.
++
+ ## 14. A gate child is fenced from every other session on the box
+ 
+ Each gate runs under a **private ephemeral `$HOME`** and a **private `$XDG_RUNTIME_DIR`**, created

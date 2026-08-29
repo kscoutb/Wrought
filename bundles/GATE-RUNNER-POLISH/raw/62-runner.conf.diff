@@ -1,0 +1,54 @@
+--- /var/lib/wrought/runner-polish/raw/50-runner.conf.pre-edit.json	2026-08-29 09:51:29.105801562 -0400
++++ /var/lib/wrought/runner-polish/raw/51-runner.conf.post-edit.json	2026-08-29 09:51:29.118801616 -0400
+@@ -69,7 +69,7 @@
+     "api_backoff_cap_sec": 1800
+   },
+   "breakers": {
+-    "_provisional": "PROVISIONAL \u2014 every max_* below is a scale number the first supervised batch sets.",
++    "_provisional": "PROVISIONAL \u2014 every max_* below is a scale number the first supervised batch sets. max_batch_cost_usd is PROVISIONAL AND DERIVED, not measured.",
+     "_ratified_latch_semantics": "RATIFIED 2026-08-28: only REAL FAULTS latch. The gate cap and the wall-clock budget stop the run WITHOUT latching (wrought-runner NON_LATCHING), because a batch that merely reached its own cap must not poison the next morning's manual start. gate-residue DOES latch \u2014 a gate that leaks a process is a defect, treated loud.",
+     "max_consecutive_failures": 2,
+     "max_gates_per_run": 6,
+@@ -77,7 +77,11 @@
+     "_deadman_note": "RAISED 3600 -> 6000 on 2026-08-28 by the GATE-J0B-RESUME v2.1 ATTENDED PRE-FLIGHT, closing pre-flight risk R-1. At 3600 the dead-man was TIGHTER than limits.runtime_max_sec (5400) and silently won, because DeadMan.progress() is never called while a gate child runs: the real per-gate ceiling was 60 min, not the 90 the kernel bound advertises, and a trip LATCHES (NON_LATCHING is {gate-cap, wall-clock} only) so a legitimately long first batch would have needed --reset-breaker. 6000 > 5400 makes RuntimeMaxSec the ceiling again, which is the bound that was actually measured (GATE-RUNNER-HARDEN: rc=143 at the deadline). STILL PROVISIONAL - this is a bound chosen to sit above another provisional bound, not a measured number; the first supervised batch is what sets it.",
+     "deadman_no_progress_sec": 6000,
+     "missing_allowed_tools": "halt",
+-    "_ratified_missing_allowed_tools": "RATIFIED 2026-08-28: the ALLOWED-TOOLS: prompt header is MANDATORY. A gate that does not declare its own tool surface is not given a default one."
++    "_ratified_missing_allowed_tools": "RATIFIED 2026-08-28: the ALLOWED-TOOLS: prompt header is MANDATORY. A gate that does not declare its own tool surface is not given a default one.",
++    "_max_batch_cost_note": "ADDED 2026-08-29 by GATE-RUNNER-POLISH. Halts the run (breaker `batch-cost`) when the SUM of the children's own reported total_cost_usd crosses this. WHY IT IS NEEDED: the per-gate cap bounds one child and nothing bounds a six-gate run. GATE-J0B-RESUME spent $7.5324895 = 94.2% of the $8.00 per-gate cap on ONE gate that hit ONE wedge, while RuntimeMaxSec (5400 s) and the 6000 s dead-man were never approached \u2014 MONEY is the binding constraint, not time.",
++    "_max_batch_cost_derivation": "DERIVED, NOT MEASURED, and the derivation is stated so the ferry can argue with it: 3 x limits.max_budget_usd_per_gate (3 x 8.00). The naive product of the two existing caps is max_gates_per_run x max_budget_usd_per_gate = 6 x 8 = $48, which bounds nothing useful \u2014 and it is optimistic, because GATE-RUNNER-ARM measured the CLI's own --max-budget-usd OVERSHOOTING 4.6x and 6.94x (two single runs, not a trend), implying ~$55 worst case for ONE gate. 24.00 stops a run after roughly three full-cap gates and leaves the rest for the next day's ferry, which is the same shape as the gate-cap and wall-clock breakers. NOT LATCHING, for that reason (wrought-runner NON_LATCHING).",
++    "_max_batch_cost_recalibration": "BOTH THIS AND limits.max_budget_usd_per_gate MUST BE RE-CALIBRATED AFTER F-5 IS FIXED. GATE-J0B-RESUME's $7.53 is the cost of a gate that WEDGED: goose streams with max_tokens: None, abandoned generations ran to the context limit serially and head-of-line blocked llama-server, and recovery burned turns. A clean gate is far cheaper \u2014 the same runner's GATE-SCRATCH-PROBE cost $0.178 and GATE-RUNNER-POLISH's own scratch boundary child cost $0.193. Calibrating a cap on a wedged run sets it far too high. J0B-CLOSE fixes F-5 (proxy bounds max_tokens + cancels abandoned generations); the numbers are re-derived after.",
++    "max_batch_cost_usd": 24.0
+   },
+   "ephemeral_home": {
+     "_note": "BLOCKER 1, the cross-session steering breaker, closed by GATE-RUNNER-HARDEN and measured in build-evidence/runner-harden/raw/06.",
+@@ -98,7 +102,10 @@
+     "_provisional_terminate_grace_sec": "PROVISIONAL \u2014 the SIGTERM-to-SIGKILL grace, unmeasured.",
+     "enabled": true,
+     "qemu_pattern": "qemu-system",
+-    "terminate_grace_sec": 5
++    "terminate_grace_sec": 5,
++    "_note3": "qemu_pattern IS AN EXECUTABLE-NAME PREFIX, NOT A COMMAND-LINE SUBSTRING (changed 2026-08-29 by GATE-RUNNER-POLISH). The scan was `pgrep -a -f qemu-system`, and `-f` matches the whole COMMAND LINE \u2014 so it matched anything that merely MENTIONED a guest: a gate prompt quoting a qemu command, a monitoring command, even the shell running the gate (observed: the proof run's own tool-call shell matched). A false positive is enumerated, SIGTERM/SIGKILLed, and LATCHES.",
++    "_note4": "It now matches /proc/<pid>/exe's basename (falling back to /proc/<pid>/comm, which the kernel TRUNCATES to 15 bytes \u2014 hence a PREFIX test, not equality). Zombies are excluded: a just-SIGKILLed guest keeps its comm and would otherwise be reported as residue that no longer exists. Proof: courier bundles/GATE-RUNNER-POLISH/raw/11-reaper-precision-proof.txt.",
++    "_note5": "terminate_grace_sec is STILL PROVISIONAL but is no longer UNEXERCISED: on 2026-08-29 a real qemu-system-x86_64 ignored SIGTERM for the full 5 s and was SIGKILLed, so the escalation branch has now run. One observation of one guest shape is not a calibration \u2014 a guest with a disk to flush may need longer."
+   },
+   "course_check": {
+     "_ratified": "RATIFIED 2026-08-28: enabled STAYS false. The operator HELD the credential decision \u2014 pointing the sealed docs/05 \u00a713 escalation credential at a new purpose is not approved, and the enabled path would also need passwordless sudo. DO NOT ENABLE without a fresh operator ruling.",
+@@ -122,11 +129,11 @@
+     "push_retry_max": 3,
+     "push_retry_sleep_sec": 15
+   },
+-  "_add_dirs_note": "raw/14: a Bash call targeting a path OUTSIDE the session cwd is denied under",
+-  "_add_dirs_note2": "dontAsk even when allowlisted. A gate cannot write its bundle without this.",
+-  "_add_dirs_note3": "Keep it MINIMAL \u2014 every entry widens the gate surface. Per-gate additions go",
+-  "_add_dirs_note4": "in the prompt as an ADD-DIRS: header.",
++  "_add_dirs_note": "CORRECTED 2026-08-29 by GATE-RUNNER-POLISH. The previous note said, unconditionally, that a Bash call outside the session cwd is denied under dontAsk even when allowlisted. THAT IS TRUE ONLY FOR A *SCOPED* Bash",
++  "_add_dirs_note2": "ALLOWLIST ENTRY. Measured (GATE-J0B-RESUME v2.1 pre-flight, courier bundles/GATE-J0B-RESUME/preflight-v2.1-raw/10), one variable, ground truth from disk: `Bash(touch:*)` + no --add-dir -> DENIED, canary absent; BARE `Bash` + the same write -> ALLOWED, zero denials, canary on disk.",
++  "_add_dirs_note3": "A BARE `Bash` ENTRY IS NOT CONSTRAINED BY THIS BOUNDARY AT ALL, and every gate dispatched before 2026-08-29 declared one \u2014 so this fence had never once constrained a real gate child while three documents called it load-bearing. wrought-runner now REFUSES a bare `Bash` (halt `bare-bash`, unconditional, no config key to switch it off).",
++  "_add_dirs_note4": "Keep add_dirs MINIMAL \u2014 every entry widens the gate surface. Per-gate additions go in the prompt as an ADD-DIRS: header (PLURAL; the singular `ADD-DIR:` used to be silently ignored and cost GATE-J0B-RESUME v2.0 its whole workdir \u2014 it now halts). Proof both halves hold: courier bundles/GATE-RUNNER-POLISH/raw/41-boundary-armed-proof.txt.",
+   "add_dirs": [
+     "/home/kalib/courier/Wrought"
+   ]
+-}
++}
+\ No newline at end of file

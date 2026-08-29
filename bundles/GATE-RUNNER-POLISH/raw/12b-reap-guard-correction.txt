@@ -1,0 +1,24 @@
+# GATE-RUNNER-POLISH raw/12b — CORRECTION BY ADDITION to raw/12 §C (rails §4)
+# date: 2026-08-29T13:34:53Z
+
+raw/12 §C labels its third row 'a pid in the runner's own process group' but passes
+os.getpgid(0), which for a process-group LEADER is the process's own pid — so that row
+re-tested the second case and printed 'this IS the runner process'. The label overstated
+what was measured. raw/12 is left standing; this is the measurement it should have made.
+
+## cmd: subprocess.Popen(['sleep','30'])  (no start_new_session => same process group)
+   parent pid          = 97484, pgid = 97484
+   child  pid          = 97485, pgid = 97484
+   same process group? = True
+## cmd: wr._reap_refusals('97485')
+   -> same process group as the runner
+
+## cmd: subprocess.Popen(['sleep','30'], start_new_session=True)  (control: different group+session)
+   child pid = 97486, pgid = 97486, sid = 97486
+## cmd: wr._reap_refusals('97486')
+   -> would be signalled (NO REFUSAL) — correct, it is unrelated
+
+=== VERDICT: the process-group arm of the guard HOLDS. A child sharing the runner's
+=== process group is refused; an unrelated process in its own group is not.
+
+## teardown by recorded pid: 97485, 97486 killed and waited (rails §3)

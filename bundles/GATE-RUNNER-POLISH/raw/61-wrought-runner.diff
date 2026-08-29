@@ -1,0 +1,476 @@
+--- /var/lib/wrought/runner-polish/raw/04-wrought-runner.BEFORE.py	2026-08-29 09:30:19.952515064 -0400
++++ /var/lib/wrought/runner-polish/raw/60-wrought-runner.AFTER.py	2026-08-29 09:54:00.067214993 -0400
+@@ -62,6 +62,16 @@
+ DEFAULT_CONFIG = "/etc/wrought/runner.conf"
+ 
+ # The QUEUE vocabulary. APPROVED is NEW with this gate and is flagged for advisor ratification.
++#
++# `NOT RUN` (GATE-RUNNER-POLISH, 2026-08-29): documented at last, in rails §12.1, the courier
++# README legend and QUEUE.md's own status table — it had been sitting in this set and in no
++# document at all. MEASURED before writing anything down, because the dispatching prompt called it
++# "ratified-in-use" and that is not what the record says: `git log -S 'NOT RUN' -- QUEUE.md
++# README.md` in the courier returns NO commit that put it in a row, and the runner NEVER WRITES it
++# (the two set_queue_status() call sites write RUNNING and HALTED). So it is RESERVED, not in use,
++# and the meaning now written down is the minimal one the vocabulary needs rather than a
++# reconstruction of an intent nobody recorded. Flagged for the ferry to confirm the wording.
++# It is a terminal side-exit and is NOT in RUNNABLE_STATUS — accepting a status is not running it.
+ QUEUE_STATUSES = {"QUEUED", "APPROVED", "RUNNING", "BUNDLED", "ADJUDICATED", "NOT RUN", "HALTED",
+                   "RESET"}
+ # GATE-RUNNER-ARM, operator- and advisor-authorized 2026-08-28. `FOLDED INTO <gate>` is PARAMETRIC
+@@ -80,6 +90,12 @@
+ ALLOWED_TOOLS_RE = re.compile(r"^ALLOWED-TOOLS:[ \t]*(?P<tools>.+?)[ \t]*$", re.M)
+ MAX_BUDGET_RE = re.compile(r"^MAX-BUDGET-USD:[ \t]*(?P<usd>[0-9]+(?:\.[0-9]+)?)[ \t]*$", re.M)
+ ADD_DIRS_RE = re.compile(r"^ADD-DIRS:[ \t]*(?P<dirs>.+?)[ \t]*$", re.M)
++# The SINGULAR spelling is a trap with no feedback, and it has already cost a gate: the
++# GATE-J0B-RESUME v2.0 prompt wrote `ADD-DIR:` and ADD_DIRS_RE simply did not match, so the header
++# was SILENTLY IGNORED and the gate's entire workdir was unreachable (pre-flight BLOCKER B-1,
++# 2026-08-28). A header that is one character from correct and fails without a word is not a
++# header, it is a landmine. Detected explicitly now, and it halts.
++ADD_DIR_SINGULAR_RE = re.compile(r"^ADD-DIR:[ \t]*(?P<dirs>.+?)[ \t]*$", re.M)
+ 
+ # api_error_status values that are worth a bounded retry rather than a failure.
+ RETRYABLE_HTTP = {429, 529}
+@@ -89,7 +105,12 @@
+ # the consecutive-failure ledger means "disable further runs, require operator reset". If every
+ # halt latched, a batch that simply reached its own cap would poison the NEXT morning's manual
+ # start — the operator's day-2 run would refuse on a run that ended normally.
+-NON_LATCHING = {"gate-cap", "wall-clock"}
++# `batch-cost` joins them (GATE-RUNNER-POLISH, 2026-08-29) for the same reason and by the same
++# test: it is a CAP the batch reached, not a FAULT the batch hit. A run that spends its allowance
++# and stops has behaved correctly, and latching it would refuse the next morning's manual start
++# over a run that ended exactly as designed. A gate that BURNS money pathologically is still
++# caught, by `consecutive-failures`, which does latch.
++NON_LATCHING = {"gate-cap", "wall-clock", "batch-cost"}
+ 
+ 
+ def utcnow() -> str:
+@@ -134,6 +155,15 @@
+     missing = [k for k in required if k not in cfg]
+     if missing:
+         sys.exit(f"wrought-runner: config missing required keys: {missing}  (refusing to start)")
++    # `max_batch_cost_usd` is REQUIRED, not optional-with-a-default, for the same reason as
++    # ephemeral_home and reaper above: a config predating it would start with NO CEILING ON WHAT
++    # ONE RUN CAN SPEND, silently. GATE-J0B-RESUME spent 94.2% of the per-GATE cap on a single
++    # gate that hit one wedge, and GATE-RUNNER-ARM measured the CLI's own budget cap overshooting
++    # 4.6x-6.94x — so per-gate bounds alone do not bound a six-gate unattended run. CLAUDE.md
++    # also forbids inventing thresholds: refusing to start makes the operator supply one.
++    if "max_batch_cost_usd" not in cfg.get("breakers", {}):
++        sys.exit("wrought-runner: config breakers.max_batch_cost_usd is missing. A run with no "
++                 "cumulative cost ceiling is not a bounded run.  (refusing to start)")
+     cfg["_config_path"] = str(p.resolve())
+     if cfg["permission_mode"] not in ("dontAsk", "manual"):
+         # raw/06: these are the only two modes measured to be default-deny-with-allowlist.
+@@ -393,16 +423,119 @@
+     return r.returncode == 0
+ 
+ 
++def _proc_exe_name(pid: str) -> tuple[str, str]:
++    """The process's EXECUTABLE identity, and how it was obtained. Never its command line.
++
++    Returns (name, source). `source` is 'exe' when the name came from /proc/<pid>/exe — the
++    kernel's own link to the running binary, which no process can spoof for itself — and 'comm'
++    when the link was unreadable (a process owned by another user; the runner is unprivileged)
++    and the fallback was /proc/<pid>/comm.
++
++    The two differ in one way that matters here: `comm` is TRUNCATED TO 15 BYTES by the kernel,
++    so `qemu-system-x86_64` reads back as `qemu-system-x86`. A PREFIX test survives that; an
++    equality test would not, which is why match_qemu() below tests a prefix.
++    """
++    try:
++        return os.path.basename(os.readlink(f"/proc/{pid}/exe")), "exe"
++    except Exception:
++        pass
++    try:
++        return Path(f"/proc/{pid}/comm").read_text().strip(), "comm"
++    except Exception:
++        return "", "unknown"
++
++
++def _proc_state(pid: str) -> str:
++    """The process's scheduler state letter (R/S/D/Z/T/...) from /proc/<pid>/status.
++
++    Needed for one case only, and it is not hypothetical — this gate's own Phase-2 proof caught
++    it (`raw/11`): a guest that has just been SIGKILLed becomes a ZOMBIE until its parent reaps
++    it, and a zombie keeps its `comm` ("qemu-system-x86") while losing its `exe` link and its
++    cmdline. So the executable test below matched the corpse of the very process the sweep had
++    just killed, `residue_diff` reported residue that no longer existed, and the closing bracket
++    could never come back clean. A zombie holds no VM, no memory, no port and no key: it is not
++    residue, and signalling it does nothing forever.
++    """
++    try:
++        for line in Path(f"/proc/{pid}/status").read_text().splitlines():
++            if line.startswith("State:"):
++                return line.split()[1]
++    except Exception:
++        pass
++    return ""
++
++
++def _proc_cgroup(pid: str) -> str:
++    """The process's cgroup path — evidence, not a filter.
++
++    Recorded so a reaped process can be attributed (a gate's own `systemd-run --scope` slice vs
++    `machine.slice` vs a login session). It is deliberately NOT the match criterion: the sweep
++    exists precisely to catch things that ESCAPED the gate's scope — a libvirt domain re-parents
++    into libvirtd's `machine.slice`, outside the scope entirely (EXECUTOR-RAILS §13.1) — so
++    filtering on scope membership would blind the sweep to its own founding case.
++    """
++    try:
++        return Path(f"/proc/{pid}/cgroup").read_text().strip().split(":")[-1][:200]
++    except Exception:
++        return ""
++
++
++def qemu_processes(pat: str) -> dict:
++    """Every live process whose EXECUTABLE NAME begins with `pat`. No command-line matching.
++
++    THE DEFECT THIS REPLACES (found from both sides during GATE-J0B-RESUME, 2026-08-28; see
++    docs/PHASE-J-STATE and J-164): this scan was `pgrep -a -f "qemu-system"`, and `-f` matches
++    the whole COMMAND LINE as a substring. So it matched anything that merely *mentioned* a
++    guest — a gate prompt quoting `qemu-system-x86_64`, a monitoring command, an editor with the
++    prompt open, and, in the general case, the runner's own tooling. That is not a cosmetic
++    over-match: a false positive here is enumerated, SIGTERMed/SIGKILLed, and LATCHES a
++    `gate-residue` breaker that only `--reset-breaker` clears — so one unlucky command line
++    could kill an innocent process and halt the next morning's good batch. It did not fire on
++    2026-08-28 only because the child had already exited when the after-snapshot was taken.
++
++    The test is now the process's own executable (`/proc/<pid>/exe`, with `/proc/<pid>/comm` as
++    the fallback for a process the runner cannot stat), which is what "is this a guest" actually
++    means. `pat` is therefore an EXECUTABLE-NAME PREFIX, not a command-line substring.
++    """
++    found = {}
++    self_pid = str(os.getpid())
++    for entry in os.listdir("/proc"):
++        if not entry.isdigit() or entry == self_pid:
++            continue
++        name, source = _proc_exe_name(entry)
++        if not name.startswith(pat):
++            continue
++        if _proc_state(entry) == "Z":
++            continue          # a corpse is not a survivor — see _proc_state()
++        try:
++            cmdline = Path(f"/proc/{entry}/cmdline").read_bytes().replace(b"\0", b" ").decode(
++                "utf-8", "replace").strip()
++        except Exception:
++            cmdline = ""
++        found[entry] = {"exe": name, "exe_source": source, "cgroup": _proc_cgroup(entry),
++                        "cmdline": cmdline[:300]}
++    return found
++
++
++def _listener_pids(line: str) -> list[str]:
++    """EVERY pid owning a listening socket, not just the first.
++
++    `ss` prints one `users:(("name",pid=N,fd=M),("name",pid=M,fd=K))` tuple per owner, and a
++    socket can genuinely have several (a pre-fork server, or SO_REUSEPORT). The previous parse
++    took `re.search(...)` — the FIRST match only — so a multi-owner listener was reaped by one
++    pid and its siblings were left holding the port. Structured field, not a substring: this is
++    parsing `ss`'s own output format, which is why the listener probe never had the `pgrep -f`
++    disease in the first place.
++    """
++    return re.findall(r"pid=(\d+)", line)
++
++
+ def residue_snapshot(cfg: dict) -> dict:
+     """Snapshot the three things a gate can strand: guests, domains, credential-holding ports."""
+     snap = {"qemu": {}, "domains": [], "listeners": {}, "notes": []}
+ 
+     pat = cfg.get("reaper", {}).get("qemu_pattern", "qemu-system")
+-    r = subprocess.run(["pgrep", "-a", "-f", pat], capture_output=True, text=True, check=False)
+-    for line in r.stdout.splitlines():
+-        pid, _, cmdline = line.partition(" ")
+-        if pid.strip().isdigit():
+-            snap["qemu"][pid.strip()] = cmdline.strip()[:300]
++    snap["qemu"] = qemu_processes(pat)
+ 
+     if _libvirtd_active():
+         d = subprocess.run(["virsh", "list", "--all", "--name"],
+@@ -417,8 +550,12 @@
+         if len(f) < 4:
+             continue
+         local = f[3]
+-        m = re.search(r"pid=(\d+)", line)
+-        snap["listeners"][f"{local}"] = m.group(1) if m else "?"
++        pids = _listener_pids(line)
++        snap["listeners"][local] = {
++            "pids": pids,
++            "procs": sorted(set(re.findall(r'users:\(\("([^"]+)"', line)
++                                + re.findall(r'\("([^"]+)",pid=', line))),
++        }
+     return snap
+ 
+ 
+@@ -435,6 +572,34 @@
+     return new
+ 
+ 
++def _reap_refusals(pid: str) -> str:
++    """Return a non-empty reason if this pid must NEVER be signalled by the sweep.
++
++    A sweep that can kill its own supervisor turns one false positive into a lost batch with no
++    evidence and no STATUS push. The runner, its process group and its session are off limits by
++    construction; so is pid 1. This is a floor under the reaper, not a substitute for matching
++    the right process in the first place.
++    """
++    try:
++        p = int(pid)
++    except ValueError:
++        return f"unparseable pid {pid!r}"
++    if p <= 1:
++        return "pid <= 1 (init); the sweep never signals it"
++    if p == os.getpid():
++        return "this IS the runner process"
++    try:
++        if os.getpgid(p) == os.getpgid(0):
++            return "same process group as the runner"
++        if os.getsid(p) == os.getsid(0):
++            return "same session as the runner"
++    except ProcessLookupError:
++        return ""
++    except Exception:
++        return ""
++    return ""
++
++
+ def reap(cfg: dict, new: dict, rlog: RunLog, gate: str) -> list[str]:
+     """Terminate every NEW survivor, one at a time, each named in the log. Enumerated, never
+     globbed (EXECUTOR-RAILS §3) — the sweep says exactly what it killed and why."""
+@@ -445,10 +610,21 @@
+                            check=False, timeout=60)
+         killed.append(f"libvirt domain {name!r}: virsh destroy rc={r.returncode} "
+                       f"{r.stderr.strip()[:160]}")
+-    pids = set(new["qemu"]) | {v for v in new["listeners"].values() if v.isdigit()}
++    pids = set(new["qemu"])
++    for meta in new["listeners"].values():
++        pids |= {p for p in meta.get("pids", []) if p.isdigit()}
+     for pid in sorted(pids, key=int):
+-        what = new["qemu"].get(pid) or next(
+-            (f"listener on {k}" for k, v in new["listeners"].items() if v == pid), "unknown")
++        if pid in new["qemu"]:
++            q = new["qemu"][pid]
++            what = f"guest exe={q['exe']} (via {q['exe_source']}) cgroup={q['cgroup']}"
++        else:
++            what = next((f"listener on {k} {v.get('procs')}"
++                         for k, v in new["listeners"].items() if pid in v.get("pids", [])),
++                        "unknown")
++        refusal = _reap_refusals(pid)
++        if refusal:
++            killed.append(f"pid {pid} ({what}): NOT SIGNALLED — {refusal}")
++            continue
+         try:
+             os.kill(int(pid), 15)
+         except ProcessLookupError:
+@@ -530,6 +706,77 @@
+     return env
+ 
+ 
++def validate_allowed_tools(gate: str, allowed_tools: str) -> list[str]:
++    """Refuse a BARE `Bash` entry. Return the parsed entries.
++
++    THE MEASUREMENT THIS ENFORCES (GATE-J0B-RESUME v2.1 pre-flight, 2026-08-28, courier
++    `bundles/GATE-J0B-RESUME/preflight-v2.1-raw/10`). A 2x2 with one variable — the spelling of the
++    allowlist entry — and ground truth taken from disk:
++
++        --allowedTools "Bash(touch:*)"   write outside cwd, no --add-dir  -> DENIED, canary absent
++        --allowedTools "... , Bash"      the SAME write, no --add-dir     -> ALLOWED, canary on disk
++
++    So the `--add-dir` workspace boundary constrains a SCOPED Bash rule and does not constrain a
++    bare one at all. Every gate dispatched up to that date declared bare `Bash`, which means the
++    boundary had never once constrained a real gate child on this box — while `runner.conf`'s
++    `_add_dirs_note`, `build-evidence/runner-arm/raw/31` and `docs/PHASE-J-STATE` all described it
++    as unconditional. The fence was documented as load-bearing and was, in practice, not there.
++
++    Refusing bare `Bash` is what makes those documents true. It is deliberately UNCONDITIONAL —
++    no config key, because a safety property that can be switched off in a file is one that will
++    eventually be found switched off, and because CLAUDE.md forbids inventing config keys.
++
++    Enacted by GATE-RUNNER-POLISH under the 2026-08-29 advisor ruling, together with — and never
++    without — the ADD-DIRS half below. Scoping the rules alone would convert a non-issue into a
++    hard denial for any gate whose `ADD-DIRS:` is incomplete, which is exactly why the two halves
++    ship in one change.
++    """
++    entries = [e.strip() for e in allowed_tools.split(",") if e.strip()]
++    bare = [e for e in entries if re.fullmatch(r"Bash\s*(\(\s*\))?", e)]
++    if bare:
++        raise Halt(
++            f"{gate}: ALLOWED-TOOLS declares a BARE `Bash` entry ({bare!r}). A bare `Bash` "
++            f"ESCAPES the --add-dir workspace boundary entirely (measured: bare `Bash` wrote "
++            f"outside the session cwd with no --add-dir, while `Bash(touch:*)` was denied for the "
++            f"same write). Declare SCOPED entries instead — e.g. `Bash(git:*)`, `Bash(touch:*)`, "
++            f"`Bash(sha256sum:*)` — and name every out-of-cwd tree the gate needs in an "
++            f"`ADD-DIRS:` header.", "bare-bash")
++    return entries
++
++
++def resolve_add_dirs(gate: str, text: str, cfg: dict) -> list[str]:
++    """Parse and VALIDATE the gate's `ADD-DIRS:` header. Two failures that used to be silent.
++
++    (1) The SINGULAR `ADD-DIR:` spelling matched nothing and was ignored without a word — it cost
++        GATE-J0B-RESUME its whole workdir (pre-flight BLOCKER B-1).
++    (2) A directory named in the header that does not exist is a typo the child discovers as an
++        inexplicable permission denial twenty minutes in, with the real cause nowhere in view.
++
++    Both halt now. Neither is a judgement call, which is the test for what belongs in a mechanical
++    check: whether the DECLARED set is the RIGHT set cannot be checked from here and is stated as
++    a prompt-author duty in EXECUTOR-RAILS §12.2 instead of being faked here.
++    """
++    add_dirs = list(cfg.get("add_dirs") or [])
++    m_dirs = ADD_DIRS_RE.search(text)
++    if m_dirs:
++        add_dirs += [d for d in m_dirs.group("dirs").split() if d]
++    m_bad = ADD_DIR_SINGULAR_RE.search(text)
++    if m_bad and not m_dirs:
++        raise Halt(
++            f"{gate}: the prompt carries `ADD-DIR:` (singular). The header is `ADD-DIRS:` and the "
++            f"singular form matches nothing — it would be SILENTLY IGNORED, leaving the gate "
++            f"without {m_bad.group('dirs').split()!r}. This exact typo made GATE-J0B-RESUME v2.0's "
++            f"entire workdir unreachable. Fix the prompt header.", "add-dirs-header")
++    add_dirs = sorted(set(add_dirs))
++    missing = [d for d in add_dirs if not Path(d).is_dir()]
++    if missing:
++        raise Halt(
++            f"{gate}: ADD-DIRS names {missing!r}, which do not exist as directories. A widened "
++            f"surface that points nowhere is a typo, and the child would meet it as an "
++            f"unexplained denial rather than as this message.", "add-dirs")
++    return add_dirs
++
++
+ def validate_hook_settings(path: Path) -> None:
+     """raw/07 c4: a malformed settings file is SILENTLY ignored under -p and the hook layer
+     vanishes with rc=0 and an empty stderr. So we parse it ourselves before every launch."""
+@@ -809,6 +1056,41 @@
+     p.write_text(json.dumps(st, indent=2, sort_keys=True) + "\n")
+ 
+ 
++def reset_provenance() -> dict:
++    """What ACTUALLY performed this `--reset-breaker`, measured — never asserted.
++
++    This field used to be the hardcoded string `"operator via --reset-breaker"`. It was written
++    when the BOX ran the reset, not the operator (GATE-RUNNER-ARM, 2026-08-28), so the one record
++    of who cleared a safety breaker said something false, permanently, in a file an operator would
++    later read to find out exactly that. Same defect class as the ledger docstring and the
++    pack-generator header — a provenance claim that no measurement stands behind.
++
++    So: record what can be observed and nothing else. On this box `uid` cannot discriminate the
++    operator from the box — both are `kalib` (`NOPASSWD: ALL`, gate children inherit it) — and
++    pretending otherwise is how the false string got written in the first place. The honest
++    discriminator available here is whether the reset was typed at a TERMINAL or issued by a
++    program with no tty. It is EVIDENCE, not proof: the operator's own tooling can be
++    non-interactive too. It is labelled as what it is.
++    """
++    try:
++        tty = os.ttyname(sys.stdin.fileno())
++    except Exception:
++        tty = None
++    return {
++        "reset_method": "--reset-breaker",
++        "reset_user": os.environ.get("USER") or "",
++        "reset_uid": os.getuid(),
++        "reset_euid": os.geteuid(),
++        "reset_pid": os.getpid(),
++        "reset_stdin_tty": tty,
++        "reset_interactive": tty is not None,
++        "_reset_provenance_note":
++            "reset_interactive is EVIDENCE, not proof, of an operator at a keyboard: it is only "
++            "'stdin was a tty'. uid cannot tell the operator from the box on this host — both "
++            "are kalib. Nothing here asserts WHO; it records WHAT was observable.",
++    }
++
++
+ def ledger_path(cfg: dict) -> Path:
+     return Path(cfg["state_dir"]) / "ran.json"
+ 
+@@ -918,14 +1200,12 @@
+         rlog.say("SKIP — " + msg)
+         return "SKIP"
+     allowed_tools = m.group("tools").strip()
++    tool_entries = validate_allowed_tools(gate, allowed_tools)
+     budget = float(MAX_BUDGET_RE.search(text).group("usd")) if MAX_BUDGET_RE.search(text) \
+         else float(cfg["limits"]["max_budget_usd_per_gate"])
+ 
+-    add_dirs = list(cfg.get("add_dirs") or [])
+-    m_dirs = ADD_DIRS_RE.search(text)
+-    if m_dirs:
+-        add_dirs += [d for d in m_dirs.group("dirs").split() if d]
+-    add_dirs = sorted(set(add_dirs))
++    add_dirs = resolve_add_dirs(gate, text, cfg)
++    rlog.log(kind="tool-surface", gate=gate, entries=tool_entries, add_dirs=add_dirs)
+ 
+     validate_hook_settings(Path(cfg["hook_settings"]))
+ 
+@@ -1031,7 +1311,7 @@
+     if args.reset_breaker:
+         write_breaker(cfg, {"halted": False, "consecutive_failures": 0,
+                             "reason": None, "at": utcnow(),
+-                            "reset_by": "operator via --reset-breaker"})
++                            **reset_provenance()})
+         print("breaker reset")
+         return 0
+ 
+@@ -1053,6 +1333,9 @@
+     deadman = DeadMan(int(cfg["breakers"]["deadman_no_progress_sec"]), rlog)
+     t0 = time.monotonic()
+     ran = 0
++    batch_cost = 0.0
++    unknown_cost: list[str] = []
++    batch_cap = float(cfg["breakers"]["max_batch_cost_usd"])
+     halt_reason = None
+     breaker_name = None
+     courier = Path(cfg["courier_dir"])
+@@ -1096,6 +1379,47 @@
+                            f"(cap {cfg['breakers']['max_consecutive_failures']})",
+                            "consecutive-failures")
+ 
++            # ---- cumulative batch spend. MEASURED per gate, never estimated.
++            #
++            # ORDERING IS LOAD-BEARING AND WAS GOT WRONG FIRST TIME (caught by this gate's own
++            # proof, raw/52): this check sat BEFORE the ledger write, so a gate that ran, cost
++            # money and then tripped the cap was never recorded as having run. The next morning's
++            # start would have picked it up again — and met it as a `stale-row` halt, because its
++            # QUEUE row was already RUNNING. A gate the batch PAID FOR must be in the ledger before
++            # anything is allowed to stop the batch. Faults are also evaluated first: the
++            # consecutive-failures breaker LATCHES and wants an operator, while this cap merely
++            # says "that is enough for today", so if both are true the fault must win.
++            # The per-gate `--max-budget-usd` is a SOFT ceiling (raw/08: overshot 4.6x; raw/13 on
++            # 2.1.250: 6.94x), so the only honest bound on a multi-gate run is the sum of what the
++            # children actually reported. A child that produced no parseable JSON reported NOTHING,
++            # and its cost is UNKNOWN — recorded as unknown and named in the halt line rather than
++            # guessed at, because a fabricated number here would under-count exactly the runs that
++            # went wrong.
++            gate_cost = None
++            vpath = run_dir / gate / "verdict.json"
++            if vpath.is_file():
++                try:
++                    gate_cost = json.loads(vpath.read_text()).get("cost_usd")
++                except Exception:
++                    gate_cost = None
++            if isinstance(gate_cost, (int, float)):
++                batch_cost += float(gate_cost)
++            else:
++                unknown_cost.append(gate)
++            rlog.log(kind="batch-cost", gate=gate, gate_cost_usd=gate_cost,
++                     batch_cost_usd=round(batch_cost, 6), cap_usd=batch_cap,
++                     gates_with_unknown_cost=list(unknown_cost))
++            rlog.say(f"{gate}: cost {gate_cost if gate_cost is not None else 'UNKNOWN'}; "
++                     f"batch total ${batch_cost:.4f} of ${batch_cap:.2f} cap"
++                     + (f" (+{len(unknown_cost)} gate(s) of unknown cost)" if unknown_cost else ""))
++            if batch_cost >= batch_cap:
++                raise Halt(
++                    f"per-run cost cap reached: ${batch_cost:.4f} of ${batch_cap:.2f} after "
++                    f"{ran} gate(s)"
++                    + (f"; NOTE {len(unknown_cost)} gate(s) reported no cost at all and are NOT "
++                       f"in that total: {unknown_cost}" if unknown_cost else "")
++                    + "; waiting for the next daily ferry", "batch-cost")
++
+             # ---- halt-only cloud course-correction, between gates
+             rows_now = {r["gate"]: r for r in parse_queue(queue)}
+             nxt_gate = next((r["gate"] for r in parse_queue(queue)
+@@ -1137,6 +1461,8 @@
+     write_breaker(cfg, bk)
+     rlog.log(kind="run-end", gates_run=ran, halted=bool(halt_reason),
+              reason=halt_reason, breaker=breaker_name,
++             batch_cost_usd=round(batch_cost, 6), batch_cost_cap_usd=batch_cap,
++             gates_with_unknown_cost=list(unknown_cost),
+              wall_sec=round(time.monotonic() - t0, 1))
+     try:
+         push_status(cfg, rlog,

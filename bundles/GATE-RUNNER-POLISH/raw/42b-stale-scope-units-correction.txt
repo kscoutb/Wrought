@@ -1,0 +1,45 @@
+# GATE-RUNNER-POLISH raw/42b — CORRECTION BY ADDITION to raw/42 (rails §4)
+# date: 2026-08-29T13:49:23Z
+
+raw/42 prints "(empty above = no leftover gate scopes)" immediately after a listing that is NOT
+empty: `systemctl --user list-units 'wrought-gate-*' --all` returned TWO units. The echo was
+written expecting nothing and printed regardless of what came back — a hardcoded conclusion under a
+real measurement, which is the same defect shape as `reset_by` two phases up. raw/42 stands; this
+is what the listing actually says.
+
+WHAT THE TWO UNITS ARE. Both are `wrought-gate-gate-scopestub-*.scope`, in state `loaded failed
+failed`, from GATE-RUNNER-HARDEN's 2026-08-28 dry run (their command lines name
+/var/lib/wrought/runner-harden/dry/claude-stub-scope — the stub, not a real gate). They are NOT
+this gate's residue and NOT this gate's to delete: no prompt has enumerated them (rails §3).
+
+WHETHER THEY MATTER. A `failed` scope is a systemd BOOKKEEPING RECORD, not a running thing. The
+questions that decide whether this is residue or litter, answered:
+
+## cmd: systemctl --user show <unit> -p ActiveState,SubState,TasksCurrent,ControlGroup   (both units)
+  --- wrought-gate-gate-scopestub-1787926032-1.scope
+    ActiveState=failed
+    SubState=failed
+    ControlGroup=
+    TasksCurrent=[not set]
+  --- wrought-gate-gate-scopestub-1787926072-1.scope
+    ActiveState=failed
+    SubState=failed
+    ControlGroup=
+    TasksCurrent=[not set]
+
+## cmd: pgrep -a '[c]laude-stub-scope'   (any surviving stub process from those units?)
+  (no match — nothing from those units is alive)
+
+## cmd: ls /sys/fs/cgroup/user.slice/user-1000.slice/user@1000.service/app.slice/ | grep -c wrought-gate || true
+0
+  0  (no wrought-gate cgroup exists — the units hold no cgroup)
+
+=== CORRECTED VERDICT: no PROCESS and no CGROUP survives; the two entries are stale FAILED unit
+=== records that `systemctl --user reset-failed` would clear. They are GATE-RUNNER-HARDEN's, they
+=== are harmless (unit names carry a timestamp, so they cannot collide with a future gate's
+=== scope), and they are NOT deleted here — no prompt enumerated them. Flagged for the operator
+=== alongside the other "present, not enumerated, therefore not deleted" items in PHASE-J-STATE.
+===
+=== The ORIGINAL claim of raw/42 that this file corrects is only the "no leftover gate scopes"
+=== line. Everything else in raw/42 measured what it says: ZERO ephemeral HOMEs survive, which
+=== was the security question, and it is unaffected.

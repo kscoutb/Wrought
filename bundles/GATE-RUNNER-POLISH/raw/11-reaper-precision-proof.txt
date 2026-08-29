@@ -1,0 +1,94 @@
+# GATE-RUNNER-POLISH raw/10 — the reaper's survivor test, PROVEN precise
+# date: 2026-08-29T13:33:26Z
+# cmd: python3 /var/lib/wrought/runner-polish/raw/10-reaper-precision-harness.py
+# runner under test: /home/kalib/foundry/bin/wrought-runner
+# runner sha256: ef39b678b6e1a1f44608c95a9b006180855acb862b74a6cfeac3ba997a53449b
+
+## STEP 1 — residue_snapshot() BEFORE anything is started
+   qemu processes : 0  []
+   libvirt domains: []
+   listeners      : 14
+   notes          : []
+
+## STEP 2 — three processes started
+   DECOY-A  pid 97456  exe=/usr/bin/bash     (cmdline CONTAINS 'qemu-system-x86_64')
+   DECOY-B  pid 97457  exe=/usr/bin/python3  (cmdline CONTAINS 'qemu-system-x86_64')
+   DECOY-C  pid 97458  exe=/usr/bin/tail     (ARGUMENT is a path containing 'qemu-system-x86_64')
+   REAL     scope unit wrought-polish-decoyproof-1788010406.scope; qemu pid(s) ['97460']
+
+   ## cmd: for p in <the three>; do readlink /proc/$p/exe; done   — ground truth on identity
+   DECOY-A  pid 97456    exe=/usr/bin/bash
+                     cmdline=/usr/bin/bash -c sleep 900; :  # monitoring the guest: qemu-system-x86_64 -m 8192 -nographic -drive file=overlay.qcow2
+   DECOY-B  pid 97457    exe=/usr/bin/python3.14
+                     cmdline=/usr/bin/python3 -c import time; time.sleep(900)  # watchdog for qemu-system-x86_64 -m 8192 -nographic -drive file=overlay.qcow2
+   DECOY-C  pid 97458    exe=/usr/lib/cargo/bin/coreutils/tail
+                     cmdline=/usr/bin/tail -f /var/lib/wrought/runner-polish/raw/10-scratch/qemu-system-x86_64-launch-notes.txt
+   REAL     pid 97460    exe=/usr/bin/qemu-system-x86_64
+                     cmdline=/usr/bin/qemu-system-x86_64 -S -display none -machine none -m 128 -nodefaults -no-user-config
+
+## STEP 3 — THE DEFECT, reproduced. The OLD test was `pgrep -a -f "qemu-system"`.
+   ## cmd: pgrep -a -f qemu-system
+   97446 /bin/bash -c source /home/kalib/.claude/shell-snapshots/snapshot-bash-1788009658750-3xlyyf.sh 2>/dev/null || true && shopt -u extglob 2>/dev/null || true && { \buil
+   97456 /usr/bin/bash -c sleep 900; :  # monitoring the guest: qemu-system-x86_64 -m 8192 -nographic -drive file=overlay.qcow2
+   97457 /usr/bin/python3 -c import time; time.sleep(900)  # watchdog for qemu-system-x86_64 -m 8192 -nographic -drive file=overlay.qcow2
+   97458 /usr/bin/tail -f /var/lib/wrought/runner-polish/raw/10-scratch/qemu-system-x86_64-launch-notes.txt
+   97460 /usr/bin/qemu-system-x86_64 -S -display none -machine none -m 128 -nodefaults -no-user-config
+   => OLD test matched 5 pids: ['97446', '97456', '97457', '97458', '97460']
+      DECOY-A (97456) matched by the OLD test: True
+      DECOY-B (97457) matched by the OLD test: True
+      DECOY-C (97458) matched by the OLD test: True
+   Every one of those would have been enumerated, SIGTERMed/SIGKILLed, and would have
+   LATCHED a `gate-residue` breaker.
+
+## STEP 4 — THE FIX. residue_snapshot() + residue_diff() with the executable-identity test.
+   ## cmd: wr.residue_diff(wr.residue_snapshot(cfg)_before, wr.residue_snapshot(cfg)_after)
+{
+  "any": true,
+  "domains": [],
+  "listeners": {},
+  "qemu": {
+    "97460": {
+      "cgroup": "/user.slice/user-1000.slice/user@1000.service/app.slice/wrought-polish-decoyproof-1788010406.scope",
+      "cmdline": "/usr/bin/qemu-system-x86_64 -S -display none -machine none -m 128 -nodefaults -no-user-config",
+      "exe": "qemu-system-x86_64",
+      "exe_source": "exe"
+    }
+  }
+}
+
+   => NEW test matched 1 pids: ['97460']
+      DECOY-A (97456) matched by the NEW test: False
+      DECOY-B (97457) matched by the NEW test: False
+      DECOY-C (97458) matched by the NEW test: False
+      REAL    ['97460'] matched by the NEW test: True
+
+## STEP 5 — safety gate PASSED (diff is exactly the one guest this harness started).
+   ## cmd: wr.reap(cfg, new, rlog, 'GATE-RUNNER-POLISH-PROOF')
+   REAPED: pid 97460 (guest exe=qemu-system-x86_64 (via exe) cgroup=/user.slice/user-1000.slice/user@1000.service/app.slice/wrought-polish-decoyproof-1788010406.scope): SIGTERM ignored for 5s, SIGKILLed
+
+## STEP 6 — GROUND TRUTH after the sweep: who is still alive?
+   DECOY-A pid 97456  alive=True   <- MUST be True (not a guest)
+   DECOY-B pid 97457  alive=True   <- MUST be True (not a guest)
+   DECOY-C pid 97458  alive=True   <- MUST be True (not a guest)
+   REAL    pid 97460  alive=False   <- MUST be False (a real scope-descendant guest)
+
+=== VERDICT: PASS ===
+The survivor test now matches the process's EXECUTABLE (/proc/<pid>/exe, comm as fallback),
+not an arbitrary command-line substring. A command line that merely MENTIONS a guest is no
+longer swept; a real guest still is.
+
+## STEP 7 — teardown, ENUMERATED by recorded pid (EXECUTOR-RAILS §3), never by pattern.
+   DECOY-A pid 97456: SIGTERM sent
+   DECOY-B pid 97457: SIGTERM sent
+   DECOY-C pid 97458: SIGTERM sent
+   scope wrought-polish-decoyproof-1788010406.scope: stopped
+   DECOY-A alive=False  DECOY-B alive=False  DECOY-C alive=False  (all MUST be False now)
+
+## STEP 8 — closing bracket: residue_diff(before, now) must be EMPTY.
+{
+  "any": false,
+  "domains": [],
+  "listeners": {},
+  "qemu": {}
+}
+=== HARNESS LEFT NOTHING BEHIND: True ===

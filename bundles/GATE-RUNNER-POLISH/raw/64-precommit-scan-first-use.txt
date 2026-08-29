@@ -1,0 +1,33 @@
+# GATE-RUNNER-POLISH raw/64 — the corrected secret scan, FIRST PRODUCTION USE
+# date: 2026-08-29T13:59:42Z
+
+Closing the loop: the tool Phase 3 built is used for this gate's OWN pre-commit and its OWN bundle,
+which is the surface J-164's improvised `grep -c -- "$KEY"` was scanning when it leaked. It covers
+BOTH surfaces in one invocation — the staged diff and the bundle tree about to be pushed to a
+PUBLIC repo.
+
+## cmd: sudo -n bin/wrought-precommit-secret-scan --repo /home/kalib/foundry --tree <bundle>
+  scanned 2 secret(s) from /etc/credstore.encrypted
+  staged diff: 81931 bytes (git -C /home/kalib/foundry diff --cached -a)
+  tree: /home/kalib/courier/Wrought/bundles/GATE-RUNNER-POLISH
+  PASS  0 occurrences of any sealed credential in the scanned material
+   exit code: 0
+
+## cmd: git -C /home/kalib/foundry diff --cached --stat
+ BUILD-JOURNAL.md                                   | 112 +++++++
+ bin/wrought-precommit-secret-scan                  | 203 ++++++++++++
+ bin/wrought-runner                                 | 360 ++++++++++++++++++++-
+ ...-CORRECTION-2026-08-29-conditional-boundary.txt |  57 ++++
+ docs/EXECUTOR-RAILS.md                             | 181 ++++++++++-
+ docs/PHASE-J-STATE.md                              | 135 +++++++-
+ 6 files changed, 1015 insertions(+), 33 deletions(-)
+
+## AND THE METHOD ITSELF, checked: no secret reached any command line during that scan.
+## cmd: the only credential-shaped argv is a PATH — grep the tool for how it invokes systemd-creds
+   26:carries anything credential-shaped is a PATH (`systemd-creds decrypt /etc/credstore.encrypted/X`),
+   85:        # argv here is `systemd-creds decrypt <PATH> -`. A path, never a value. The plaintext
+   87:        r = subprocess.run(["systemd-creds", "decrypt", str(CREDSTORE / name), "-"],
+
+   That argv is `systemd-creds decrypt <PATH> -`. A path, which is public. The plaintext returns on
+   this process's pipe and is compared in memory. Contrast J-164's form, which put the value itself
+   into `grep`'s argv — measured at 1 exposed process in raw/21.
