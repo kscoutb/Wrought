@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-29T18:35:00Z
+updated:  2026-08-29T23:07:00Z
 gate:     GATE-J0B-CLOSE
-state:    TRANSPORT-OK
-last:     Prompt archived verbatim as `prompts/GATE-J0B-CLOSE-v2.0.md`, sha256 `9355380d…717b3`. **Transport: seventh miss in eight** — pasted chat text, not a file, and NO block count stated (rails §7). Measured **ZERO** indented blocks, so nothing structural was at risk; recorded, not waived. §10: no PRIOR-ADJUDICATION block and no verdict text supplied — nothing recorded, nothing invented; GATE-RUNNER-POLISH and GATE-ST-1 both still `BUNDLED`.
-next:     Phase 1 — byte-freeze baseline (this session's own duty, rails §2.1), health assert, seed + fresh `close-overlay.qcow2` from the pinned base.
-usage:    n/a so far (attended direct)
+state:    RUNNING P3
+last:     **PHASE 2 CLOSED — POSITIVE, and it CORRECTS J0B-RESUME.** The goose 1.46 schema is measured: bundled tools are `type: platform` (NOT `builtin`) and **`developer` — "Write and edit files, and execute shell commands" — is `enabled: true` WITH NO `extensions:` STANZA AT ALL.** So J0B-RESUME's *"the agent had no filesystem tool to act with"* is **measured FALSE**: with its own byte-identical 88-byte config.yaml in place, goose advertised **18 tools including `write`, `edit`, `shell`** to a stub endpoint that captured the request verbatim. **A stub model server (in-guest, no credential) then returned a `write` tool_call and goose EXECUTED it — `/home/probe/FORGE.txt`, 5 bytes, `od -c` = `F O R G E`, no newline.** The stdio schema J0B-RESUME could not find was obtained by driving `goose configure` UNDER A PTY (its stated unexercised path): `type: stdio` + `cmd`/`args`/`envs`/`env_keys`/`timeout`/`cwd`/`bundled`. Config-file-only acceptance: **22 tools = 18 + 4 through the tee shim**, no CLI flag. Shim frames show `clientInfo: goose-cli 1.46.0` and `protocolVersion 2025-11-25` — goose's own loop, and a DIFFERENT protocol version than the hand-written client negotiated. **G-1: `goose configure` rewrites config.yaml and silently DROPS `GOOSE_PROVIDER`/`GOOSE_MODEL`.** Also measured for Phase 3: goose sends `stream: true` and **`max_tokens` ABSENT**. Guest powered off clean; `:2222` clear.
+next:     Phase 3 — write `authproxy3.py` (bounded max_tokens injection + upstream close on client disconnect), diff it against authproxy2, launch it with the key on stdin only, confirm `/props` 200.
+usage:    attended direct; cost recorded at wind-down
