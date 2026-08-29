@@ -1,0 +1,64 @@
+# GATE-J0B-CLOSE PRE-FLIGHT raw/03 — substrate the prompt assumes, and two stale doc premises
+# date: 2026-08-29T14:40:29Z
+
+## cmd: sha256sum /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img   (pin 0533b065...40ffe)
+0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe  /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+
+## cmd: grep -n 'sha256:' -B3 pins.lock  (guest_base_image block)
+  guest_base_image:
+    file: noble-server-cloudimg-amd64.img
+    url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+    sha256: 0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe   # verify on EVERY pull
+    size_bytes: 624239616
+    release: "Ubuntu 24.04 LTS (noble) cloud image"
+
+## cmd: sed -n '719,733p' pins.lock | grep -E 'tag|asset_sha256'   (goose pin; prompt quotes a1cf4856...5a7b)
+    tag: "v1.46.0"                  # api.github.com/repos/aaif-goose/goose/releases/latest -> tag_name (raw/21)
+    asset_sha256: a1cf4856a765d07d6b95689a53c7bca21fcc6e6d65c0dfd064fc704052b85a7b   # `sha256sum <asset>` (raw/22)
+
+## cmd: grep -n cloud_image_utils pins.lock
+617:    cloud_image_utils: "0.33-1build1"              # resolute/main — cloud-localds (built seed.img)
+   => STALE PREMISE 1: docs/PHASE-J-STATE's OPEN list still says cloud-image-utils is ABSENT
+      from pins.lock. It is present, at the line above.
+
+## cmd: ls -la /var/lib/wrought/j0b/  (what J0B-RESUME left; Phase 1 rebuilds seed+overlay)
+-rw-rw-r--  1 kalib kalib      2163 Aug 28 18:26 apicalls.log
+-rw-rw-r--  1 kalib kalib       273 Aug 20 20:20 authproxy.out
+-rw-rw-r--  1 kalib kalib         7 Aug 20 20:11 authproxy.pid
+-rw-rw-r--  1 kalib kalib     12825 Aug 20 20:11 authproxy.py
+-rw-rw-r--  1 kalib kalib      1292 Aug 28 18:28 authproxy2-resume.out
+-rw-rw-r--  1 kalib kalib       279 Aug 20 20:20 authproxy2.out
+-rw-rw-r--  1 kalib kalib         6 Aug 28 18:01 authproxy2.pid
+-rw-rw-r--  1 kalib kalib     11727 Aug 28 18:01 authproxy2.py
+-rw-r--r--  1 kalib kalib 837681152 Aug 28 18:28 overlay-resume.qcow2
+-rw-rw-r--  1 kalib kalib    374784 Aug 28 18:05 seed.img
+   => STALE PREMISE 2: the residue list says GATE-RECONCILE deleted j0b-overlay.qcow2 and
+      seed.img. Both exist again, written by GATE-J0B-RESUME on 2026-08-28. That gate's
+      residue, not RECONCILE's; Phase 1 rebuilds both regardless.
+
+## cmd: ls /var/lib/wrought/j0a/{user-data,j0a_key}   (needed for the seed rebuild)
+-rw------- 1 kalib kalib  399 Aug 10 19:29 /var/lib/wrought/j0a/j0a_key
+-rw-rw-r-- 1 kalib kalib 1353 Aug 10 19:29 /var/lib/wrought/j0a/user-data
+
+## cmd: command -v <every binary the scoped ALLOWED-TOOLS names>
+   qemu-system-x86_64     /usr/bin/qemu-system-x86_64
+   qemu-img               /usr/bin/qemu-img
+   cloud-localds          /usr/bin/cloud-localds
+   ssh                    /usr/bin/ssh
+   scp                    /usr/bin/scp
+   curl                   /usr/bin/curl
+   tar                    /usr/bin/tar
+   tee                    /usr/bin/tee
+   ss                     /usr/bin/ss
+   python3                /usr/bin/python3
+   git                    /usr/bin/git
+   grep                   grep
+   sha256sum              /usr/bin/sha256sum
+
+## cmd: id -nG kalib | tr ' ' '\n' | grep -E 'kvm|libvirt'   (qemu without sudo, per the prompt)
+kvm
+libvirt
+
+=== VERDICT: every pin the prompt cites verifies on disk, every binary it names exists, and
+=== the seed inputs survive. Two docs/PHASE-J-STATE OPEN items are stale and are corrected
+=== in the pre-flight report rather than carried forward.

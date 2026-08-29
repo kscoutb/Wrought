@@ -1,0 +1,34 @@
+# GATE-J0B-CLOSE PRE-FLIGHT raw/01 — the prompt run through wrought-runner's OWN parsers
+# date: 2026-08-29T14:37:59Z
+# cmd: python3 -c '<import bin/wrought-runner; call its parsers on the archived prompt>'
+
+## prompt: /home/kalib/courier/Wrought/prompts/GATE-J0B-CLOSE-v1.0.md
+## sha256: bb3be6c53a1d2a8e60f7bb0e5026e6187b0fc037e433e3f1efcd9c464cf31453
+
+## A. ALLOWED-TOOLS -> validate_allowed_tools()  [the bare-Bash refusal armed 2026-08-29]
+   PASS — 28 entries, every Bash entry SCOPED. The new convention is honoured.
+
+## B. ADD-DIRS -> resolve_add_dirs()  [the ADD-DIRS validation armed 2026-08-29]
+   header value: '/var/lib/wrought/j0b, /var/lib/wrought/j0a'
+   *** HALT [add-dirs] — THE GATE WOULD NOT START ***
+   *** GATE-J0B-CLOSE: ADD-DIRS names ['/var/lib/wrought/j0b,'], which do not exist as directories. A widened surface that points nowhere is a typo, and the child would meet it as an unexplained denial rather than as this message.
+
+   ROOT CAUSE: resolve_add_dirs() splits the header on WHITESPACE (.split()), and this
+   prompt separates its two paths with a COMMA + space — the same punctuation ALLOWED-TOOLS
+   uses, which is exactly why an author would write it. The first token is therefore
+   '/var/lib/wrought/j0b,' WITH THE COMMA, which is not a directory.
+     '/var/lib/wrought/j0b'             is_dir=True
+     '/var/lib/wrought/j0a'             is_dir=True
+     '/var/lib/wrought/j0b,'            is_dir=False
+
+## C. MAX-BUDGET-USD
+   present: False -> falls back to cfg limits.max_budget_usd_per_gate = $8.0
+   Worth noting given Phase 4.1's purpose: the gate that is meant to RE-CALIBRATE the cap
+   runs under the un-recalibrated cap. That is correct, not a defect — but the $8 ceiling
+   is the one GATE-RUNNER-POLISH said was set from a WEDGED gate.
+
+## D. resume path in the runner (Phase 2 asks the operator to 'resume the gate')
+   ## cmd: grep -c resume bin/wrought-runner  ->  0
+   There is no resume. run_gate_child() is a single subprocess.Popen(claude -p ...) +
+   proc.wait(). A `claude -p` turn that stops, exits; the runner then verifies
+   postconditions, finds no bundle, marks the gate FAIL and sets its QUEUE row HALTED.
