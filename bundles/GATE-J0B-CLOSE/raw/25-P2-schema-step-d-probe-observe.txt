@@ -1,0 +1,62 @@
+
+================ STEP D — THE PROBE RUN: what does goose ACTUALLY advertise to the model? ================
+# Stub endpoint inside the guest (sha256 58c7272a...8efa, source committed with this bundle).
+# MODE=observe: answer with a plain message, and keep the request body goose sent.
+
+$ gsh "echo observe > stub-mode; nohup python3 stub_model.py & ; sleep 1"
+
+$ gsh OPENAI_HOST=http://127.0.0.1:9999 OPENAI_API_KEY=unused goose run --no-session -t "<the FORGE task>"
+
+    __( O)>  ● new session · openai primary-qwen27b
+   \____)    20260829_1 · /home/probe
+     L L     goose is ready
+Network error: Could not connect to 127.0.0.1:9999 — check your network connection and try again.
+
+Please resend your message to try again.
+goose rc=0 (F-4: NOT evidence of anything)
+
+--- what the stub received ---
+$ gsh cat stub-capture/paths.log; ls -l stub-capture/
+cat: /home/probe/stub-capture/paths.log: No such file or directory
+---
+ls: cannot access '/home/probe/stub-capture/': No such file or directory
+
+--- D-1: THE FIRST ATTEMPT KILLED ITS OWN SHELL. Recorded, not silently retried. ---
+# The launcher used `pkill -f stub_model.py`, and `-f` matches the whole command line — which
+# includes the remote shell ssh was running, because that shell command CONTAINS the string.
+# The shell died before the stub was ever started; the block produced no output at all and
+# goose then correctly reported "Could not connect to 127.0.0.1:9999".
+# This is the SAME false-positive class GATE-RUNNER-POLISH removed from the reaper
+# (`pgrep -f qemu-system` matching the tool-call shell that merely mentioned it). It cost
+# nothing here because the failure was loud; it is recorded because the pattern recurs.
+# Corrected form: a pidfile + setsid, and no pattern matching anywhere.
+
+$ gsh "setsid python3 stub_model.py <&- >stub.out 2>&1 & echo \$! > stub.pid"
+stub pid=2315
+   2315 python3 /home/probe/stub_model.py
+stub GET /v1/models -> 200
+
+$ gsh OPENAI_HOST=http://127.0.0.1:9999 OPENAI_API_KEY=unused goose run --no-session -t "<the FORGE task>"
+
+    __( O)>  ● new session · openai primary-qwen27b
+   \____)    20260829_2 · /home/probe
+     L L     goose is ready
+The model returned an empty response. Please resend your message to continue.
+goose rc=0 (F-4: NOT evidence)
+
+--- what the stub received (paths + captured request bodies) ---
+GET /v1/models
+GET /v1/models
+POST /v1/chat/completions len=704 seq=1
+POST /v1/chat/completions len=18562 seq=2
+POST /v1/chat/completions len=18562 seq=3
+POST /v1/chat/completions len=18562 seq=4
+POST /v1/chat/completions len=18562 seq=5
+---
+total 88
+-rw-rw-r-- 1 probe probe   238 Aug 29 22:58 paths.log
+-rw-rw-r-- 1 probe probe   704 Aug 29 22:58 req-01.json
+-rw-rw-r-- 1 probe probe 18562 Aug 29 22:58 req-02.json
+-rw-rw-r-- 1 probe probe 18562 Aug 29 22:58 req-03.json
+-rw-rw-r-- 1 probe probe 18562 Aug 29 22:58 req-04.json
+-rw-rw-r-- 1 probe probe 18562 Aug 29 22:58 req-05.json

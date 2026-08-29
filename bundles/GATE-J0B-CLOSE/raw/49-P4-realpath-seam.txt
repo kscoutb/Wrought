@@ -1,0 +1,58 @@
+# GATE-J0B-CLOSE Phase 4.3 — THE REAL-PATH SEAM: tools/call frames driven BY GOOSE'S OWN LOOP
+# date: 2026-08-29T23:22:25Z
+# J0B-RESUME closed the transport but stated the limit plainly: 'the shim was driven by a
+# HAND-WRITTEN client, not by goose's own agent loop.' This closes that.
+# The shim is attached through the Phase-2 CONFIG SCHEMA (type: stdio, cmd: /home/probe/mcp-tee.sh),
+# baked into the overlay — no CLI flag, no hand-written client anywhere in the path.
+
+--- the task: it must make goose issue a tool call THROUGH the stdio extension ---
+  start: 2026-08-29T23:22:26Z
+
+    __( O)>  ● new session · openai primary-qwen27b
+   \____)    20260829_5 · /home/probe
+     L L     goose is ready
+
+  ────────────────────────────────────────
+  ▸ remember_memory wroughttap
+    category: wrought
+    data: the forge seam is closed
+    is_global: false
+
+Done. I've stored the memory **"the forge seam is closed"** in the `wrought` category (local storage).
+goose rc=0
+  end:   2026-08-29T23:22:59Z
+
+=========== THE FRAMES, CAPTURED BY THE SHIM, DRIVEN BY GOOSE ===========
+$ wc -c mcp-in.jsonl mcp-out.jsonl
+ 718 cap/p43-mcp-in.jsonl
+3196 cap/p43-mcp-out.jsonl
+3914 total
+
+--- CLIENT -> SERVER (goose -> goose mcp memory), verbatim ---
+{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{"extensions":{},"roots":{},"sampling":{},"elicitation":{}},"clientInfo":{"name":"goose-cli","version":"1.46.0"}}}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{"agent-session-id":"20260829_5","progressToken":0}}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"_meta":{"agent-session-id":"20260829_5","agent-working-dir":"/home/probe","agent-tool-call-request-id":"aidBkNfXYTRjg0wLGkp98dl0sU065Izd","progressToken":1},"name":"remember_memory","arguments":{"category":"wrought","data":"the forge seam is closed","is_global":false}}}
+
+--- SERVER -> CLIENT, decoded ---
+  id=0 RESULT initialize -> protocolVersion=2025-11-25 serverInfo={'name': 'goose-memory', 'version': '1.46.0'}
+  id=1 RESULT tools/list -> 4 tools: ['remember_memory', 'remove_memory_category', 'remove_specific_memory', 'retrieve_memories']
+  id=2 RESULT tools/call -> [{"type": "text", "text": "Stored memory in category: wrought"}]  isError=False
+
+=========== THE THREE FRAMES THE PROMPT ASKS FOR, AND WHO DROVE THEM ===========
+  initialize                 PRESENT
+  notifications/initialized  PRESENT
+  tools/list                 PRESENT
+  tools/call                 PRESENT
+
+  clientInfo on the initialize frame : {"name": "goose-cli", "version": "1.46.0"}
+  -> the client is GOOSE ITSELF. Not a hand-written client. That is the whole point.
+
+  the tools/call frame goose issued:
+    {"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"_meta": {"agent-session-id": "20260829_5", "agent-working-dir": "/home/probe", "agent-tool-call-request-id": "aidBkNfXYTRjg0wLGkp98dl0sU065Izd", "progressToken": 1}, "name": "remember_memory", "arguments": {"category": "wrought", "data": "the forge seam is closed", "is_global": false}}}
+
+--- and the side effect on disk: goose mcp memory actually stored it ---
+/home/probe/.goose/memory/wrought.txt
+---
+the forge seam is closed
+

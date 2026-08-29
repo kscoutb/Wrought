@@ -1,0 +1,44 @@
+# GATE-J0B-CLOSE Phase 3 — unit checks on authproxy3's two new pure functions.
+# date: 2026-08-29T23:09:20Z
+# Run BEFORE the proxy is given the real key: these need no credential and no upstream,
+# so a defect in the rewrite is found without a key ever being read.
+
+MAX_TOKENS_BOUND = 24000  (pins.lock serving.reasoning_budget)
+
+PASS goose's REAL body shape: max_tokens ABSENT (measured, cap/req-02.json)
+        in : b'{"model":"m","stream":true,"messages":[{"role":"user","content":"hi"}]'
+        out: b'{"model": "m", "stream": true, "messages": [{"role": "user", "content": "hi"}], "max_token'
+        ->  max_tokens INJECTED = 24000
+PASS max_tokens EXPLICIT null
+        in : b'{"model":"m","max_tokens":null,"stream":true}'
+        out: b'{"model": "m", "max_tokens": 24000, "stream": true}'
+        ->  max_tokens INJECTED = 24000
+PASS client SET max_tokens 128 -> must be LEFT ALONE
+        in : b'{"model":"m","max_tokens":128}'
+        out: b'{"model":"m","max_tokens":128}'
+        ->  max_tokens already set by client (128): left alone
+PASS client set max_tokens 0 -> a real value, left alone (0 is not None)
+        in : b'{"model":"m","max_tokens":0}'
+        out: b'{"model":"m","max_tokens":0}'
+        ->  max_tokens already set by client (0): left alone
+PASS not JSON -> relayed verbatim, fails OPEN
+        in : b'this is not json at all'
+        out: b'this is not json at all'
+        ->  not-json: relayed verbatim
+PASS JSON but not an object -> relayed verbatim
+        in : b'[1,2,3]'
+        out: b'[1,2,3]'
+        ->  not a JSON object: relayed verbatim
+PASS empty body -> relayed verbatim
+        in : b''
+        out: b''
+        ->  not-json: relayed verbatim
+
+--- byte-preservation check: a non-injected body must come back IDENTICAL ---
+identical: True
+
+--- the injected body must still be valid JSON, and must keep every original key ---
+keys preserved: True
+max_tokens    : 24000
+
+=========== UNIT RESULT: ALL PASS (0 failures) ===========

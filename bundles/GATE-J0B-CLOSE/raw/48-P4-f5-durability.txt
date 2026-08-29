@@ -1,0 +1,67 @@
+# GATE-J0B-CLOSE Phase 4.2 — F-5 DURABILITY under goose's REAL retry/concurrency pattern
+# date: 2026-08-29T23:20:22Z
+# The shape that wedged J0B-RESUME: several goose turns in flight at once, each issuing
+# stream:true chat calls with retries. Three CONCURRENT goose runs, each writing its own file.
+# apicalls baseline 111; proxy stderr baseline 81.
+
+  start: 2026-08-29T23:20:22Z
+  --- run 1 rc/output tail ---
+
+```
+DURABLE
+```
+  --- run 2 rc/output tail ---
+
+```
+DURABLE
+```
+  --- run 3 rc/output tail ---
+
+```
+DURABLE
+```
+  end:   2026-08-29T23:22:07Z
+
+=========== DID ALL THREE MANUFACTURE? ===========
+  D1.txt: 7 bytes  content=DURABLE
+  D2.txt: 7 bytes  content=DURABLE
+  D3.txt: 7 bytes  content=DURABLE
+
+=========== DID THE PINHOLE WEDGE? ===========
+--- 1. is it still 200 from inside the guest, immediately after? ---
+  post-burst health 1 -> http=200 in 0.001519s
+  post-burst health 2 -> http=200 in 0.000982s
+  post-burst health 3 -> http=200 in 0.001213s
+--- 2. any HTTP/0.9 empty-response signature? (http=000 is the tell) ---
+      -> read the codes above: any 000 is a wedge indication
+--- 3. llama-server instantaneous cpu (an abandoned unbounded generation reads ~35-40%) ---
+  0.0% of one core over 3s
+--- 4. dangling upstream sockets held by the proxy? ---
+  NONE
+
+=========== WERE THE GENERATIONS BOUNDED? ===========
+  chat POSTs this burst      : 12
+  of which logged a status   : 12
+  max_tokens INJECTED lines  : 12
+  requests left UNANSWERED   : 0
+  CLIENT-GONE cancellations  : 0
+
+--- apicalls delta, verbatim ---
+2026-08-29T23:20:23Z GET /v1/models 200
+2026-08-29T23:20:23Z GET /v1/models 200
+2026-08-29T23:20:23Z GET /v1/models 200
+2026-08-29T23:20:23Z POST /v1/chat/completions 200
+2026-08-29T23:20:48Z POST /v1/chat/completions 200
+2026-08-29T23:20:51Z POST /v1/chat/completions 200
+2026-08-29T23:21:22Z POST /v1/chat/completions 200
+2026-08-29T23:21:25Z POST /v1/chat/completions 200
+2026-08-29T23:21:53Z POST /v1/chat/completions 200
+2026-08-29T23:21:56Z POST /v1/chat/completions 200
+2026-08-29T23:21:58Z POST /v1/chat/completions 200
+2026-08-29T23:22:00Z POST /v1/chat/completions 200
+2026-08-29T23:22:01Z POST /v1/chat/completions 200
+2026-08-29T23:22:03Z POST /v1/chat/completions 200
+2026-08-29T23:22:05Z POST /v1/chat/completions 200
+2026-08-29T23:22:07Z GET /health 200
+2026-08-29T23:22:07Z GET /health 200
+2026-08-29T23:22:07Z GET /health 200

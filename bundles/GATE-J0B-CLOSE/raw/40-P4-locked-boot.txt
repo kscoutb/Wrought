@@ -1,0 +1,33 @@
+# GATE-J0B-CLOSE Phase 4 — BOOT #2, egress LOCKED, the SAME overlay Phase 2 baked
+# date: 2026-08-29T23:11:29Z
+# apicalls.log baseline BEFORE this boot: 55 lines. Every count below is a DELTA on that.
+# (J0B-RESUME made the same point: the log is continuous from GATE-J0B, so totals mislead.)
+
+launch command (as run):
+qemu-system-x86_64 -machine q35,accel=kvm -cpu host -smp 4 -m 4096 \
+  -drive file=/var/lib/wrought/j0b/close-overlay.qcow2,if=virtio,format=qcow2 \
+  -drive file=/var/lib/wrought/j0b/close-seed.img,if=virtio,format=raw \
+  -netdev user,id=n0,restrict=on,hostfwd=tcp:127.0.0.1:2222-:22,guestfwd=tcp:10.0.2.100:8081-tcp:127.0.0.1:8081 \
+  -device virtio-net-pci,netdev=n0 -display none \
+  -serial file:/var/lib/wrought/j0b-close/serial-p4-locked.log \
+  -daemonize -pidfile /var/lib/wrought/j0b-close/qemu-p4.pid
+
+#   restrict=on isolates the guest from everything except the two explicit forwards:
+#     hostfwd  tcp:127.0.0.1:2222-:22                          ssh in
+#     guestfwd tcp:10.0.2.100:8081-tcp:127.0.0.1:8081          THE PINHOLE, to authproxy3
+
+rc=0
+    PID USER         ELAPSED
+ 105882 kalib          00:02
+
+--- boot-to-ssh, and the baked state is present ---
+kvm
+ 1.46.0
+--- config.yaml sha256 (Phase 2 baked 853c7f3e...5504) ---
+853c7f3efb42328b0dbb173fa3ebfc8e0a17e700696260a0e21c8363dfa85504  /home/probe/.config/goose/config.yaml
+--- shim ---
+643e4b7226458e8f97e6596013fb60c350b9ccb028e089d615db558164920aea  /home/probe/mcp-tee.sh
+--- FORGE.txt must still be ABSENT ---
+ls: cannot access '/home/probe/FORGE.txt': No such file or directory
+  ABSENT, as required
+--- nothing is listening in the guest (the Phase-2 stub is NOT running) ---

@@ -1,0 +1,36 @@
+# GATE-J0B-CLOSE Phase 2 STEP E — DOES GOOSE EXECUTE THE TOOL? (the probe run that writes a file)
+# date: 2026-08-29T22:59:34Z
+# Stub v2 (sha256 72c65222...5cb0) speaks SSE, because the captured request says stream:true.
+# The stub returns a tool_call for 'write' with the schema goose itself advertised
+#   ({path, content}, both required — raw/26). If goose executes it, FORGE.txt appears.
+# NOTE: the file is written by GOOSE's tool machinery, not by the stub and not by me over ssh.
+
+stub2 pid=2714
+--- pre-state: FORGE.txt must be absent ---
+ls: cannot access '/home/probe/FORGE.txt': No such file or directory
+  FORGE.txt absent, as required
+
+--- THE RUN ---
+
+    __( O)>  ● new session · openai primary-qwen27b
+   \____)    20260829_3 · /home/probe
+     L L     goose is ready
+
+  ────────────────────────────────────────
+  ▸ write
+    path ~/FORGE.txt
+    content: FORGE
+
+Created /home/probe/FORGE.txt (1 lines)STUB-OK
+goose rc=0 (F-4: NOT evidence)
+
+--- THE WORK PRODUCT ---
+-rw-rw-r-- 1 probe probe 5 Aug 29 22:59 /home/probe/FORGE.txt
+--- contents, byte-exact (od) ---
+0000000   F   O   R   G   E
+0000005
+--- stub call log ---
+GET /v1/models
+POST /v1/chat/completions len=704 seq=1 stream=True tools=0
+POST /v1/chat/completions len=18562 seq=2 stream=True tools=18
+POST /v1/chat/completions len=18850 seq=3 stream=True tools=18

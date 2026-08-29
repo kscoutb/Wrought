@@ -1,0 +1,43 @@
+# GATE-J0B-CLOSE Phase 2 — Goose at the PINNED tag, fetched by URL (releases/latest deliberately NOT re-resolved)
+# date: 2026-08-29T22:55:48Z
+
+--- the pin this is checked against (pins.lock virtualization.guest_agent_surface) ---
+  guest_agent_surface:
+    name: goose
+    tag: "v1.46.0"                  # api.github.com/repos/aaif-goose/goose/releases/latest -> tag_name (raw/21)
+    published_at: "2026-08-12T16:05:13Z"   # same JSON -> published_at; prerelease=False, draft=False
+    upstream_repo: "github.com/aaif-goose/goose"   # successor org to block/goose
+    # The release also ships io.github.block.Goose flatpaks — the artifact ids still carry the old
+    # reverse-DNS name. Recorded at J0B raw/22, relied on for nothing.
+    asset: goose-x86_64-unknown-linux-gnu.tar.bz2  # chosen from a 22-asset list; the plain gnu
+                                                   # x86_64 build, NOT the -vulkan variant
+    url: "https://github.com/aaif-goose/goose/releases/download/v1.46.0/goose-x86_64-unknown-linux-gnu.tar.bz2"
+    asset_size_bytes: 84957951      # `ls -l` after `curl -fsSL -O` in-guest (raw/22)
+    asset_sha256: a1cf4856a765d07d6b95689a53c7bca21fcc6e6d65c0dfd064fc704052b85a7b   # `sha256sum <asset>` (raw/22)
+    # The tarball is TWO entries, ./ and ./goose — a single Rust binary, as docs/10 describes.
+
+$ gsh curl -fsSL -o /tmp/goose.tar.bz2 <pinned url> ; ls -l ; sha256sum
+-rw-rw-r-- 1 probe probe 84957951 Aug 29 22:55 goose.tar.bz2
+a1cf4856a765d07d6b95689a53c7bca21fcc6e6d65c0dfd064fc704052b85a7b  goose.tar.bz2
+
+  pins.lock asset_size_bytes: 84957951
+  pins.lock asset_sha256:     a1cf4856a765d07d6b95689a53c7bca21fcc6e6d65c0dfd064fc704052b85a7b
+  prompt (truncated):         a1cf4856...5a7b  — matched against the FULL pin, not the ellipsis
+
+--- install: python3 stdlib bz2 (no apt, no bzip2 binary, guest package set unchanged) ---
+$ gsh python3 -c "bz2 stream-decompress" ; tar -xf ./goose ; sudo install -m0755
+decompressed ok
+-rwxr-xr-x 1 probe probe 306057864 Aug 12 15:51 /tmp/gi/goose
+29b3340ef3d80fd146bf01f752667549c212a09cfd1035acd7ac16457a2e4a89  /tmp/gi/goose
+--- installed ---
+-rwxr-xr-x 1 root root 306057864 Aug 29 22:56 /usr/local/bin/goose
+29b3340ef3d80fd146bf01f752667549c212a09cfd1035acd7ac16457a2e4a89  /usr/local/bin/goose
+--- deletes, ENUMERATED (rails §3), each a scratch file this session created in the guest ---
+  /tmp/goose.tar.bz2   84957951 B  downloaded asset, sha256 already verified above
+  /tmp/goose.tar      306063360 B  intermediate tar, superseded by the installed binary
+  /tmp/gi/goose       306057864 B  staging copy, superseded by /usr/local/bin/goose (hash equal)
+--- df after ---
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda1        15G  2.0G   13G  14% /
+--- version ---
+ 1.46.0

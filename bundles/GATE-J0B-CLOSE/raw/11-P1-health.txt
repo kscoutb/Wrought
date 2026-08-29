@@ -1,0 +1,49 @@
+# GATE-J0B-CLOSE Phase 1 — HEALTH ASSERT (all four clauses the prompt names)
+# date: 2026-08-29T22:54:24Z
+
+--- 1. service active (READ-ONLY; rails §1 forbids start/stop/restart of any wrought-* unit) ---
+$ systemctl is-active wrought-inference.service ; systemctl show -p NRestarts,ActiveEnterTimestamp wrought-inference.service
+active
+ActiveEnterTimestamp=Sat 2026-08-29 13:38:12 EDT
+NRestarts=0
+
+--- 2. /health 200 (unkeyed; the key gates the CHAT call, not /health — J0B-RESUME raw/62) ---
+$ curl -s -o /dev/null -w '%{http_code} in %{time_total}s\n' http://127.0.0.1:8080/health
+200 in 0.000390s
+
+--- 3. amdgpu.runpm=0 on the LIVE cmdline (pins.lock:535 — a kernel bump dropping it silently re-arms the wedge) ---
+$ tr " " "\\n" < /proc/cmdline | grep -c "^amdgpu.runpm=0$"  ; and the literal token
+1
+amdgpu.runpm=0
+
+--- 4. dGPU 0x744c present, and its VRAM (device-id selection, never card index) ---
+$ lspci -nn | grep -i -E "VGA|Display"
+c7:00.0 VGA compatible controller [0300]: Advanced Micro Devices, Inc. [AMD/ATI] Navi 31 [Radeon RX 7900 XT/7900 XTX/7900 GRE/7900M] [1002:744c] (rev c8)
+c8:00.0 Display controller [0380]: Advanced Micro Devices, Inc. [AMD/ATI] Strix [Radeon 880M / 890M] [1002:150e] (rev c1)
+
+$ for d in /sys/class/drm/card*/device; do printf "%s %s\\n" "$d" "$(cat $d/device 2>/dev/null)"; done
+/sys/class/drm/card0/device 0x744c
+/sys/class/drm/card0-DP-1/device 
+/sys/class/drm/card0-DP-2/device 
+/sys/class/drm/card0-HDMI-A-1/device 
+/sys/class/drm/card0-HDMI-A-2/device 
+/sys/class/drm/card0-Writeback-1/device 
+/sys/class/drm/card1/device 0x150e
+/sys/class/drm/card1-DP-10/device 
+/sys/class/drm/card1-DP-3/device 
+/sys/class/drm/card1-DP-4/device 
+/sys/class/drm/card1-DP-5/device 
+/sys/class/drm/card1-DP-6/device 
+/sys/class/drm/card1-DP-7/device 
+/sys/class/drm/card1-DP-8/device 
+/sys/class/drm/card1-DP-9/device 
+/sys/class/drm/card1-HDMI-A-3/device 
+/sys/class/drm/card1-Writeback-2/device 
+
+$ VRAM used/total for the 0x744c device, from its own sysfs nodes (bytes -> GiB)
+  device=/sys/class/drm/card0/device id=0x744c  used=19619987456 total=25753026560
+  VRAM 18.27 of 23.98 GiB
+
+--- llvmpipe must be absent from the serving device selection (hard rule, docs/01) ---
+$ journalctl -u wrought-inference.service -n 200 --no-pager | grep -c -i llvmpipe
+0

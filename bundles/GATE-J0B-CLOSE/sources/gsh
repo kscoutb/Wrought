@@ -1,0 +1,7 @@
+#!/bin/bash
+# GATE-J0B-CLOSE — the guest ssh helper. One place, so every in-guest command in the
+# evidence is reproducible verbatim and the long option list does not get retyped (J-95).
+exec ssh -p 2222 -i /var/lib/wrought/j0a/j0a_key \
+  -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no \
+  -o BatchMode=yes -o ConnectTimeout=5 -o LogLevel=ERROR \
+  probe@127.0.0.1 "$@"

@@ -1,0 +1,20 @@
+
+=================== THE PINHOLE, THREE WAYS (the egress proof) ===================
+1. EXTERNAL EGRESS  — must FAIL
+   github.com            -> http=000
+   github.com            -> curl exit 6 (FAILS, as required)
+2. HOST MODEL SERVER DIRECT — must be REFUSED (the key gate is not the only fence)
+   10.0.2.2:8080/health  -> http=000
+   10.0.2.2:8080/health  -> curl exit 7 (REFUSED, as required)
+3. THE PINHOLE — must be 200
+   10.0.2.100:8081/health -> http=200
+   10.0.2.100:8081/props  -> http=200
+4. CONTROL — name resolution is dead inside the guest
+   getent hosts github.com -> exit 2 (2 = no resolution)
+5. and the model IS reachable through the pinhole (the real one, by path)
+   model_path: /var/lib/wrought/models/Qwen3.6-27B-UD-Q4_K_XL.gguf
+
+--- host-side: what the proxy logged for those calls (delta on line 55) ---
+2026-08-29T23:11:51Z GET /health 200
+2026-08-29T23:11:51Z GET /props 200
+2026-08-29T23:11:51Z GET /props 200

@@ -1,0 +1,25 @@
+# GATE-J0B-CLOSE Phase 4.1 (second run) — THE SAME TURN, INSTRUMENTED.
+# date: 2026-08-29T23:15:59Z
+# Run 1 reached the model and wrote no file. The server has since been PROVEN capable of the
+# exact call, from goose's own 22-tool body, in 2.3 s (raw/43). So this run instruments the
+# goose side: --debug, RUST_LOG, and the on-disk request logs pulled immediately afterwards.
+# apicalls baseline 66, proxy stderr baseline 35 lines.
+
+  start: 2026-08-29T23:15:59Z
+
+    __( O)>  ● new session · openai primary-qwen27b
+   \____)    20260829_1 · /home/probe
+     L L     goose is ready
+Create and print FORGE.txt
+goose rc=0
+  end:   2026-08-29T23:16:15Z
+
+--- work product ---
+ls: cannot access '/home/probe/FORGE.txt': No such file or directory
+  NOT WRITTEN
+
+--- apicalls delta ---
+2026-08-29T23:16:00Z POST /v1/chat/completions 200
+--- proxy stderr delta ---
+authproxy3: stream 7 req 7: max_tokens INJECTED = 24000 (body 704 -> 749 bytes)
+authproxy3: stream 7 req 8: max_tokens INJECTED = 24000 (body 21624 -> 22426 bytes)

@@ -1,0 +1,68 @@
+# GATE-J0B-CLOSE Phase 5 — TEARDOWN. Rails §13: nothing this gate started may outlive it.
+# date: 2026-08-29T23:23:43Z
+# This is an ATTENDED-DIRECT session: there is no runner sweep behind it, so the teardown
+# is this session's own duty and is enumerated, not assumed.
+
+--- 1. the guest, powered off from inside ---
+$ tail -2 serial-p4-locked.log
+[[0;32m  OK  [0m] Reached target [0;1;39mpoweroff.target[0m - System Power Off.
+[  734.323283] reboot: Power down
+$ qemu pid still alive?
+  pidfile gone (qemu removes it on exit)
+$ any qemu-system process left, matched by EXECUTABLE not command line (GATE-RUNNER-POLISH) ?
+  count: 0
+0
+$ :2222 clear?
+  :2222 CLEAR
+
+--- 2. the ssh tunnel this gate opened ---
+  tunnel pid=106373
+  tunnel: gone (see D-3 below for how, and why that is recorded rather than tidied)
+
+*** DEVIATION D-3 — THIS TEARDOWN KILLED ITS OWN SHELL, AND THE CAUSE IS A KNOWN CLASS. ***
+    The step above used:   TP=$(pgrep -f "ssh -N -p 2222" | head -1) ; kill "$TP"
+    `pgrep -f` matches the whole COMMAND LINE, and the command line of the shell running this
+    teardown CONTAINS the literal string "ssh -N -p 2222" — because the teardown script quotes
+    the pattern. So pgrep returned the teardown shell as well, and it killed itself: the
+    tool call exited 144 with raw/50 truncated mid-section.
+
+    THIS IS THE THIRD OCCURRENCE OF ONE CLASS IN TWO DAYS, and the first two are already
+    written up as fixed:
+      1. GATE-RUNNER-POLISH: the reaper `pgrep -f qemu-system` matched the tool-call shell of
+         the session running it. Fixed there by matching /proc/<pid>/exe instead.
+      2. THIS GATE, Phase 2 (raw/25 D-1): `pkill -f stub_model.py` killed the remote shell.
+      3. HERE.
+    The lesson the repo had already drawn — MATCH THE EXECUTABLE, NEVER THE COMMAND LINE —
+    was applied to the reaper and NOT to ad-hoc session commands, which is where it keeps
+    recurring. Note that the qemu check three lines above got this RIGHT (`pgrep -x`), in the
+    same file, minutes earlier. Knowing the rule is not the same as having it in the fingers.
+
+    NOTHING WAS LOST: no evidence file was truncated except raw/50 itself, which is continued
+    here by APPENDING (rails §4 — never overwrite, correct by addition). State was re-measured
+    from the box rather than assumed:
+      qemu-system-x86_64 processes (pgrep -x, EXECUTABLE match) : 0
+0
+      :2222                                                     : 0  (0 = clear)
+      :18081                                                    : 0  (0 = clear, it lived in the guest)
+      ssh -N tunnels remaining (ps, printed not matched-and-killed): 0
+
+--- 3. THE PROXY, killed by its RECORDED pid. The key dies with the process. ---
+  recorded pid = 105783  (recorded at launch in raw/32, not discovered by a pattern match)
+$ ps -o pid,args -p 105783     BEFORE
+ 105783 python3 /var/lib/wrought/j0b/authproxy3.py
+$ kill 105783
+$ ps -o pid,args -p 105783     AFTER
+    PID COMMAND
+$ is :8081 clear?
+  :8081 CLEAR — the key is gone with the process
+$ any process still holding the sealed credential open?
+
+--- 4. the pinned base image is UNCHANGED after two boots through overlays (immutability) ---
+0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe  /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+  pins.lock:698 -> 0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe
+
+--- 5. wrought-inference.service untouched throughout (rails §1: read-only only) ---
+ActiveEnterTimestamp=Sat 2026-08-29 13:38:12 EDT
+NRestarts=0
+  Phase 1 (raw/11) recorded: ActiveEnterTimestamp=Sat 2026-08-29 13:38:12 EDT, NRestarts=0
+  Identical here = the service was never stopped, started, restarted or reloaded by this gate.

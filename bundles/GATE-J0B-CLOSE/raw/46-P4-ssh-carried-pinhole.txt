@@ -1,0 +1,34 @@
+
+=========== THE FIX, MEASURED: carry the pinhole inside the ssh channel, not over guestfwd ===========
+# date: 2026-08-29T23:19:02Z
+# The guestfwd is ONE multiplexed byte stream and cannot carry a second connection. ssh -R
+# gives a real per-connection forwarder, and it rides the ssh channel this gate already has,
+# so NOTHING is widened: the guest keeps restrict=on, gains only a loopback listener, and the
+# carrier is authenticated — arguably TIGHTER than an unauthenticated IP-level forward.
+#
+# tunnel command (as run):  ssh -N -R 18081:127.0.0.1:8081 probe@guest    (sshtun.sh)
+# proxy stderr baseline: 55
+
+--- the tunnel is up, and the EGRESS PROOF STILL HOLDS (this must not have widened anything) ---
+  listener in the guest:
+LISTEN 0      128        127.0.0.1:18081      0.0.0.0:*          
+LISTEN 0      128            [::1]:18081         [::]:*          
+  github.com                -> http=000
+  github.com                -> curl exit 6 (still FAILS)
+  10.0.2.2:8080/health      -> http=000
+  10.0.2.2:8080/health      -> curl exit 7 (still REFUSED)
+  127.0.0.1:18081/health    -> http=200
+
+--- 8 CONCURRENT requests from the guest, over the ssh-carried pinhole ---
+  par 4 -> http=200 in 0.001623s
+  par 5 -> http=200 in 0.002153s
+  par 2 -> http=200 in 0.004042s
+  par 1 -> http=200 in 0.002409s
+  par 7 -> http=200 in 0.002552s
+  par 6 -> http=200 in 0.004129s
+  par 3 -> http=200 in 0.004623s
+  par 8 -> http=200 in 0.002776s
+
+--- proxy client streams accepted for those 8 guest connections ---
+  new streams accepted: 9
+  guest connections   : 8   (guestfwd gave 0 for 16; see above)

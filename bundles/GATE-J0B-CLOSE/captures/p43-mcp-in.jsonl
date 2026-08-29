@@ -1,0 +1,4 @@
+{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{"extensions":{},"roots":{},"sampling":{},"elicitation":{}},"clientInfo":{"name":"goose-cli","version":"1.46.0"}}}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{"agent-session-id":"20260829_5","progressToken":0}}}
+{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"_meta":{"agent-session-id":"20260829_5","agent-working-dir":"/home/probe","agent-tool-call-request-id":"aidBkNfXYTRjg0wLGkp98dl0sU065Izd","progressToken":1},"name":"remember_memory","arguments":{"category":"wrought","data":"the forge seam is closed","is_global":false}}}

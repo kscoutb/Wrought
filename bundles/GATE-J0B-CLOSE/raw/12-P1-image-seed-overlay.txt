@@ -1,0 +1,73 @@
+# GATE-J0B-CLOSE Phase 1 — base-image pin verify, seed rebuild, FRESH overlay
+# date: 2026-08-29T22:54:50Z
+
+--- pinned base image: pins.lock value vs the file on disk (hard rule: verify on every use) ---
+$ sed -n "695,704p" /home/kalib/foundry/pins.lock
+  guest_base_image:
+    file: noble-server-cloudimg-amd64.img
+    url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+    sha256: 0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe   # verify on EVERY pull
+    size_bytes: 624239616
+    release: "Ubuntu 24.04 LTS (noble) cloud image"
+    upstream_last_modified: "2026-08-01T13:17:55Z"   # quoted: an unquoted timestamp resolves to a
+                                                     # datetime and stops comparing equal as text
+    format: "qcow2 v3, 3758096384 bytes virtual"
+    path: /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+
+$ sha256sum /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe  /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+  pins.lock:698 ->  0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe
+  prompt      ->  0533b065...40ffe   (truncated in the prompt; matched against the FULL pin, not the ellipsis)
+
+$ stat -c "%s bytes" /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img   (pin: 624239616)
+624239616 bytes
+
+--- seed rebuilt from the J0A user-data. Written as close-seed.img, NOT over j0b/seed.img:
+--- rails §4, a prior session artifact is not overwritten by this one.
+$ cloud-localds /var/lib/wrought/j0b/close-seed.img /var/lib/wrought/j0a/user-data
+rc=0
+28c3f019cf0cd048e9199394a2dc074b5482dc90da04a12911d3163ee06c89c6  /var/lib/wrought/j0b/close-seed.img
+  (J0B-RESUME raw/53 recorded its seed as f71c87da...21ca — a DIFFERENT file; cloud-localds
+   synthesises meta-data with a fresh instance-id, so seed images are not expected to hash equal.)
+
+--- FRESH overlay on the pinned backing file ---
+# DEVIATION D-1, deliberate and stated: the overlay is created at 16G virtual, not at the
+#   backing file's 3.5 GiB. J0B-RESUME F-3 measured the noble root at 2.4G with the 306 MB
+#   goose binary filling it during install (445M spare after). This gate additionally needs
+#   an MCP tee shim's frame logs and a stub-server probe, so the headroom is bought up front
+#   rather than discovered at 100% again. cloud-init's growpart expands vda1 on first boot;
+#   if it does NOT, the guest is exactly the 2.4G surface J0B-RESUME proved installable, so
+#   the fallback is the previously measured state, not a new risk. BACKING FILE UNCHANGED —
+#   the base image is read-only by construction and its hash is re-checked after the boots.
+$ ls /var/lib/wrought/j0b/close-overlay.qcow2   (must not already exist)
+ls: cannot access '/var/lib/wrought/j0b/close-overlay.qcow2': No such file or directory
+  -> absent, as required
+
+$ qemu-img create -f qcow2 -b /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img -F qcow2 /var/lib/wrought/j0b/close-overlay.qcow2 16G
+Formatting '/var/lib/wrought/j0b/close-overlay.qcow2', fmt=qcow2 cluster_size=65536 extended_l2=off compression_type=zlib size=17179869184 backing_file=/var/lib/wrought/j0a/noble-server-cloudimg-amd64.img backing_fmt=qcow2 lazy_refcounts=off refcount_bits=16
+rc=0
+
+$ qemu-img info /var/lib/wrought/j0b/close-overlay.qcow2
+image: /var/lib/wrought/j0b/close-overlay.qcow2
+file format: qcow2
+virtual size: 16 GiB (17179869184 bytes)
+disk size: 196 KiB
+cluster_size: 65536
+backing file: /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+backing file format: qcow2
+Format specific information:
+    compat: 1.1
+    compression type: zlib
+    lazy refcounts: false
+    refcount bits: 16
+    corrupt: false
+    extended l2: false
+Child node '/file':
+    filename: /var/lib/wrought/j0b/close-overlay.qcow2
+    protocol type: file
+    file length: 192 KiB (197120 bytes)
+    disk size: 196 KiB
+
+$ qemu-img check /var/lib/wrought/j0b/close-overlay.qcow2
+No errors were found on the image.
+Image end offset: 262144

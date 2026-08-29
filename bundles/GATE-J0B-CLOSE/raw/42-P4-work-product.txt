@@ -1,0 +1,52 @@
+# GATE-J0B-CLOSE Phase 4.1 — THE WORK PRODUCT. The real model, through the pinhole, in the locked guest.
+# date: 2026-08-29T23:12:12Z
+# apicalls.log baseline immediately before the run: 58 lines.
+#
+# ACCEPTANCE, exactly as the prompt sets it and NOT one clause wider:
+#   PASS iff  (1) /home/probe/FORGE.txt EXISTS and contains exactly FORGE, AND
+#             (2) apicalls.log shows the model calls.
+#   goose's exit status is NOT evidence (F-4: it exits 0 on total failure).
+
+--- pre-state ---
+ls: cannot access '/home/probe/FORGE.txt': No such file or directory
+  FORGE.txt ABSENT
+
+--- THE RUN ---
+$ gsh goose run --no-session -t "Create /home/probe/FORGE.txt containing exactly the word FORGE, then print it."
+  start: 2026-08-29T23:12:12Z
+
+    __( O)>  ● new session · openai primary-qwen27b
+   \____)    20260829_1 · /home/probe
+     L L     goose is ready
+Create FORGE.txt file
+goose rc=0  <- NOT EVIDENCE (F-4)
+  end:   2026-08-29T23:12:46Z
+
+=========== ACCEPTANCE CLAUSE 1 — THE WORK PRODUCT ===========
+--- ls ---
+ls: cannot access '/home/probe/FORGE.txt': No such file or directory
+  FORGE.txt NOT WRITTEN
+--- byte-exact contents (od -c) ---
+od: /home/probe/FORGE.txt: No such file or directory
+--- sha256 ---
+sha256sum: /home/probe/FORGE.txt: No such file or directory
+--- exact-match test: contents == FORGE with no trailing newline? ---
+  NO FILE: [Errno 2] No such file or directory: '/home/probe/FORGE.txt'
+
+=========== ACCEPTANCE CLAUSE 2 — THE HOST-SIDE CALL LOG (delta) ===========
+$ tail -n +59 /var/lib/wrought/j0b/apicalls.log
+2026-08-29T23:12:12Z GET /v1/models 200
+2026-08-29T23:12:13Z POST /v1/chat/completions 200
+2026-08-29T23:12:46Z POST /v1/chat/completions 200
+  DELTA = 3 lines
+
+--- and the proxy stderr: did the max_tokens injection fire on GOOSE traffic? ---
+4
+authproxy3: stream 5 opened from 127.0.0.1:52692
+authproxy3: stream 5 req 1: max_tokens already set by client (8): left alone (body 94 -> 94 bytes)
+authproxy3: stream 5 closed after 1 request(s)
+authproxy3: stream 6 opened from 127.0.0.1:52698
+authproxy3: stream 6 closed after 1 request(s)
+authproxy3: stream 7 opened from 127.0.0.1:40156
+authproxy3: stream 7 req 5: max_tokens INJECTED = 24000 (body 704 -> 749 bytes)
+authproxy3: stream 7 req 6: max_tokens INJECTED = 24000 (body 21624 -> 22426 bytes)

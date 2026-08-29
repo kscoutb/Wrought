@@ -1,0 +1,356 @@
+# GATE-J0B-CLOSE Phase 3 — authproxy3.py: the DIFF against authproxy2.py, and what changed
+# date: 2026-08-29T23:08:56Z
+
+$ sha256sum authproxy2.py authproxy3.py ; wc -l
+ea2974cec859aef8f320eb6208031f7a5b360cbdf8764e097b48bffd35f4d99e  authproxy2.py
+d3e1477a65b5755e7d9bdfad8e58b896015131803a1a70e4fc447c87b3f4e732  authproxy3.py
+  361 authproxy2.py
+  522 authproxy3.py
+  883 total
+
+$ diff -u authproxy2.py authproxy3.py   (FULL, unabridged)
+--- authproxy2.py	2026-08-28 18:01:06.144001420 -0400
++++ authproxy3.py	2026-08-29 19:08:35.841144530 -0400
+@@ -1,44 +1,66 @@
+ #!/usr/bin/env python3
+ """
+-GATE-J0B Phase 3 — the authenticating loopback proxy, CORRECTED for the transport
+-QEMU actually provides. authproxy.py (v1) is kept unedited as the record of what was
+-tried and why it failed; this file supersedes it from Phase 3 onward.
+-
+-WHAT CHANGED AND WHY (measured, see raw/32-P3-pinhole-diagnosis.txt):
+-  QEMU's guestfwd=<addr>:<port>-tcp:<host>:<port> is NOT a per-connection forwarder.
+-  libslirp opens ONE chardev socket to the target AT VM STARTUP and funnels every guest
+-  connection into that single, always-on byte stream. v1 was written to the prompt's
+-  per-connection model: it opened an upstream socket eagerly on accept and tore the
+-  connection down when either side EOF'd. llama-server closed that idle upstream socket
+-  within seconds, v1 closed the one chardev with it, and the pinhole was dead for the
+-  rest of the VM's life — which is precisely the curl exit 28 (SYN accepted, 0 bytes) the
+-  guest measured.
+-
+-  So v2 speaks the stream it is actually given. The client side is treated as a SEQUENCE
+-  OF REQUESTS that never closes on our initiative; each request gets its OWN fresh
+-  upstream connection, whose lifetime is that request. An idle upstream close can no
+-  longer take the pinhole down, because there is no idle upstream.
+-
+-Rails unchanged from v1:
+-  - Key arrives as the FIRST LINE OF STDIN, lives in memory only, never in argv, env,
+-    a file, the log, or the guest.
+-  - Listens on 127.0.0.1 only; UPSTREAM is a constant, so no other destination is
+-    reachable from this process by construction.
+-  - apicalls.log carries ONLY: ISO-8601 timestamp, method, path, response status.
+-    Bodies are relayed byte-for-byte using their framing and are never interpreted.
+-    Diagnostics go to stderr, never to apicalls.log.
++GATE-J0B-CLOSE Phase 3 — authproxy3.py. authproxy2.py, plus the two behaviours F-5 needs.
++authproxy2.py is kept UNEDITED as the record of what it was; this file supersedes it.
++
++F-5, as GATE-J0B-RESUME measured it (bundles/GATE-J0B-RESUME/REPORT-J0B.md §4, raw/62):
++  goose issues `stream:true` with `max_tokens` UNSET. Abandoning the client does NOT stop
++  llama-server, which keeps generating to its context limit and serves requests serially, so
++  every later call — goose's own retries and a diagnostic curl alike — queues behind ~9
++  abandoned unbounded generations and appears to hang. The SLIRP guestfwd then degraded and
++  answered instantly with an empty HTTP/0.9 response until the guest was rebooted.
++
++TWO CHANGES, both aimed at that chain:
++
++(a) BOUNDED GENERATION. Any `chat/completions` request whose `max_tokens` is null or absent
++    gets `max_tokens` injected. A request that sets its own value is left ALONE — this bounds
++    the failure mode, it does not override a caller.
++
++    THE VALUE IS NOT INVENTED (CLAUDE.md hard rule 1). It is 24000, taken from
++    `pins.lock` `serving.reasoning_budget: 24000`, whose own committed derivation
++    (build-evidence/session-13/03-truncation/S13-reasoning-budget-derivation.txt, n=78) records
++    it as "the same bound already ratified for --escalation-max-tokens". It is the only ratified
++    per-generation token bound in `pins.lock`. Against `ctx_size: 65536` it cuts the worst-case
++    abandoned generation by ~2.7x. NOTE FOR THE FERRY: the NUMBER is ratified, but the proxy
++    KEY that carries it is new, so it is written up in PROPOSED-PINS-DELTA rather than minted
++    here as settled.
++
++(b) CANCEL ON CLIENT DISCONNECT. authproxy2 closes its upstream socket in serve_one's `finally`,
++    so it did already cancel — but only once it NOTICED, and it noticed only when it next tried
++    to write to the client. While it blocks in `ureader.read_head()` waiting for a first response
++    byte that an unbounded generation will not send for minutes, it never tries to write, so it
++    never notices. That is exactly the wedge window. UpReader therefore selects on the UPSTREAM
++    and the CLIENT together: a client EOF aborts the read, and the existing `finally` closes
++    upstream immediately, which is what cancels the abandoned generation.
++
++    The client is peeked with MSG_PEEK, never consumed, so a pipelined request is not eaten;
++    on seeing real bytes the watch is dropped so select cannot spin. STATED LIMIT: a client that
++    half-closes with shutdown(SHUT_WR) and then keeps reading would be read as gone. Nothing on
++    this path does that, and the alternative is not noticing a real disconnect.
++
++EVERYTHING ELSE IS authproxy2 BYTE-FOR-BYTE — key on stdin line 1 and nowhere else, Authorization
++replaced never forwarded, a FRESH upstream connection per request, the SSE/chunked relay, and
++apicalls.log's timestamp/method/path/status contract. Injection is reported to STDERR only,
++because authproxy2's rule is that diagnostics never enter apicalls.log.
++
++Fails OPEN: a body that is not JSON, or not a JSON object, is relayed byte-for-byte unchanged.
+ """
+ 
++import json
+ import os
++import select
+ import socket
+ import sys
+ import threading
+ import time
+ 
++# pins.lock serving.reasoning_budget — see the docstring. Not a value chosen by this gate.
++MAX_TOKENS_BOUND = 24000
++
+ LISTEN = ("127.0.0.1", 8081)
+ UPSTREAM = ("127.0.0.1", 8080)
+ LOGPATH = "/var/lib/wrought/j0b/apicalls.log"
+-PIDPATH = "/var/lib/wrought/j0b/authproxy2.pid"
++PIDPATH = "/var/lib/wrought/j0b/authproxy3.pid"
+ BUF = 65536
+ HEAD_LIMIT = 262144
+ 
+@@ -59,7 +81,7 @@
+ 
+ 
+ def diag(msg):
+-    sys.stderr.write("authproxy2: %s\n" % msg)
++    sys.stderr.write("authproxy3: %s\n" % msg)
+     sys.stderr.flush()
+ 
+ 
+@@ -102,6 +124,115 @@
+         return line + b"\r\n"
+ 
+ 
++class UpReader(Reader):
++    """A Reader on the UPSTREAM socket that also watches the CLIENT for a disconnect.
++
++    This is change (b). authproxy2 used a plain Reader here, so while it blocked waiting for
++    the first response byte it could not learn that the client had gone, and the abandoned
++    generation ran on. Selecting on both sockets closes that window; serve_one's existing
++    `finally: up.close()` is what actually cancels it.
++    """
++
++    def __init__(self, sock, watch):
++        Reader.__init__(self, sock)
++        self.watch = watch
++        self.client_gone = False
++
++    def fill(self):
++        if self.eof:
++            return False
++        while True:
++            watching = [self.sock] if self.watch is None else [self.sock, self.watch]
++            try:
++                ready, _, _ = select.select(watching, [], [])
++            except OSError:
++                self.eof = True
++                return False
++            if self.watch is not None and self.watch in ready:
++                try:
++                    peek = self.watch.recv(BUF, socket.MSG_PEEK)
++                except OSError:
++                    peek = b""
++                if not peek:
++                    self.client_gone = True     # EOF from the client: it is gone
++                    self.eof = True
++                    return False
++                self.watch = None               # real bytes, peeked not consumed; stop spinning
++            if self.sock in ready:
++                try:
++                    d = self.sock.recv(BUF)
++                except OSError:
++                    self.eof = True
++                    return False
++                if not d:
++                    self.eof = True
++                    return False
++                self.buf += d
++                return True
++
++
++def read_body(reader, hdrs):
++    """Buffer a whole request body. Used ONLY on the injection path (change (a)).
++
++    Returns the body bytes, or None if the client stream ended mid-body.
++    """
++    mode, ln = framing(hdrs)
++    if mode == "none":
++        return b""
++    if mode == "length":
++        buf = b""
++        while len(buf) < ln:
++            if not reader.buf and not reader.fill():
++                return None
++            take = reader.buf[:ln - len(buf)]
++            reader.buf = reader.buf[len(take):]
++            buf += take
++        return buf
++    if mode == "chunked":
++        buf = b""
++        while True:
++            line = reader.read_line()
++            if line is None:
++                return None
++            try:
++                size = int(line.strip().split(b";")[0], 16)
++            except ValueError:
++                return None
++            if size == 0:
++                while True:
++                    t = reader.read_line()
++                    if t is None:
++                        return None
++                    if t == b"\r\n":
++                        return buf
++            need = size + 2                      # the chunk and its trailing CRLF
++            chunk = b""
++            while len(chunk) < need:
++                if not reader.buf and not reader.fill():
++                    return None
++                take = reader.buf[:need - len(chunk)]
++                reader.buf = reader.buf[len(take):]
++                chunk += take
++            buf += chunk[:size]
++    return None
++
++
++def inject_max_tokens(body):
++    """Change (a). Returns (body, what_happened). FAILS OPEN — anything unparseable is
++    returned byte-for-byte, because relaying a request unchanged is always safe and
++    rewriting one we do not understand is not."""
++    try:
++        obj = json.loads(body)
++    except Exception:
++        return body, "not-json: relayed verbatim"
++    if not isinstance(obj, dict):
++        return body, "not a JSON object: relayed verbatim"
++    if obj.get("max_tokens") is None:            # covers BOTH absent and explicit null
++        obj["max_tokens"] = MAX_TOKENS_BOUND
++        return json.dumps(obj).encode(), "max_tokens INJECTED = %d" % MAX_TOKENS_BOUND
++    return body, "max_tokens already set by client (%r): left alone" % (obj["max_tokens"],)
++
++
+ def parse_headers(head):
+     lines = head[:-4].split(b"\r\n")
+     start = lines[0]
+@@ -213,6 +344,21 @@
+     path = parts[1].decode("latin-1", "replace") if len(parts) > 1 else "?"
+     client_wants_close = (get_hdr(hdrs, b"connection") or b"").lower() == b"close"
+ 
++    # ---- change (a): bound the generation on the chat path. The body is buffered HERE,
++    # before the upstream connect, because rewriting it changes Content-Length and the head
++    # therefore cannot be sent until the new length is known.
++    inject = (method == "POST") and (b"chat/completions" in start)
++    newbody = None
++    if inject:
++        raw_body = read_body(creader, hdrs)
++        if raw_body is None:
++            diag("stream %d req %d: client stream ended mid-body" % (sid, n))
++            log_call(method, path, "REQUEST-BODY-TRUNCATED")
++            return False
++        newbody, what = inject_max_tokens(raw_body)
++        diag("stream %d req %d: %s (body %d -> %d bytes)"
++             % (sid, n, what, len(raw_body), len(newbody)))
++
+     up = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+     try:
+         up.connect(UPSTREAM)                            # FRESH upstream, per request
+@@ -231,28 +377,43 @@
+         for nm, _v, raw in hdrs:
+             if nm == b"authorization":
+                 continue                                # replace, never pass through
++            if inject and nm in (b"content-length", b"transfer-encoding"):
++                continue                                # re-framed below with the new length
+             rebuilt.append(raw)
+         rebuilt.append(b"Authorization: Bearer " + KEY.encode())
++        if inject:
++            rebuilt.append(b"Content-Length: " + str(len(newbody)).encode())
+         up.sendall(b"\r\n".join(rebuilt) + b"\r\n\r\n")
+ 
+-        mode, ln = framing(hdrs)
+-        if mode == "chunked":
+-            if not relay_chunked(creader, up):
+-                log_call(method, path, "REQUEST-BODY-TRUNCATED")
+-                return False
+-        elif mode == "length":
+-            if ln and not relay_exact(creader, up, ln):
+-                log_call(method, path, "REQUEST-BODY-TRUNCATED")
++        if inject:
++            up.sendall(newbody)                         # already buffered and re-framed
++        else:
++            mode, ln = framing(hdrs)
++            if mode == "chunked":
++                if not relay_chunked(creader, up):
++                    log_call(method, path, "REQUEST-BODY-TRUNCATED")
++                    return False
++            elif mode == "length":
++                if ln and not relay_exact(creader, up, ln):
++                    log_call(method, path, "REQUEST-BODY-TRUNCATED")
++                    return False
++            elif mode == "bad":
++                log_call(method, path, "BAD-REQUEST-FRAMING")
+                 return False
+-        elif mode == "bad":
+-            log_call(method, path, "BAD-REQUEST-FRAMING")
+-            return False
+ 
+-        ureader = Reader(up)
++        ureader = UpReader(up, csock)                   # change (b): watch the client too
+         while True:
+             rhead = ureader.read_head()
+             if rhead is None:
+-                log_call(method, path, "NO-RESPONSE")
++                if ureader.client_gone:
++                    # The wedge case. Returning here runs serve_one's `finally: up.close()`,
++                    # which drops the upstream socket and cancels the abandoned generation
++                    # instead of leaving it to run to the context limit.
++                    diag("stream %d req %d: CLIENT GONE while awaiting upstream; "
++                         "closing upstream to cancel the generation" % (sid, n))
++                    log_call(method, path, "CLIENT-GONE-UPSTREAM-CANCELLED")
++                else:
++                    log_call(method, path, "NO-RESPONSE")
+                 return False
+             rstart, rhdrs = parse_headers(rhead)
+             if rstart is None:
+@@ -333,11 +494,11 @@
+     global KEY
+     first = sys.stdin.readline()
+     if not first:
+-        sys.stderr.write("authproxy2: no key on stdin line 1 — refusing to start\n")
++        sys.stderr.write("authproxy3: no key on stdin line 1 — refusing to start\n")
+         sys.exit(2)
+     KEY = first.rstrip("\r\n")
+     if not KEY:
+-        sys.stderr.write("authproxy2: empty key on stdin line 1 — refusing to start\n")
++        sys.stderr.write("authproxy3: empty key on stdin line 1 — refusing to start\n")
+         sys.exit(2)
+     diag("key read from stdin (%d bytes), held in memory only" % len(KEY))
+ 
+
+diff rc=0 (1 = files differ, expected)
+
+================ THE CHANGE SET IN WORDS ================
+Three regions of executable code changed. Everything else — the key-on-stdin contract, the
+Authorization replacement, the per-request upstream connect, relay_exact/relay_chunked/
+relay_to_eof, parse_headers, framing, handle(), main(), and apicalls.log's four-field line —
+is authproxy2 byte-for-byte. The diff above is the proof of that claim, not this sentence.
+
+  (a) BOUNDED GENERATION — new: MAX_TOKENS_BOUND, read_body(), inject_max_tokens(); and in
+      serve_one, a body-buffer + head-reframe branch taken ONLY for POST .../chat/completions.
+      `max_tokens` is injected when it is null OR absent, per the prompt. A client-set value
+      is left alone. A non-JSON or non-object body is relayed byte-for-byte (fails OPEN).
+      VALUE PROVENANCE: 24000 = pins.lock serving.reasoning_budget, whose committed n=78
+      derivation calls it "the same bound already ratified for --escalation-max-tokens".
+      NOT a number this gate chose. The KEY that carries it in a proxy is new -> PROPOSED-PINS-DELTA.
+
+  (b) CANCEL ON CLIENT DISCONNECT — new class UpReader(Reader), used for the upstream side.
+      It selects on upstream AND client; a client EOF sets client_gone and aborts the read,
+      so serve_one returns and its EXISTING `finally: up.close()` drops the upstream socket.
+      authproxy2 already had that finally — what it did not have was any way to REACH it
+      while blocked in read_head(). That blocked window is precisely the F-5 wedge window.
+      MSG_PEEK is used so a pipelined request is not consumed; the watch is dropped on real
+      bytes so select cannot spin.
+
+  (c) BOOKKEEPING — PIDPATH -> authproxy3.pid (so it cannot collide with authproxy2's), the
+      stderr prefix, the module docstring, and one new apicalls.log STATUS token
+      "CLIENT-GONE-UPSTREAM-CANCELLED" which occupies the existing status field rather than
+      adding a fifth field. LOGPATH is DELIBERATELY unchanged: the same apicalls.log, so
+      Phase 4 counts are a delta on a continuous record (J0B-RESUME made the same choice).

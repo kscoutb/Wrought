@@ -1,0 +1,91 @@
+# GATE-J0B-CLOSE Phase 3 — LAUNCH. The key travels on STDIN and nowhere else (rails §5).
+# date: 2026-08-29T23:09:47Z
+
+launch command (as run) — the ONLY sudo this session takes, and its argv contains a PATH, never a value:
+    setsid bash -c 'sudo -n cat /run/credentials/wrought-inference.service/inference-api-key \
+                        | python3 /var/lib/wrought/j0b/authproxy3.py > .../authproxy3.out 2>&1' &
+
+--- the proxy PID, from the pidfile the proxy itself writes ---
+$ cat /var/lib/wrought/j0b/authproxy3.pid
+105783
+
+$ ps -o pid,ppid,user,etime,args -p 105783
+    PID    PPID USER         ELAPSED COMMAND
+ 105783  105781 kalib          00:03 python3 /var/lib/wrought/j0b/authproxy3.py
+
+--- rails §5 evidence: the key is NOT in this process argv, and NOT in its environment ---
+$ tr "\\0" " " < /proc/<pid>/cmdline
+python3 /var/lib/wrought/j0b/authproxy3.py 
+$ count of environment variables whose VALUE is 64 bytes (the credential length):
+0
+  (0 = no environment variable carries a 64-byte value; the key came in on fd 0 and stayed in memory)
+
+--- the proxy stderr so far (it reports the key LENGTH, never the key) ---
+authproxy3: key read from stdin (64 bytes), held in memory only
+authproxy3: listening on 127.0.0.1:8081 -> 127.0.0.1:8080  pid=105783
+
+--- listener ---
+LISTEN 0      64                       127.0.0.1:8081       0.0.0.0:*    users:(("python3",pid=105783,fd=3))   
+
+=========== THE PROMPT'S REQUIRED CONFIRMATION ===========
+$ curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8081/props
+200
+
+--- and the model behind it, through the proxy (the key is being injected, unkeyed 8080 gives 401) ---
+$ curl -s http://127.0.0.1:8081/props | head -c 200
+model_path: /var/lib/wrought/models/Qwen3.6-27B-UD-Q4_K_XL.gguf
+n_ctx: 65536
+
+--- CONTROL: the same chat POST DIRECTLY to 8080 with no key -> 401. The proxy is the authenticator. ---
+$ curl -s -o /dev/null -w '%{http_code}\n' -d '{"model":"primary-qwen27b","messages":[{"role":"user","content":"hi"}]}' -H 'Content-Type: application/json' http://127.0.0.1:8080/v1/chat/completions
+401
+
+=========== CHANGE (a) END-TO-END: a chat POST with NO max_tokens, through the proxy ===========
+# The request body below is goose's measured shape: stream:true, max_tokens absent.
+$ curl -s -o /dev/null -w '%{http_code} in %{time_total}s\n' -d '{...no max_tokens...}' http://127.0.0.1:8081/v1/chat/completions
+200 in 5.103623s
+
+--- the proxy stderr line that proves the injection happened on THAT request ---
+authproxy3: stream 2 closed after 1 request(s)
+authproxy3: stream 3 opened from 127.0.0.1:56210
+authproxy3: stream 3 req 1: max_tokens INJECTED = 24000 (body 174 -> 206 bytes)
+authproxy3: stream 3 closed after 1 request(s)
+
+--- and apicalls.log (the DELTA is what matters; the file is continuous from J0B) ---
+2026-08-29T23:10:03Z GET /props 200
+2026-08-29T23:10:04Z GET /props 200
+2026-08-29T23:10:04Z POST /v1/chat/completions 200
+
+=========== CHANGE (b) END-TO-END: does abandoning the client STOP the generation? ===========
+# The decisive measurement is llama-server's INSTANTANEOUS cpu, taken from /proc/<pid>/stat.
+# J0B-RESUME raw/62 established that `ps` %CPU is a LIFETIME AVERAGE and lied here (0.7% while
+# the server was at 39.2% of a core), so this uses the same corrected instrument it landed on.
+
+llama-server pid = 102501
+
+--- 1. baseline, server idle ---
+0.0% of one core over 3s
+
+--- 2. fire a LONG streaming generation and ABANDON it after 2s (curl killed mid-stream) ---
+$ curl --max-time 2 -N -d '{...stream:true, 2000-word request, no max_tokens...}' http://127.0.0.1:8081/v1/chat/completions
+curl rc=28 (28 = timed out and was torn down, i.e. the client vanished)
+
+--- 3. llama-server cpu IMMEDIATELY after the client vanished ---
+#     If the generation were still running (the F-5 behaviour) this reads ~35-40%.
+1.3% of one core over 3s
+
+--- 4. proxy stderr for that stream ---
+authproxy3: stream 3 opened from 127.0.0.1:56210
+authproxy3: stream 3 req 1: max_tokens INJECTED = 24000 (body 174 -> 206 bytes)
+authproxy3: stream 3 closed after 1 request(s)
+authproxy3: stream 4 opened from 127.0.0.1:47488
+authproxy3: stream 4 req 1: max_tokens INJECTED = 24000 (body 187 -> 216 bytes)
+authproxy3: stream 4 closed after 0 request(s)
+
+--- 5. is the pinhole still immediately usable? (a bounded chat, timed) ---
+  bounded chat -> 200 in 0.489783s
+  /health      -> 200 in 0.001266s
+
+--- 6. no upstream sockets left dangling from the abandoned request ---
+$ ss -tnp | grep 8080 | grep <proxy pid>
+  NONE — every per-request upstream connection is closed

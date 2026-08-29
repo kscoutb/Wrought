@@ -1,0 +1,71 @@
+# GATE-J0B-CLOSE Phase 2 — CRACKING THE goose 1.46 EXTENSIONS SCHEMA
+# date: 2026-08-29T22:56:36Z
+# J0B-RESUME left this OPEN: 'the extensions: attach did not load; the 1.46 stdio-extension
+# schema was not established by this gate.' Everything below is measurement, in order.
+
+================ STEP A — the CLI surface actually on this binary ================
+$ gsh goose configure --help
+Configure goose settings
+
+Usage: goose configure
+
+Options:
+  -h, --help  Print help
+
+$ gsh goose info -v 2>&1 | head -40
+goose Version:
+  Version:                  1.46.0
+
+Paths:
+Config dir:              /home/probe/.config/goose                              missing (can create)
+Config yaml:             /home/probe/.config/goose/config.yaml                  missing (can create)
+Sessions DB (sqlite):    /home/probe/.local/share/goose/sessions/sessions.db    missing (can create)
+Logs dir:                /home/probe/.local/state/goose/logs                    
+
+goose Configuration:
+  extensions:
+    developer:
+      enabled: true
+      type: platform
+      name: developer
+      description: Write and edit files, and execute shell commands
+      display_name: Developer
+      bundled: true
+    apps:
+      enabled: true
+      type: platform
+      name: apps
+      description: Create and manage custom Goose apps through chat. Apps are HTML/CSS/JavaScript and run in sandboxed windows.
+      display_name: Apps
+      bundled: true
+    orchestrator:
+      enabled: false
+      type: platform
+      name: orchestrator
+      description: 'Manage agent sessions: list, view, start, send messages, interrupt, and stop agents'
+      display_name: Orchestrator
+      bundled: true
+    scheduler:
+      enabled: true
+      type: platform
+      name: scheduler
+      description: Create and manage scheduled recipe execution
+      display_name: Scheduler
+      bundled: true
+    analyze:
+
+--- A-2: goose run ALREADY DOCUMENTS THREE EXTENSION-ATTACH FLAGS (J0B raw/40 captured this
+---      help text on 2026-08-21 and the gate did not act on it). Quoted from the live binary: ---
+$ gsh goose run --help 2>&1 | grep -A3 -E "with-builtin|with-extension|no-profile"
+      --with-extension <COMMAND>
+          Add stdio extensions from full commands with environment variables. Can be specified multiple times. Format: 'ENV1=val1 ENV2=val2 command args...'
+
+      --with-streamable-http-extension <URL>
+--
+      --with-builtin <NAME>
+          Add one or more builtin extensions that are bundled with goose by specifying their names, comma-separated
+
+      --no-profile
+          Don't load your default extensions, only use CLI-specified extensions
+
+  -q, --quiet

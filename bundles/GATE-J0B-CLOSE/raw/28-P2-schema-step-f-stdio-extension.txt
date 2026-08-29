@@ -1,0 +1,68 @@
+# GATE-J0B-CLOSE Phase 2 STEP F — THE STDIO-EXTENSION SCHEMA (needed for the real-path seam)
+# date: 2026-08-29T23:00:03Z
+
+--- F-1: the tee shim, installed in the guest ---
+-rwxrwxr-x 1 probe probe 302 Aug 29 23:00 /home/probe/mcp-tee.sh
+---
+#!/bin/bash
+# GATE-J0B-CLOSE — the interception tee shim, on goose's OWN stdio-MCP path.
+# Both directions are captured verbatim; the shim itself is unprivileged and two live lines.
+exec 2>>/home/probe/mcp-tee.err
+tee -a /home/probe/mcp-in.jsonl | goose mcp memory | tee -a /home/probe/mcp-out.jsonl
+---
+643e4b7226458e8f97e6596013fb60c350b9ccb028e089d615db558164920aea  /home/probe/mcp-tee.sh
+
+--- F-2: attach it with the documented CLI flag, and let GOOSE tell us whether it loaded ---
+#      The test is not "does the config parse" — it is whether the memory tools appear in the
+#      tool list goose sends to the model. The stub captures that list.
+$ gsh goose run --with-extension /home/probe/mcp-tee.sh -t "<probe>"
+
+    __( O)>  ● new session · openai primary-qwen27b
+   \____)    20260829_4 · /home/probe
+     L L     goose is ready
+Network error: Network error — check your network connection and try again.
+
+Please resend your message to try again.
+goose rc=0
+--- stub calls ---
+cat: /home/probe/stub-capture/paths.log: No such file or directory
+
+--- D-2 (this session, mine): the previous attempt removed the stub's capture directory AFTER
+--- the stub had created it at start-up, so every POST raised FileNotFoundError inside the
+--- handler and goose correctly reported a network error. Recorded rather than retried silently.
+--- The stub process itself never died (pid 2714 still LISTENing on 9999). Corrected: recreate
+--- the directory instead of deleting it.
+
+$ gsh goose run --with-extension /home/probe/mcp-tee.sh -t "Say hello."
+
+    __( O)>  ● new session · openai primary-qwen27b
+   \____)    20260829_5 · /home/probe
+     L L     goose is ready
+STUB-OK
+goose rc=0
+--- stub calls ---
+GET /v1/models
+POST /v1/chat/completions len=636 seq=11 stream=True tools=0
+POST /v1/chat/completions len=21556 seq=12 stream=True tools=22
+--- did the shim see traffic? ---
+ 390 /home/probe/mcp-in.jsonl
+3072 /home/probe/mcp-out.jsonl
+3462 total
+
+--- F-3: THE FRAMES, driven by GOOSE (not by a hand-written client) ---
+$ cat /home/probe/mcp-in.jsonl     (client -> server, i.e. GOOSE -> goose mcp memory)
+{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{"extensions":{},"roots":{},"sampling":{},"elicitation":{}},"clientInfo":{"name":"goose-cli","version":"1.46.0"}}}
+{"jsonrpc":"2.0","method":"notifications/initialized"}
+{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{"agent-session-id":"20260829_5","progressToken":0}}}
+
+$ cat /home/probe/mcp-out.jsonl    (server -> client)  first 400 bytes
+{"jsonrpc":"2.0","id":0,"result":{"protocolVersion":"2025-11-25","capabilities":{"tools":{}},"serverInfo":{"name":"goose-memory","version":"1.46.0"},"instructions":"This extension stores and retrieves categorized information with tagging support.\n\nStorage:\n- Local: .goose/memory/ (project-specific)\n- Global: ~/.config/goose/memory/ (user-wide)\n\nSave proactively when users share preferences, 
+   [...]
+
+--- F-4: and the proof it LOADED — the memory tools are in the list goose sent the model ---
+TOOLS ADVERTISED WITH THE SHIM ATTACHED: 22
+DELTA vs the 18 default tools (raw/26): 4
+   + mcp-tee_sh__remember_memory
+   + mcp-tee_sh__remove_memory_category
+   + mcp-tee_sh__remove_specific_memory
+   + mcp-tee_sh__retrieve_memories

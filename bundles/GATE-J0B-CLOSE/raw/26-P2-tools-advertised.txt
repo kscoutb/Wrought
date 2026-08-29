@@ -1,0 +1,63 @@
+# GATE-J0B-CLOSE Phase 2 STEP D RESULT — THE TOOL LIST, AS GOOSE ITSELF SENT IT TO A MODEL
+# source: the request body goose POSTed to the stub, captured verbatim at
+#   guest:/home/probe/stub-capture/req-02.json  (18562 bytes), copied out to cap/req-02.json
+# This is goose LISTING its tools, in the form that decides whether it can act — not a config parse.
+#
+# GUEST CONFIG IN FORCE FOR THIS CAPTURE — the whole of ~/.config/goose/config.yaml:
+#     GOOSE_PROVIDER: openai
+#     GOOSE_MODEL: primary-qwen27b
+#     OPENAI_HOST: http://10.0.2.100:8081
+# i.e. NO `extensions:` stanza of any kind. (OPENAI_HOST was overridden per-run by env to
+# reach the stub; the file is byte-identical to the one J0B-RESUME wrote.)
+
+top-level request keys: ['messages', 'model', 'stream', 'stream_options', 'tools']
+stream           : True
+stream_options   : {"include_usage": true}
+model            : primary-qwen27b
+max_tokens       : ABSENT
+
+TOOLS ADVERTISED : 18
+   analyze                                    Analyze code structure in 3 modes: 1) Directory overview - file tree with LOC/function/cla
+   apps__create_app                           Create a new Goose app based on a description or PRD. The extension will use an LLM to gen
+   apps__delete_app                           Delete an app permanently
+   apps__iterate_app                          Improve an existing app based on feedback. The extension will use an LLM to update the HTM
+   apps__list_apps                            List all available Goose apps with their names and descriptions. Use this to see what apps
+   delegate                                   Delegate a task to a subagent that runs independently with its own context.
+   edit                                       Edit a file by finding and replacing text. The before text must match exactly and uniquely
+   extensionmanager__list_resources           List resources from an extension(s).
+   extensionmanager__manage_extensions        Tool to manage extensions and tools in goose context.
+   extensionmanager__read_resource            Read a resource from a specific extension.
+   extensionmanager__search_available_extensions Searches for additional extensions available to help complete tasks.
+   load                                       Load knowledge into your current context or discover available sources.
+   load_skill                                 Load a skill's full content into your context so you can follow its instructions.
+   read_image                                 Read an image from a local file path or http(s) URL and return it as image content for the
+   shell                                      Execute a shell command in the current dir. Commands run under `bash` (set GOOSE_SHELL to 
+   todo__todo_write                           Overwrite the entire TODO content.
+   tree                                       List a directory tree with line counts. Traversal respects .gitignore rules.
+   write                                      Create a new file or overwrite an existing file. Creates parent directories if needed.
+
+=== the filesystem-WRITE tool, full schema as advertised ===
+{
+  "type": "function",
+  "function": {
+    "name": "write",
+    "description": "Create a new file or overwrite an existing file. Creates parent directories if needed.",
+    "parameters": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "title": "FileWriteParams",
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "content": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "content"
+      ]
+    }
+  }
+}

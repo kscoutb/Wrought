@@ -1,0 +1,54 @@
+# GATE-J0B-CLOSE Phase 4.1 (run 3) — THE WORK PRODUCT, over the ssh-carried pinhole.
+# date: 2026-08-29T23:19:19Z
+# Runs 1 and 2 went over the guestfwd and produced no file. raw/45 then measured WHY: the
+# guestfwd is a single multiplexed stream that accepted 0 of 16 guest connections, while the
+# host made 8 of 8 through the same proxy in the same instant. This run changes exactly ONE
+# thing — OPENAI_HOST points at the ssh-carried pinhole instead of 10.0.2.100:8081.
+# Everything else is identical: same guest, same baked config, same model, same task.
+# apicalls baseline 106; proxy stderr baseline 73.
+
+ls: cannot access '/home/probe/FORGE.txt': No such file or directory
+  pre-state: FORGE.txt ABSENT
+
+  start: 2026-08-29T23:19:19Z
+
+    __( O)>  ● new session · openai primary-qwen27b
+   \____)    20260829_1 · /home/probe
+     L L     goose is ready
+
+  ────────────────────────────────────────
+  ▸ write
+    path ~/FORGE.txt
+    content: FORGE
+
+Created /home/probe/FORGE.txt (1 lines)
+  ────────────────────────────────────────
+  ▸ shell
+    command: cat /home/probe/FORGE.txt
+
+FORGEDone. `/home/probe/FORGE.txt` has been created with exactly the word **FORGE**.
+goose rc=0  <- STILL NOT EVIDENCE (F-4)
+  end:   2026-08-29T23:19:52Z
+
+=========== ACCEPTANCE CLAUSE 1 — THE WORK PRODUCT ===========
+-rw-rw-r-- 1 probe probe 5 Aug 29 23:19 /home/probe/FORGE.txt
+--- byte-exact (od -c) ---
+0000000   F   O   R   G   E
+0000005
+  raw bytes        : b'FORGE'
+  == b_FORGE_ exact: True
+  stripped == FORGE: True
+
+=========== ACCEPTANCE CLAUSE 2 — THE HOST-SIDE CALL LOG (delta) ===========
+2026-08-29T23:19:20Z GET /v1/models 200
+2026-08-29T23:19:20Z POST /v1/chat/completions 200
+2026-08-29T23:19:47Z POST /v1/chat/completions 200
+2026-08-29T23:19:50Z POST /v1/chat/completions 200
+2026-08-29T23:19:51Z POST /v1/chat/completions 200
+  DELTA = 5 lines
+
+--- proxy stderr delta: bounded generations? ---
+authproxy3: stream 31 req 2: max_tokens INJECTED = 24000 (body 704 -> 749 bytes)
+authproxy3: stream 32 req 1: max_tokens INJECTED = 24000 (body 21624 -> 22426 bytes)
+authproxy3: stream 32 req 2: max_tokens INJECTED = 24000 (body 22064 -> 22888 bytes)
+authproxy3: stream 32 req 3: max_tokens INJECTED = 24000 (body 22397 -> 23243 bytes)

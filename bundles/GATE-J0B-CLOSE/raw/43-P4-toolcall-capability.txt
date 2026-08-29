@@ -1,0 +1,39 @@
+# GATE-J0B-CLOSE Phase 4.1 DIAGNOSIS — CAN THE SERVED MODEL EMIT A STRUCTURED tool_call AT ALL?
+# date: 2026-08-29T23:14:29Z
+# The Phase-4.1 turn reached the model (2x POST 200) and wrote no file. Before blaming the
+# model's willingness, test the SERVER's capability, from the HOST, through authproxy3.
+# One tool, the simplest possible schema, and an instruction that leaves no other option.
+
+$ POST http://127.0.0.1:8081/v1/chat/completions  (non-streaming, 1 tool, tool_choice=auto)
+  http 200 in 8.3s
+  finish_reason : tool_calls
+  tool_calls    : [{"type": "function", "function": {"name": "write", "arguments": "{\"path\":\"/home/probe/FORGE.txt\",\"content\":\"FORGE\"}"}, "id": "dA9ec2adtxC5jljMq0pXDsR2chniv4Fo"}]
+  content       : ''
+  reasoning len : 760
+  usage         : {"completion_tokens": 274, "prompt_tokens": 304, "total_tokens": 578, "prompt_tokens_details": {"cached_tokens": 0}}
+
+  ===> STRUCTURED tool_calls PRESENT: True
+
+=========== ISOLATE THE DIFFERENCE: goose sends stream:true. Does STREAMING break it? ===========
+# One variable at a time against the run above, which succeeded non-streaming.
+  A non-streaming (control)      3.3s  finish=tool_calls   tool_calls=True
+  B streaming                    3.6s  SSE: tool_call deltas=15  content chars=0  finish={'tool_calls'}
+  C streaming + usage opts       3.1s  SSE: tool_call deltas=15  content chars=0  finish={'tool_calls'}
+
+=========== REPLAY GOOSE'S OWN REQUEST BODY, verbatim but for the user turn ===========
+# Source: cap/req-config-only.json — the 22-tool body goose built from the BAKED config.yaml,
+# captured verbatim in Phase 2. The ONLY edit is the user message, swapped to the FORGE task,
+# and the endpoint, which is now the real model instead of the stub. Everything else — the
+# full goose system prompt, all 22 tool schemas, stream:true, stream_options — is goose's.
+  tools in body : 22
+  messages      : 2 (system: 1 )
+  system prompt : 5254 chars
+
+  wall clock        : 2.3s
+  finish_reason     : {'tool_calls'}
+  tool_call deltas  : 15  tool names: ['write']
+  reasoning chars   : 89
+  content chars     : 0
+  CONTENT (first 700): ''
+
+  ===> DID THE MODEL CALL A TOOL WITH GOOSE'S REAL 22-TOOL PROMPT? True

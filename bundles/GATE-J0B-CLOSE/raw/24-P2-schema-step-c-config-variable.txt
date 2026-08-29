@@ -1,0 +1,64 @@
+
+================ STEP C — DOES WRITING A config.yaml SUPPRESS THE PLATFORM DEFAULTS? ================
+# One variable: the presence of the EXACT config.yaml J0B-RESUME wrote (raw/41, raw/56).
+# This is the hypothesis under test, because J0B-RESUME concluded "the agent had no filesystem
+# tool to act with" WITHOUT measuring the extension list on the configured guest.
+
+$ gsh mkdir -p ~/.config/goose && printf <the J0B-RESUME config, byte-for-byte> > config.yaml
+--- config.yaml as written ---
+GOOSE_PROVIDER: openai
+GOOSE_MODEL: primary-qwen27b
+OPENAI_HOST: http://10.0.2.100:8081
+--- sha256 (compare with J0B-RESUME raw/41: 88 bytes, same three lines) ---
+88
+
+$ gsh goose info -v | sed -n "/extensions:/,\$p" | grep -E "^    [a-z_]+:|enabled:|type:"
+    orchestrator:
+      enabled: false
+      type: platform
+    extensionmanager:
+      enabled: true
+      type: platform
+    scheduler:
+      enabled: true
+      type: platform
+    skills:
+      enabled: true
+      type: platform
+    summarize:
+      enabled: false
+      type: platform
+    summon:
+      enabled: true
+      type: platform
+    apps:
+      enabled: true
+      type: platform
+    code_execution:
+      enabled: false
+      type: platform
+    developer:
+      enabled: true
+      type: platform
+    analyze:
+      enabled: true
+      type: platform
+    chatrecall:
+      enabled: false
+      type: platform
+    tom:
+      enabled: true
+      type: platform
+    todo:
+      enabled: true
+      type: platform
+
+--- and specifically the developer block, on the CONFIGURED guest ---
+$ gsh goose info -v | grep -A6 "^    developer:"
+    developer:
+      enabled: true
+      type: platform
+      name: developer
+      description: Write and edit files, and execute shell commands
+      display_name: Developer
+      bundled: true

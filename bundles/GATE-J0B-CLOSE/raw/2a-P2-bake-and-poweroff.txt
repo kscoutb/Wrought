@@ -1,0 +1,63 @@
+# GATE-J0B-CLOSE Phase 2 — BAKE + POWER OFF
+# date: 2026-08-29T23:05:34Z
+
+--- what is BAKED into close-overlay.qcow2 (this is the guest filesystem, so the overlay IS the bake) ---
+    /usr/local/bin/goose                    306057864 B  sha256 29b3340e...4a89 (pinned v1.46.0)
+    /home/probe/.config/goose/config.yaml   3113 B       written BY `goose configure`, verified to load 22 tools
+    /home/probe/mcp-tee.sh                  302 B        sha256 643e4b72...0aea  the interception shim
+    /home/probe/stub_model2.py              the Phase-2 instrument. Left in place, NOT running.
+      Stated plainly so it cannot be a hidden confound: Phase 4 asserts PASS on the HOST-side
+      apicalls.log, which a guest-local stub on 127.0.0.1:9999 cannot write a line to. The
+      discriminator is on the other side of the pinhole from anything the guest can run.
+
+--- pre-Phase-4 hygiene: enumerated deletes (rails §3), each a Phase-2 scratch artifact ---
+    /home/probe/FORGE.txt        the Phase-2 probe product — Phase 4 must start from ABSENT
+    /home/probe/mcp-in.jsonl     Phase-2 frames — Phase 4 captures its own
+    /home/probe/mcp-out.jsonl    ditto
+    /home/probe/stub-capture/    Phase-2 request captures — already copied out to cap/
+    /home/probe/.local/share/goose  and  /home/probe/.local/state/goose   session dbs + llm logs,
+                                 removed so Phase 4 logs are unambiguously its own
+--- post-delete state ---
+ls: cannot access '/home/probe/FORGE.txt': No such file or directory
+  FORGE.txt absent (required Phase-4 pre-state)
+cfg-add.txt
+cfg-add2.txt
+cfg-full.txt
+cfg-full2.txt
+cfg-full3.txt
+cfg-full4.txt
+cfg-full5.txt
+cfg-look.txt
+drive_configure.py
+mcp-tee.sh
+stub-mode
+stub-tool-args
+stub-tool-name
+stub.out
+stub.pid
+stub2.out
+stub_model.py
+stub_model2.py
+--- nothing listening in the guest ---
+LISTEN 0      4096      127.0.0.54:53        0.0.0.0:*          
+LISTEN 0      4096         0.0.0.0:22        0.0.0.0:*          
+LISTEN 0      4096   127.0.0.53%lo:53        0.0.0.0:*          
+LISTEN 0      4096            [::]:22           [::]:*          
+--- config.yaml still intact ---
+853c7f3efb42328b0dbb173fa3ebfc8e0a17e700696260a0e21c8363dfa85504  /home/probe/.config/goose/config.yaml
+3113
+--- df ---
+Filesystem      Size  Used Avail Use% Mounted on
+/dev/vda1        15G  2.0G   13G  14% /
+
+--- POWER OFF (rails §13: nothing this gate starts may outlive it) ---
+$ ps -p <qemu pid>
+cat: qemu-p2.pid: No such file or directory
+
+For more details see ps(1).
+$ tail serial log
+[[0;32m  OK  [0m] Finished [0;1;39msystemd-poweroff.service[0m - System Power Off.
+[[0;32m  OK  [0m] Reached target [0;1;39mpoweroff.target[0m - System Power Off.
+[  609.361576] reboot: Power down
+$ port 2222 clear?
+  :2222 CLEAR

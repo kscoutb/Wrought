@@ -1,0 +1,14 @@
+# GATE-J0B-CLOSE Phase 1 — BYTE-FREEZE BASELINE (rails §2.1, DIRECT session: the freeze is this session's own duty)
+# date: 2026-08-29T22:54:08Z  host=forge-mini  user=kalib
+# NOTE: under wrought-runner this command is DENIED by the PreToolUse hook (rails §2.2, F-1).
+#       This is an ATTENDED-DIRECT session, so §2.1 applies and the box takes the measurement itself.
+
+$ sha256sum /var/lib/wrought/state/orchestrator.db{,-wal,-shm}
+6600fe63abd0116c63f51723b2cee83e6477e06e76604d6f36e3d843396d8fde  /var/lib/wrought/state/orchestrator.db
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /var/lib/wrought/state/orchestrator.db-wal
+fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb  /var/lib/wrought/state/orchestrator.db-shm
+
+$ stat -c "%n %s %Y" /var/lib/wrought/state/orchestrator.db{,-wal,-shm}
+/var/lib/wrought/state/orchestrator.db 622592 1786228089
+/var/lib/wrought/state/orchestrator.db-wal 0 1786246286
+/var/lib/wrought/state/orchestrator.db-shm 32768 1786246314

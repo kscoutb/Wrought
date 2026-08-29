@@ -1,0 +1,66 @@
+# GATE-J0B-CLOSE Phase 4.2 — F-5 DURABILITY: WHAT DOES THE SLIRP guestfwd DO WITH CONCURRENCY?
+# date: 2026-08-29T23:17:28Z
+#
+# The Phase-4.1 runs exposed something structural. Facts first, in the order measured:
+#   - Two SEPARATE goose runs (23:12 and 23:16) were served on the SAME proxy client stream,
+#     'stream 7'. The proxy assigns a stream id per ACCEPTED CONNECTION, so two runs minutes
+#     apart sharing one id means the host-side connection is opened ONCE and never closes.
+#   - ss shows the qemu end of that connection with Recv-Q = 14479 bytes UNREAD.
+#   - llama-server is at 0.0% cpu with no upstream connections: the model side is finished.
+# So this is not the model and not the proxy's upstream path. It is the pinhole transport.
+#
+# THE TEST: open N concurrent connections from inside the guest and COUNT how many client
+# streams the proxy accepts. 1 stream for N connections = libslirp is multiplexing them.
+# proxy stderr baseline: 39 lines
+
+$ gsh "for i in 1 2 3; do curl -s -m 20 -o /dev/null -w \"...\" http://10.0.2.100:8081/health & done; wait"
+  concurrent curl 4 -> http=000 in 0.000272s
+  concurrent curl 2 -> http=200 in 0.000968s
+  concurrent curl 1 -> http=000 in 0.001618s
+  concurrent curl 3 -> http=000 in 0.001946s
+
+--- how many NEW client streams did the proxy accept for those 4 guest connections? ---
+
+  new 'stream N opened' lines : 0
+  guest connections made      : 4
+
+=========== A/B: SEQUENTIAL vs CONCURRENT over the guestfwd pinhole (one variable) ===========
+# proxy stderr baseline: 39
+
+--- A: 8 SEQUENTIAL requests from the guest ---
+  seq 1 -> http=000 in 0.000181s
+  seq 2 -> http=000 in 0.000160s
+  seq 3 -> http=000 in 0.000175s
+  seq 4 -> http=200 in 0.000213s
+  seq 5 -> http=200 in 0.000181s
+  seq 6 -> http=200 in 0.000184s
+  seq 7 -> http=200 in 0.000216s
+  seq 8 -> http=200 in 0.000188s
+
+--- B: 8 CONCURRENT requests from the guest ---
+  par 7 -> http=200 in 0.000193s
+  par 1 -> http=200 in 0.002425s
+  par 3 -> http=200 in 0.000458s
+  par 5 -> http=200 in 0.000203s
+  par 6 -> http=000 in 0.000225s
+  par 2 -> http=000 in 20.002616s
+  par 8 -> http=000 in 20.002485s
+  par 4 -> http=000 in 20.001989s
+
+--- and how many client connections did the proxy ACCEPT across all 16? ---
+  ZERO new streams accepted
+  new streams accepted: 0
+  guest connections   : 16
+
+--- CONTROL: the same 8 CONCURRENT requests from the HOST, straight at the proxy ---
+#   Same proxy, same upstream, same instant. The ONLY variable is the transport in between.
+  host par 5 -> http=200 in 0.001325s
+  host par 3 -> http=200 in 0.001557s
+  host par 4 -> http=200 in 0.001888s
+  host par 6 -> http=200 in 0.002186s
+  host par 7 -> http=200 in 0.002321s
+  host par 1 -> http=200 in 0.002388s
+  host par 8 -> http=200 in 0.002494s
+  host par 2 -> http=200 in 0.002583s
+
+  new streams accepted after the host burst: 8

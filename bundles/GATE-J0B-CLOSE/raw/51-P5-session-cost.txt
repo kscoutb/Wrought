@@ -1,0 +1,55 @@
+# GATE-J0B-CLOSE Phase 5 — THIS SESSION'S OWN TOKEN/COST
+# date: 2026-08-29T23:26:09Z
+#
+# THE PROMPT'S CAVEAT, RESTATED BECAUSE IT GOVERNS HOW THIS NUMBER MAY BE USED:
+#   this is NOT a runner verdict.json. It is an ATTENDED-DIRECT session, so there is no
+#   ledger, no batch-cost breaker, and no independently-taken measurement. The cost-cap
+#   RE-CALIBRATION therefore lands at the first runner-run manufacturing gate; the number
+#   below is recorded HERE so that gate has a same-workload reference point to start from.
+
+MEASURED, exact. Command (J-95): sum message.usage over this session's transcript
+  transcript: /home/kalib/.claude/projects/-home-kalib-foundry/a1d1e2cd-3f31-4921-bd4b-e0b3dd7689af.jsonl
+
+  model(s)                    : claude-opus-5
+  assistant turns with usage  : 232
+  input_tokens                          1,292
+  cache_creation_input_tokens         789,383
+  cache_read_input_tokens          40,319,497
+  output_tokens                       333,934
+  TOTAL billable tokens            41,444,106
+
+DERIVED, with its assumptions stated (docs/00 labelling):
+  [VERIFIED]   Claude Opus 5 base rates: $5.00 / 1M input, $25.00 / 1M output, 1M context.
+               Source: the bundled `claude-api` skill's Current Models table (cached
+               2026-06-24), READ THIS SESSION rather than recalled. It lists NO separate
+               long-context premium for Opus 5 — the 1M window is priced at that one rate.
+  [ASSUMPTION] Cache multipliers 1.25x on writes and 0.10x on reads. THE SKILL'S TABLE DOES
+               NOT CARRY THEM, so this is the standard published Anthropic caching ratio
+               applied by the box, NOT a value read from a source this session opened.
+               FLAGGED BECAUSE THE TOTAL IS DOMINATED BY IT — see the sensitivity below.
+
+  output              333,934 x $25.00/1M        = $  8.3483
+  input                 1,292 x $5.00/1M         = $  0.0065
+  cache write         789,383 x $5.00/1M x 1.25  = $  4.9336
+  cache read       40,319,497 x $5.00/1M x 0.10  = $ 20.1597
+  ----------------------------------------------------------------
+  ESTIMATED SESSION COST                      = $   33.45
+
+  SENSITIVITY, because the assumption is load-bearing:
+    if cache READS were billed at the full input rate instead of 0.10x, the same token
+    counts would cost $214.89 — a 6.4x difference.
+    So the FIGURE is provisional; the TOKEN COUNTS are the durable measurement, and
+    whoever re-calibrates the cap should price them against a billing source.
+
+FOR THE RE-CALIBRATION, the comparators already on record:
+  GATE-J0B-RESUME (runner child, WEDGED)      ~$6.70 of an $8.00 cap  (~84%)
+  GATE-RUNNER-POLISH (4 scratch children)      $0.4345
+  GATE-RUNNER-POLISH clean-child observation   $0.08-$0.19 each
+  THIS GATE (attended-direct, 5 phases, 3 guest boots, ~35 min of measurement) -> above.
+
+  THE SUBSTANTIVE WARNING FOR THE FERRY, which matters more than the dollar value:
+    an ATTENDED-DIRECT session carries the whole gate in ONE context, so its cache-read
+    total is far larger than a runner child's, and its cost profile is dominated by cache
+    reads rather than by output. A cap derived from this number would be WRONG for a
+    runner child, and a cap derived from a runner child is wrong for a session like this.
+    The two shapes need two numbers, not one.

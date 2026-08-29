@@ -1,0 +1,130 @@
+# GATE-J0B-CLOSE Phase 2 STEP G — THE STDIO SCHEMA, WRITTEN BY GOOSE'S OWN CONFIGURE PATH
+# date: 2026-08-29T23:04:26Z
+# J0B-RESUME recorded `goose configure` as interactive-only and left it UNEXERCISED (its
+# stated C5 hole). It is interactive, not un-scriptable: a pty driver plus the keys it expects
+# walks it. The schema below is therefore GOOSE'S OWN OUTPUT, not a shape the box guessed —
+# which is what makes it safe to pin.
+
+--- the walk (drive_configure.py + cfg-full5.txt, both committed with this bundle) ---
+    Add Extension -> Command-line Extension -> name=wroughttap -> cmd=/home/probe/mcp-tee.sh
+    -> timeout=300 -> description -> env vars: No
+    final line from goose: "Configuration saved successfully to /home/probe/.config/goose/config.yaml"
+
+=================== THE TWO EXTENSION SHAPES, AS GOOSE WRITES THEM ===================
+
+--- a BUNDLED extension (this is what `developer` is — the filesystem-write tool) ---
+  developer:
+    enabled: true
+    type: platform
+    name: developer
+    description: Write and edit files, and execute shell commands
+    display_name: Developer
+    bundled: true
+
+--- a STDIO extension (this is the shape J0B-RESUME could not find) ---
+  wroughttap:
+    enabled: true
+    type: stdio
+    name: wroughttap
+    description: wrought interception tee over goose mcp memory
+    cmd: /home/probe/mcp-tee.sh
+    args: []
+    envs: {}
+    env_keys: []
+    timeout: 300
+    cwd: null
+    bundled: null
+
+--- and the provider block goose wrote for itself ---
+providers:
+  openai:
+    enabled: true
+    model: primary-qwen27b
+    configured: true
+active_provider: openai
+
+*** FINDING G-1 — `goose configure` REWRITES config.yaml AND DROPS TOP-LEVEL KEYS. ***
+    Before the walk the file was the 88-byte J0B-RESUME config:
+        GOOSE_PROVIDER: openai / GOOSE_MODEL: primary-qwen27b / OPENAI_HOST: http://10.0.2.100:8081
+    After it, GOOSE_PROVIDER and GOOSE_MODEL ARE GONE, replaced by a structured `providers:`
+    block plus `active_provider: openai`. OPENAI_HOST survived. Any harness that hand-writes
+    the flat keys and then runs `goose configure` will silently lose them.
+
+--- C5 follow-up: did the configure path write a secrets file? (J0B-RESUME could not test this) ---
+total 12
+drwxrwxr-x 2 probe probe 4096 Aug 29 23:03 .
+drwxrwxr-x 3 probe probe 4096 Aug 29 22:57 ..
+-rw-rw-r-- 1 probe probe 3113 Aug 29 23:03 config.yaml
+--- secrets.yaml? ---
+ls: cannot access '/home/probe/.config/goose/secrets.yaml': No such file or directory
+  secrets.yaml ABSENT — the configure walk wrote no secret store
+
+=================== STEP H — ACCEPTANCE: does the CONFIG FILE ALONE load both tools? ===================
+# No --with-extension flag. Only ~/.config/goose/config.yaml, as goose wrote it.
+# The verdict is the tool list goose sends the model, captured by the stub — never a config parse.
+
+
+    __( O)>  ● new session · openai primary-qwen27b
+   \____)    20260829_6 · /home/probe
+     L L     goose is ready
+STUB-OK
+goose rc=0
+--- stub calls ---
+GET /v1/models
+POST /v1/chat/completions len=636 seq=13 stream=True tools=0
+POST /v1/chat/completions len=21556 seq=14 stream=True tools=22
+
+Traceback (most recent call last):
+  File "<stdin>", line 2, in <module>
+  File "/usr/lib/python3.14/json/__init__.py", line 298, in load
+    return loads(fp.read(),
+        cls=cls, object_hook=object_hook,
+        parse_float=parse_float, parse_int=parse_int,
+        parse_constant=parse_constant, object_pairs_hook=object_pairs_hook, **kw)
+  File "/usr/lib/python3.14/json/__init__.py", line 352, in loads
+    return _default_decoder.decode(s)
+           ~~~~~~~~~~~~~~~~~~~~~~~^^^
+  File "/usr/lib/python3.14/json/decoder.py", line 345, in decode
+    obj, end = self.raw_decode(s, idx=_w(s, 0).end())
+               ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.14/json/decoder.py", line 363, in raw_decode
+    raise JSONDecodeError("Expecting value", s, err.value) from None
+json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
+
+--- the shim saw goose initialize it, from the CONFIG path this time ---
+{"jsonrpc":"2.0","id":0,"method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{"extensions":{},"roots":{},"sampling":{},"elicitation":{}},"clientInfo":{"name":"goose-cli","version":"1.46.0"}}}
+{"j
+ 390 /home/probe/mcp-in.jsonl
+3072 /home/probe/mcp-out.jsonl
+3462 total
+
+--- (correction: the stub's request counter is per-PROCESS, so this run's tool-bearing body is
+---  req-14.json, not req-02.json. The first fetch named the wrong file and failed loudly.) ---
+TOOLS ADVERTISED, CONFIG FILE ONLY, NO CLI FLAG: 22
+   analyze                                   
+   apps__create_app                          
+   apps__delete_app                          
+   apps__iterate_app                         
+   apps__list_apps                           
+   delegate                                  
+   edit                                      
+   extensionmanager__list_resources          
+   extensionmanager__manage_extensions       
+   extensionmanager__read_resource           
+   extensionmanager__search_available_extensions
+   load                                      
+   load_skill                                
+   read_image                                
+   shell                                     
+   todo__todo_write                          
+   tree                                      
+   write                                        <-- filesystem WRITE
+   wroughttap__remember_memory                  <-- through the TEE SHIM
+   wroughttap__remove_memory_category           <-- through the TEE SHIM
+   wroughttap__remove_specific_memory           <-- through the TEE SHIM
+   wroughttap__retrieve_memories                <-- through the TEE SHIM
+
+has 'write'                 : True
+wroughttap__* tool count    : 4
+max_tokens present in body  : False
+stream                      : True
