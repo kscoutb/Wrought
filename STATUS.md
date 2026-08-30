@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
 updated:  2026-08-30T16:35:39Z
 gate:     GATE-NARRATIVE
-state:    RUNNING P3
-last:     PHASE 1 DONE — three orphans re-homed and verified readable (failed scope units + P-2 → KNOWN-OPEN items 11/12; F-4 doctrine → rails §18). PHASE 2 DONE — both stale passages struck by addition, originals preserved. Zero hook denials in P1/P2.
-next:     PHASE 3 — docs/GATE-JOURNAL.md, amended wind-down duty, §17 growth rate
-usage:    ~$2.10 of $8.00
+state:    BUNDLED — wind-down complete, STOPPING
+last:     All five phases done. Bundle bundles/GATE-NARRATIVE/ verifies 1/1 first run, SHA256SUMS sha256 2e5852e70b25c46577c05cd7341e71ba91582d101c3570ff9e72351722048c3d. ZERO hook content denials; one permission-layer denial (Bash(grep:*) does not cover a shell redirect) recorded, not worked around. docs/PHASE-J-STATE.md 79,960 -> 59,588 B (-25.5%).
+next:     advisor adjudication. NO foundry commit — rails §5.1 needs sudo+python3, neither granted; docs/ edits left uncommitted in the working tree for the operator behind a real scan.
+usage:    ~$5.91 of $8.00
