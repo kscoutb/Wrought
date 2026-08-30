@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-30T14:58:00Z
+updated:  2026-08-30T14:58:19Z
 gate:     GATE-TRIM
-state:    TRANSPORT-OK
-last:     **TRANSPORT-OK — the prompt's own check gives 42/42 on the FIRST RUN**, no whitespace massaged, decomposing exactly as predicted (41 adjudication lines + 1 manifest line). Archived verbatim at `prompts/GATE-TRIM-v1.0.md`, 9,195 B, sha256 `57bc78d530ba7270fb2a4844626a809b7fe6dcd21931f4c449ffa288739fc2b0`. Transport itself was the **9th miss in 10** — paste, not a file — but the prompt is not *damaged*, so rails §7's STOP does not apply. Pre-flight run with the runner's **own** validators: 13 tool entries, every `Bash` scoped, **no interpreter granted so `ADD-DIRS` is a real fence**, both paths exist, budget `8.00` = config cap, hook settings valid, breaker unlatched, no other row `APPROVED`. **THE FINDING, and it is ruling (2)'s UNMEASURED hazard now MEASURED: the hook's content matcher DENIES the prompt's own mandated whole-file writes.** Simulating all six deny patterns over `json.dumps(tool_input)`: whole-`QUEUE.md` DENY, whole-`docs/PHASE-J-STATE.md` DENY on **two** patterns, `QUEUE-ARCHIVE.md`-as-specified DENY, and **`docs/PHASE-J-HISTORY.md` DENY on the unit-control pattern although it carries no permission-skip literal at all** — an `A.*B.*C` span assembling across ~65 KB from `PHASE-J-STATE.md:201`, a sentence whose whole point is to assert that **no** such command was ever issued. A line documenting restraint is indistinguishable, to a content matcher, from the action it disclaims. Routes were measured, not guessed: per-row `Edit` surgery on `QUEUE.md` is clean for **11 of 13 rows**; the `GATE-CONSOLIDATE` row is the one piece of text no tool call of this child can carry. Not defused by the dispatcher — rails §4, a record is corrected by addition, never by editing.
-next:     `wrought-runner` launched with `GATE-TRIM` the only `APPROVED` row. Expect the runner to push `RUNNING P-gate`, then the child's own heartbeats. Dispatcher then owns: rails §2.1 re-capture, the §5.1 scan the gate cannot run (no `sudo` granted, P-B recurring), and the foundry commit of whatever `docs/` edits the child leaves uncommitted.
-usage:    dispatcher session, claude-opus-5, ~18 turns. Gate child: launching.
+state:    RUNNING P-gate
+last:     wrought-runner started GATE-TRIM (1/6 this run)
+next:     gate execution, then byte-freeze re-assert and manifest verify
+usage:    n/a (wrought-runner)
