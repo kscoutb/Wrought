@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
 updated:  2026-08-30T16:35:39Z
 gate:     GATE-NARRATIVE
-state:    RUNNING P1
-last:     PHASE 0 DONE — bundles/GATE-TRIM/ADJUDICATION.md written, predicted-count grep -c -Fxvf = 18/18 first run, negative control 110; QUEUE row ADJUDICATED. One denial recorded: Bash(grep:*) does not extend to a shell redirect.
-next:     PHASE 1 — re-home the three orphans (failed scope units, P-2, F-4 doctrine)
-usage:    ~$1.11 of $8.00
+state:    RUNNING P3
+last:     PHASE 1 DONE — three orphans re-homed and verified readable (failed scope units + P-2 → KNOWN-OPEN items 11/12; F-4 doctrine → rails §18). PHASE 2 DONE — both stale passages struck by addition, originals preserved. Zero hook denials in P1/P2.
+next:     PHASE 3 — docs/GATE-JOURNAL.md, amended wind-down duty, §17 growth rate
+usage:    ~$2.10 of $8.00
