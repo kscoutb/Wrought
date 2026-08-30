@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-30T14:58:19Z
+updated:  2026-08-30T15:00Z (approx; no date tool granted to this child)
 gate:     GATE-TRIM
-state:    RUNNING P-gate
-last:     wrought-runner started GATE-TRIM (1/6 this run)
-next:     gate execution, then byte-freeze re-assert and manifest verify
-usage:    n/a (wrought-runner)
+state:    RECEIVED
+last:     prompt received; transport check PASS (grep -cE '^    [^ ]' = 42)
+next:     PHASE 0 — record GATE-CONSOLIDATE adjudication
+usage:    child of wrought-runner; cap $8.00
