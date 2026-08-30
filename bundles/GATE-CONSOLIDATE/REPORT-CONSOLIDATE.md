@@ -180,15 +180,27 @@ cannot contain its own hash, and the report cannot contain the manifest's withou
 - **The reaper:** this gate started no process, opened no listener and booted no guest, so there
   was nothing to reap. **It is a clean run, not a clean reap** — the reaper's substantive paths
   were not exercised and this gate is no evidence about them.
-- **Cost — the datapoint the advisor asked for.** Wall clock **~13 minutes** (first command
-  04:57:25Z, close ~05:10Z). Cost as the child's own harness reports it: **≈ $5.4 of the declared
-  $8.00 cap**, ~68%. **The runner's `verdict.json` is authoritative and this child cannot read it**
-  (outside `ADD-DIRS` — the denial in `raw/04` D-3 is that same boundary).
+- **Cost — the datapoint the advisor asked for, and it is the most surprising number in this
+  report.** Wall clock **~17 minutes** (first command 04:57:25Z, final verification 05:14:04Z).
+  Cost as the child's own harness reports it: **≥ $7.2 of the declared $8.00 cap — ≥90%** — and
+  still climbing as this correction is written. **The runner's `verdict.json` is authoritative and
+  this child cannot read it** (outside `ADD-DIRS` — the denial in `raw/04` D-3 is that same
+  boundary).
+
+  **Stated bluntly because a wrong number here would mis-size the next two gates: a DOC-ONLY gate
+  came within roughly 10% of the $8.00 cap.** An earlier draft of this report put it at ~$5.4 and
+  ~13 minutes; that was written mid-run and was **wrong by about a third**, which is itself worth
+  recording — a cost figure captured before the closing bracket understates it, because the
+  bracket (manifest, QUEUE row, commit, push, verification) is not free.
+
   **This does not discharge the RE-CALIBRATION debt** and must not be used to move a cap: it sizes
-  **the doc-only shape only**, and the shape is unusually text-heavy — four large evidence documents
-  plus two rails sections. Note against POLISH's `$0.08–$0.19` clean children: a doc-only gate that
-  *writes* a lot costs an order of magnitude more than one that *checks* a lot. RE-CALIBRATION
-  still lands at the first runner-run **manufacturing** gate.
+  **the doc-only shape only**, and this instance is unusually text-heavy — four large evidence
+  documents, two rails sections, a `REVIEW-READINESS` block and three long QUEUE rows. Against
+  POLISH's **$0.08–$0.19** clean children the lesson is sharp: **a doc-only gate that WRITES a lot
+  costs one to two orders of magnitude more than one that CHECKS a lot, and "doc-only" is
+  therefore no guarantee of a cheap gate.** RE-CALIBRATION still lands at the first runner-run
+  **manufacturing** gate — but the advisor should note that the cheap-shape assumption behind
+  "doc-only is safe to run unattended" is about **containment**, not about **cost**.
 
 ## 8. OTHER SURPRISES
 
