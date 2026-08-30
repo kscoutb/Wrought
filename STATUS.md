@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-30T16:36:00Z
+updated:  2026-08-30T16:35:17Z
 gate:     GATE-NARRATIVE
-state:    TRANSPORT-OK
-last:     **TRANSPORT-OK, 48/48 on the first run** — the prompt's own check (`grep -cE '^    [^ ]'`) run against the ARCHIVED FILE, not the transcription buffer. Archived `prompts/GATE-NARRATIVE-v1.0.md`, 11,238 B, sha256 `bfb29aa0c577f67d7d7d53996c1a5e7941fcac7bdaabd880f46ab5c13b30fe91`. **10th transport miss in 11** (paste, not a file) — not *damaged*, so not a rails §7 STOP; the residual prose-mangle risk is stated, not solved. **PRE-FLIGHT CLEAN** with the runner's own validators: 14 tool entries, every `Bash` scoped, **no interpreter granted so `ADD-DIRS` is a REAL fence**, budget 8.00 matches config, hook settings valid, breaker unlatched, ledger clean, **exactly one row `APPROVED`**. Freeze captured (`raw/00`). **THE HOOK MAP IS A GREEN LIGHT THIS TIME** (`raw/02`, patterns imported from the hook, not retyped): the prompt's HARD CONSTRAINT reproduces exactly, but **all 13 sections of the PHASE 4 cut range (L408–732, 25,331 B) DEFER in both directions**, and only **one denial is predicted** — the `GATE-CONSOLIDATE` dispatcher addendum (L837–898), which carries pattern 4's literal. **A DEFECT OF THE DISPATCHER'S OWN, corrected by addition:** `raw/01`'s interpreter test matched the prefix of `sha256sum`; `raw/01b` carries the corrected reading and `raw/01` is kept with the defect visible.
-next:     **START `bin/wrought-runner` — the THIRD unattended batch.** It will run exactly `GATE-NARRATIVE`. The runner holds the byte freeze, the residue sweep and the mechanical verdict from outside the child. Expect the child to push `bundles/GATE-NARRATIVE/` and set the row `BUNDLED`; the dispatcher then discharges rails §5.1 (the scan the child structurally cannot run) and commits the `docs/` edits behind it.
-usage:    dispatcher session, claude-opus-5; gate child not yet launched.
+state:    RUNNING P-gate
+last:     wrought-runner started GATE-NARRATIVE (1/6 this run)
+next:     gate execution, then byte-freeze re-assert and manifest verify
+usage:    n/a (wrought-runner)
