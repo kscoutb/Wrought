@@ -1,7 +1,7 @@
 # STATUS — forge-mini executor heartbeat
-updated:  2026-08-30T05:15:30Z
-gate:     GATE-CONSOLIDATE
-state:    RUNNING P-paced
-last:     GATE-CONSOLIDATE -> PASS; course-check disabled
-next:     pacing sleep, then (none)
+updated:  2026-08-30T05:20:31Z
+gate:     NONE
+state:    IDLE
+last:     wrought-runner finished cleanly after 1 gate(s)
+next:     operator review at the next daily ferry
 usage:    n/a (wrought-runner)
