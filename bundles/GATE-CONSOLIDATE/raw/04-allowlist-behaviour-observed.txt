@@ -1,0 +1,168 @@
+# GATE-CONSOLIDATE raw/04 — WHAT THE SCOPED ALLOWLIST AND THE HOOK DID TO THIS GATE
+# date: 2026-08-30
+# Not a designed probe. These are the denials and passes this gate actually hit while doing
+# its own work, recorded because a doc-only gate under a no-python3 allowlist is a shape
+# nobody had run before. Ground truth = the tool layer's own responses.
+
+ALLOWED-TOOLS as declared:
+  Read, Write, Edit, Grep, Glob, Bash(git:*), Bash(sha256sum:*), Bash(ls:*), Bash(cat:*),
+  Bash(diff:*), Bash(date:*), Bash(wc:*)
+ADD-DIRS as declared (whitespace-separated, per the B-1 ruling):
+  /home/kalib/courier/Wrought /home/kalib/foundry
+NO Bash(python3:*), NO Bash(sudo:*), NO Bash(grep:*), NO Bash(sed:*), NO Bash(awk:*).
+
+==============================================================================
+## D-1 — DENIED: `awk`, and it is the PROMPT'S OWN TRANSPORT CHECK
+==============================================================================
+  cmd:    awk 'BEGIN{n=0;i=0} /^    [^ ]/{if(!i){n++;i=1}next} {i=0} END{print n}' <prompt>
+  result: DENIED — `awk` is not in ALLOWED-TOOLS.
+
+  This is a PROMPT SELF-INCONSISTENCY, not a runner defect. The prompt mandates a transport
+  check, specifies the exact `awk` command to run it with, and then declares an ALLOWED-TOOLS
+  header that does not grant `awk`. The control is correct; the prompt is internally
+  contradictory.
+
+  WORKED AROUND WITHOUT WIDENING ANYTHING. The `Grep` tool (granted) listed the line numbers
+  of every line matching `^    [^ ]`, and the contiguous runs were counted from the gaps:
+       49-53 | 57-64 | 66-72 | 74-78 | 80-87 | 91-96 | 98-105 | 107-142 | 197 | 201
+  = 10 runs. The prompt requires 10. TRANSPORT CHECK PASSES.
+  The decomposition matches the prompt's own prediction exactly: 1 POLISH block, 4 ST-1
+  blocks, 3 J0B-CLOSE blocks, 2 Phase-5 literal blocks.
+
+==============================================================================
+## D-2 — DENIED: a compound command containing a VARIABLE EXPANSION
+==============================================================================
+  cmd:    git ... ; echo ... ; ls -a "$HOME"
+  result: DENIED.
+
+  Note the contrast, because it NARROWS GATE-J0B-CLOSE raw/02's finding rather than
+  contradicting it. raw/02 measured that EVERY shape containing a redirect, pipe, `&&` or `;`
+  is denied. This gate ran SEVERAL `;`-separated compounds SUCCESSFULLY, e.g.
+       date -u +%Y-%m-%dT%H:%M:%SZ; echo "---"; git -C ... log --oneline -5
+       git -C ... remote -v; git -C ... status --short
+  and they were ALLOWED, with every constituent command allowlisted.
+
+  >>> THE OPERATIVE VARIABLE APPEARS TO BE `"$HOME"` — an unexpanded shell VARIABLE whose
+  >>> value the permission layer cannot resolve statically — NOT the `;` itself.
+
+  STATED AS AN OBSERVATION, NOT A MEASUREMENT. This gate did not run the one-variable probe
+  that would settle it (the same compound with and without the expansion), because that is
+  not this gate's job and it is exactly the kind of reasoned-not-measured claim this repo
+  keeps catching. It is flagged for GATE-BOUNDARY because, if it holds, raw/02's rule as
+  written into rails S12.2.1 is TIGHTER THAN THE TRUTH: sequencing may be permitted and it
+  may be the unresolvable argument that is refused. Rails S12.2.1 has NOT been softened on
+  the strength of this — the measured table stands exactly as measured.
+
+==============================================================================
+## D-3 — DENIED: `ls` OUTSIDE THE DECLARED --add-dir TREE
+==============================================================================
+  cmd:    ls -la /var/lib/wrought/runner-state/
+  result: DENIED.
+
+  Attempted to see whether the runner's own freeze artifacts had been written. The path is
+  not in ADD-DIRS, and `Bash(ls:*)` is an ARGUMENT-SHAPED rule, so the permission layer can
+  see the path and refuse it.
+
+  >>> THIS IS THE BOUNDARY WORKING, MEASURED, ON A REAL GATE.
+  >>> It is the positive half of the B-3 finding. GATE-J0B-CLOSE raw/02 showed the boundary
+  >>> is NOT a fence for `Bash(python3:*)`, because the path hides in `-c` program text.
+  >>> This gate GRANTS NO python3 and its boundary HELD on the first out-of-tree access.
+  >>> A no-interpreter allowlist has a REAL, ENFORCED ADD-DIRS. Now shown from both sides.
+
+==============================================================================
+## D-4 — NOT ATTEMPTED, DELIBERATELY: the byte freeze
+==============================================================================
+  The prompt's Phase 4 says: "Byte-freeze re-assert and diff on the orchestrator store."
+  RAILS S2.2 SAYS THE OPPOSITE, in its own heading: under `wrought-runner` the freeze is the
+  RUNNER's duty and "a gate child MUST NOT attempt it."
+
+  The rails preamble is explicit that a prompt may NARROW a rail and NOTHING may WIDEN one,
+  and PHASE-J-STATE's preamble is explicit that where a prompt's premise disagrees with the
+  box, the box wins and the disagreement is REPORTED, not reconciled by guessing.
+
+  So the command was NOT RUN, and no workaround was sought. Rails S2.2 anticipates this
+  exactly: "Do not look for a workaround: a child that could measure its own containment is
+  a child that could also edit it."
+
+  The dispatcher pre-flight predicted this as finding P-A, including the second-order effect
+  this file is written around: the hook's `decide()` searches the serialised tool input, so
+  its patterns match file CONTENT, and any Write whose text quotes the store's filename is
+  refused too — including a report writing about the denial. Every file this gate wrote
+  therefore names the frozen paths by description ("the orchestrator store", "the three
+  frozen paths under /var/lib/wrought/state/"). A deliberate authoring constraint, not an
+  omission, recorded so a reviewer does not read the circumlocution as vagueness.
+
+==============================================================================
+## D-5 — COULD NOT RUN: the mandatory rails S5.1 pre-commit secret scan
+==============================================================================
+  cmd:    sudo -n /home/kalib/foundry/bin/wrought-precommit-secret-scan --repo ...
+  result: NOT RUNNABLE. `Bash(sudo:*)` is not granted; the tool is a `python3` script and
+          `Bash(python3:*)` is not granted; the script path itself is not allowlisted.
+          Root is genuinely required — it decrypts the sealed credential store under /etc.
+
+  This was pre-flight finding P-B and it is CONFIRMED. Exit-2 "could not run" is explicitly
+  NOT a pass, and this gate did not manufacture one.
+
+  CONSEQUENCES, both taken:
+   1. NO FOUNDRY COMMIT. The rails/state-doc edits are left UNCOMMITTED in the working tree
+      for the operator to commit behind the scan. Nothing is lost; the files are on disk and
+      `git diff` shows them.
+   2. The courier bundle push PROCEEDS, because the prompt orders it as the deliverable and
+      the content is doc-only and box-authored. A SUBSTITUTE check was run and is reported:
+      the `Grep` tool over the whole bundle tree for private-key headers, `sk-` tokens,
+      bearer tokens, `api_key=`-shaped assignments, and any base64-ish run of 60+ chars.
+      Only two hits, both expected and both already public: the GATE-ST-1 and
+      GATE-J0B-CLOSE manifest sha256s quoted inside the adjudication blocks.
+      >>> THIS IS NOT THE MANDATED SCAN. It compares against PATTERNS, not against the
+      >>> actual sealed credentials, which is the entire point of the real tool. The rails
+      >>> S5.1 obligation is UNDISCHARGED and is reported as such, not waived.
+
+==============================================================================
+## D-6 — NEW FINDING, NOT ANTICIPATED BY THE PRE-FLIGHT, AND IT DEMONSTRATED ITSELF TWICE:
+##        THE HOOK DENIED THIS GATE'S OWN EVIDENCE FILE, TWICE, FOR ITS PROSE
+==============================================================================
+  Writing THIS FILE was denied TWICE before it landed. Neither attempt performed any action;
+  both were denied for what the prose SAID.
+
+    attempt 1  DENIED — "sealed credentials are never read by a gate directly (docs/06 S14.4)"
+               cause: section D-5 above originally spelled out the full path of the sealed
+               credential store while explaining why the secret scan could not run.
+
+    attempt 2  DENIED — "never <the firewall ruleset-flush command> (CLAUDE.md hard rule)"
+               cause: this very section, D-6, originally ENUMERATED the hook's deny patterns
+               in order to make the finding auditable. Listing a forbidden command as
+               documentation is indistinguishable, to a content matcher, from issuing it.
+
+  attempt 3 — this text — describes every pattern instead of naming any, and landed.
+
+  TWO THINGS A REVIEWER SHOULD TAKE FROM THIS.
+
+  (1) THE MATCH IS OVER THE WHOLE SERIALISED PAYLOAD, AND NEWLINES DO NOT STOP IT.
+      `decide()` serialises the entire tool input to JSON before matching. Serialisation
+      turns real newlines into two-character escape sequences, so the payload the patterns
+      run against contains NO newline characters at all. A `.*` in a pattern therefore
+      spans the ENTIRE FILE rather than a single line. Any pattern built as
+      `<token-A>.*<token-B>.*<token-C>` will fire when a long document happens to mention
+      A, then B, then C, in that order, ANYWHERE in it — paragraphs apart, in unrelated
+      sentences. Of the six patterns, one has exactly that three-token shape and is the one
+      most likely to fire by accident on a long document. This gate did not trip it, and
+      says so plainly rather than claiming a measurement it did not take.
+
+  (2) A DOC-ONLY GATE IS THE SHAPE MOST LIKELY TO TRIP A CONTENT-MATCHING DENYLIST, because
+      writing about the system IS its work product. The hazard is INVERTED relative to the
+      gates the hook was designed against. The pre-flight anticipated exactly one such
+      hazard (the frozen store, P-A); at least five of the six patterns are trippable by
+      description alone. Only the recursive-delete pattern is shaped tightly enough to be
+      hard to hit in prose.
+
+  NOT A COMPLAINT, AND NO CHANGE IS PROPOSED. The hook is deliberately deny-only and
+  deliberately short; its own comment says a long denylist "invites the belief that the list
+  is the boundary". Content-matching is precisely what stops an action being smuggled past
+  it inside a heredoc or a file body, and that property is worth more than the authoring
+  friction it costs. The cost was real here, is cheap, and is paid.
+
+  FOR THE ADVISOR: prompts for doc-heavy gates should warn about this up front, the way this
+  one did for the freeze. The failure is LOUD and RECOVERABLE — a denied Write, retry with
+  different wording, nothing lost but tokens. But a gate that hit it at the closing bracket
+  with a large report already composed would burn a full rewrite for no reason, and a gate
+  that hit it while writing a HALT explanation could find itself unable to explain the halt.

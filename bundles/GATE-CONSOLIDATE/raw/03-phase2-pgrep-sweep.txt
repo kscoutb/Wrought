@@ -1,0 +1,101 @@
+# GATE-CONSOLIDATE raw/03 — PHASE 2 SWEEP: command-line process selection in bin/ and docs/
+# date: 2026-08-30
+# READ-ONLY. NOT ONE FILE WAS EDITED. Remediation belongs to GATE-BOUNDARY (attended-direct,
+# may touch bin/). This gate is doc-only and does not edit bin/.
+#
+# Patterns swept, over /home/kalib/foundry/bin and /home/kalib/foundry/docs:
+#   pgrep  pkill  pgrep_f  killall  pidof  "ps -ef"  "ps aux"  "ps -A"  fuser  lsof  --full
+# Tooling note: the `Grep` tool was used, not shell grep — Bash(grep:*) is not in this gate's
+# ALLOWED-TOOLS.
+
+==============================================================================
+## LIVE INSTANCES — 3. All in bin/. None edited.
+==============================================================================
+
+  [L-1] bin/gate13-measure:43          *** THE SHARP ONE — IT IS A KILL ***
+        stop_server() { pkill -f "$LLAMA .*--port $PORT" 2>/dev/null; sleep 3; }
+
+        `pkill -f` with a REGEX over the whole command line, used to terminate a server.
+        This is the same class as GATE-J0B-CLOSE raw/25 D-1 and raw/50 D-3, except those
+        two killed their own shell and this one is aimed at a MODEL SERVER. The pattern
+        `<llama-server path> .*--port <PORT>` will match ANY process whose command line
+        contains that binary path and that port — which, on this box, includes the
+        RESIDENT `wrought-inference.service` if it is serving on the same port with the
+        same binary. The failure mode is not a self-kill; it is killing production.
+        NOT VERIFIED HERE whether the ports actually collide — establishing that needs a
+        run, and this gate is doc-only. Flagged as the highest-severity hit for
+        GATE-BOUNDARY to measure and fix.
+        Corrected form (rails §15): the sibling `start_server()` on the very next line
+        ALREADY does `... & echo $!` — the pid is captured at launch and then discarded.
+        Keep it and kill by pid.
+
+  [L-2] bin/soak3-status:8
+        P=$(pgrep -f "soak3-track-$t" | head -1)
+
+        Read-only — it reports "alive pid=N", it does not signal. Lower severity, and the
+        self-match risk is genuinely lower than raw/50's because this script's own command
+        line is `soak3-status`, which does not contain the pattern. But it still matches
+        on a command-line SUBSTRING, so an editor, a `tail`, or a `less` open on a path
+        containing `soak3-track-a` is reported as a live track. That is a status tool
+        reporting a false ALIVE, which is a decision input.
+
+  [L-3] bin/soak3-track-b:174
+        r = subprocess.run(["pgrep", "-a", "bwrap"], ...)
+
+        The mildest of the three, and included for completeness rather than alarm. No
+        `-f`, so this matches the process NAME, not the command line. But without `-x` the
+        name match is a regex substring, so any executable whose name merely CONTAINS
+        `bwrap` matches. Read-only (returns a list; `stray_bwrap()` does not kill).
+        Corrected form: `pgrep -x bwrap`.
+
+==============================================================================
+## NOT DEFECTS — prose and evidence-capture. Verified by reading each one.
+==============================================================================
+
+  bin/wrought-runner:487, :527
+      Both are DOCSTRING PROSE describing the defect that was already FIXED by
+      GATE-RUNNER-POLISH. :487 is inside `qemu_processes()`, whose implementation
+      (:500-517) walks /proc and matches on `_proc_exe_name()` — EXECUTABLE identity,
+      with zombies excluded at :508. :527 is inside `_listener_pids()`, explaining why
+      the listener probe parses `ss`'s structured output and "never had the `pgrep -f`
+      disease in the first place".
+      >>> THE RUNNER ITSELF IS CLEAN. No command-line matching remains in it.
+
+  bin/wrought-runner:511-516
+      Reads /proc/<pid>/cmdline — but only AFTER matching by executable, and only to
+      RECORD the command line as evidence for attribution. Correct by design.
+
+  docs/PHASE-J-STATE.md:512
+      Struck through and marked "FIXED AND PROVEN 2026-08-29".
+  docs/PHASE-J-STATE.md:526, :531
+      Inside that entry's "**The original finding, for the record:**" block — history
+      preserved by addition (rails §4), not a live open item. :531's "Needs a ruling"
+      belongs to the original finding as written on the day; the ruling landed.
+  docs/PHASE-J-STATE.md:534
+      Prescriptive and CORRECT — "torn down by recorded PID, never `pkill -f`".
+  docs/PHASE-J-STATE.md:559
+      The GATE-RUNNER-POLISH entry recording the fix.
+  docs/PHASE-J-STATE.md:765
+      The GATE-J0B-CLOSE entry recording the two self-kills and RECOMMENDING the rails
+      line. That recommendation is what this gate enacted as rails §15.
+  docs/EXECUTOR-RAILS.md:419
+      Existing §13 prose describing the reaper's executable test.
+  docs/EXECUTOR-RAILS.md:474-499
+      WRITTEN BY THIS GATE — the new §15. Prose, by definition not a defect.
+
+  Other `cmdline` hits (bin/set-power-profile:36, bin/serve-model:125,
+  bin/gate05-postboot-collect:117-127) refer to the KERNEL command line
+  (/proc/cmdline, amdgpu.runpm=0). Unrelated to process selection.
+
+  bin/wrought-precommit-secret-scan:15 mentions /proc/<pid>/cmdline in prose,
+  explaining the argv-exposure leak it exists to prevent. Not process selection.
+
+==============================================================================
+## SUMMARY
+==============================================================================
+  live instances                     : 3   (bin/gate13-measure, bin/soak3-status,
+                                            bin/soak3-track-b)
+  of which perform a KILL            : 1   (bin/gate13-measure:43)
+  prose / already-fixed / unrelated  : 14
+  files edited by this gate          : 0
+  assigned to                        : GATE-BOUNDARY

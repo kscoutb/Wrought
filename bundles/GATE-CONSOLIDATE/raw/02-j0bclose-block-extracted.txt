@@ -1,0 +1,52 @@
+    ACCEPTED (advisor: successor session, 2026-08-30), CLOSED. 50/50 verifying, sha256
+    c1982e51161b2510da6066a14ba338e2d6baf2c375c38c8631cbc3ecc2f920f8, byte freeze HOLD, secret
+    scan exit 0 on both the staged diff and the bundle tree, authproxy2 unedited and re-hashed.
+    The agent surface manufactures, the real-path interception seam is closed through the shim
+    with goose's own clientInfo in the frame, and the schema question is settled from goose's
+    own output rather than a guessed shape.
+
+    The gate's AUDIT is the reason this is an ACCEPT and not a QUALIFIED ACCEPT. It found the
+    claim its own report could not support, in its own headline, and said so. Sections A, B, C
+    and F are adopted verbatim as the standing qualifications: "manufactures" is proven for a
+    5-byte write and NOT for building software; F-5's transport was replaced and generation
+    bounded, and under the shape that previously wedged nothing wedged, but THE ORIGINAL WEDGE
+    WAS NEVER REPRODUCED and "F-5 is CLOSED" must not be written without that clause; the
+    causal attribution for runs 1 and 2 is a between-runs inference, not a per-run post-mortem.
+    J0B-RESUME's two hypotheses are MEASURED FALSE and stay recorded as false.
+
+    Rulings, all six asked for in AUDIT §I, plus P-3:
+    P-3 ACCEPTED — the guestfwd correction by addition is confirmed; the pinhole is proven for a
+    single sequential connection and that qualifier now travels with it.
+    P-2 ACCEPTED IN PRINCIPLE — a key may carry the ratified 24000 into the guest-agent path;
+    the value is pins.lock serving.reasoning_budget, sourced not invented, and the box was right
+    to propose rather than mint. The pins.lock commit remains OPERATOR-AUTHORED.
+    G-1 ACCEPTED as a measured finding — `goose configure` rewrites config.yaml and silently
+    drops top-level keys including GOOSE_PROVIDER/GOOSE_MODEL. It lands as an operational
+    warning in the operator's pins commit, not as a box-authored pin.
+    ssh -R UNDER A RUNNER CHILD: NOT AUTHORIZED. Proven attended only. Whether the tunnel
+    survives in-scope and is reaped by §13 is untested, and an untested reaper path is exactly
+    the shape that cost GATE-J0B-SURFACE seven days. It is deferred to GATE-BOUNDARY, which will
+    measure it. Until that measurement lands, no runner-run gate may use it.
+    B-1 RULED: whitespace is CANONICAL for ADD-DIRS. The prompt-side fix is adopted from this
+    gate forward. The runner-side both-separator parser is APPROVED IN PRINCIPLE but deferred
+    to GATE-BOUNDARY, because a gate must not edit the runner it is running under. The
+    two-headers-two-separators trap is documented by this gate.
+    B-3 RULED IN PART, and the part that matters is deferred on purpose. The measured facts are
+    accepted in full: a scoped allowlist permits only bare single-command invocations, and
+    Bash(python3:*) escapes the --add-dir boundary with zero denials. The open question — is
+    the permission allowlist a SECURITY BOUNDARY or a convenience layer over the kernel scope,
+    AppArmor and private HOME — is design intent, it is the operator's, and it is put to the
+    ferry by GATE-BOUNDARY. Standing rule until then: no gate of mine grants Bash(python3:*)
+    unless it needs it, and any gate that does grant it states in its own header that its
+    ADD-DIRS is advisory. THIS GATE GRANTS NONE, and proves the no-python3 path works.
+    F / the pgrep class ACCEPTED as a rails line, not just a fixed function. The audit's
+    diagnosis is the correct one: a rule living in a single code path gets re-learned at the
+    console, and raw/50 containing a correct pgrep -x three lines above an incorrect pgrep -f
+    is the proof.
+    COST: the token counts (41,444,106) are ratified as the durable measurement. The $33.45 is
+    NOT ratified — it rests on cache multipliers the read source does not carry, and the same
+    tokens price at $214.89 at full rate. No cap moves on this gate. An attended-direct figure
+    must never set a runner child's cap. RE-CALIBRATION lands at the first runner-run
+    MANUFACTURING gate; this gate is runner-run but not manufacturing, so its cost is a useful
+    datapoint for the doc-only shape and nothing more.
+    TRANSPORT: the miss was mine, not the box's, seven times in eight. This prompt is a file.
