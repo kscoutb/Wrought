@@ -1,0 +1,36 @@
+# F-5 -- gate39-chaos production-store guard. 2026-08-31T10:48:49Z
+# (Re-captured: the first capture piped through head and reported PIPESTATUS for the
+#  wrong stage, printing exit=0 for a refusal. J-95 -- a recorded value carries the
+#  command that produced it, and that command has to be the right one.)
+
+## The hazard: reset() unlinks store.DB_PATH and its -wal/-shm siblings
+def reset():
+    # Glob the GATE-SCOPED db and its -wal/-shm siblings, never a hard-coded production path.
+    base = pathlib.Path(store.DB_PATH)
+    for p in base.parent.glob(base.name + "*"):
+        p.unlink()
+    shutil.rmtree(store.EFFECTS_DIR, ignore_errors=True)
+    sh("./bin/orchestrator", "init", "--db", store.DB_PATH)
+
+## WROUGHT_DB=/var/lib/wrought/state/orchestrator.db
+   exit=1
+   gate39-chaos: REFUSING TO RUN -- WROUGHT_DB resolves to /var/lib/wrought/state/orchestrator.db, not this gate's own scope database (/var/lib/wrought/state/gate39-scope.db). This gate UNLINKS store.DB_PATH and its -wal/-shm siblings on every reset(); running it against an inherited path destroys whatever is there. Unset WROUGHT_DB (or set it to the gate-scoped path) and re-run. (J-80, F-5.)
+
+## WROUGHT_DB=/tmp/somewhere-else.db
+   exit=1
+   gate39-chaos: REFUSING TO RUN -- WROUGHT_DB resolves to /tmp/somewhere-else.db, not this gate's own scope database (/var/lib/wrought/state/gate39-scope.db). This gate UNLINKS store.DB_PATH and its -wal/-shm siblings on every reset(); running it against an inherited path destroys whatever is there. Unset WROUGHT_DB (or set it to the gate-scoped path) and re-run. (J-80, F-5.)
+
+## WROUGHT_DB=/var/lib/wrought/state/gate39-scope.db
+   exit=0
+   # GATE-39 — kill-9 chaos (the correctness core) (§8, R5 Q1/Q3)
+   # 2026-08-31T06:48:49-04:00  host=forge-mini
+   # gate-scoped queue params: visibility=2s max_receive=4 (production values are DEFERRED in pins.lock -- they need a measured task wall-clock)
+
+## unset (setdefault supplies the scope path)
+   exit=0
+   # GATE-39 — kill-9 chaos (the correctness core) (§8, R5 Q1/Q3)
+   # 2026-08-31T06:49:32-04:00  host=forge-mini
+
+## the production store, before and after this test
+   raw/00 baseline: 6600fe63abd0116c63f51723b2cee83e6477e06e76604d6f36e3d843396d8fde
+   now            : 6600fe63abd0116c63f51723b2cee83e6477e06e76604d6f36e3d843396d8fde

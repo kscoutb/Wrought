@@ -1,0 +1,15 @@
+# GATE-FIX F-1 attack fixtures -- 2026-08-31T10:37:51Z
+# verify-job: e476e8f  (working tree may carry the fix)
+
+## fixture hijack    
+rc=0  unit=wrought-verify-gate-fix-f1-0-1788172671824322817.scope classification: PASS -- all checks passed 
+
+## fixture exit0     
+rc=0  unit=wrought-verify-gate-fix-f1-0-1788172672059721825.scope classification: PASS -- all checks passed 
+
+## fixture classify  (backdoor installed for this run only)
+rc=1  unit=wrought-verify-gate-fix-f1-0-1788172672923430953.scope classification: PASS -- all checks passed 
+   classify.py restored: 0 modifications outstanding
+
+## fixture happy     (REGRESSION -- must be PASS)
+rc=0  unit=wrought-verify-gate-fix-f1-0-1788172673715084658.scope classification: PASS -- all checks passed 

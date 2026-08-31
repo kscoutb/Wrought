@@ -1,0 +1,26 @@
+# F-3 -- the runner scans before it publishes. 2026-08-31T10:54:01Z
+
+## BEFORE: no scan anywhere in the runner
+$ grep -c "precommit-secret-scan\|secret-leak-scan" <runner at review-rc2>
+0
+0
+$ git show review-rc2:bin/wrought-runner | grep -n "add\", \"-A\""
+220:    git(repo, "add", "-A", check=False)
+
+## AFTER
+$ grep -n "secret_scan_or_halt\|add\", \"--\"" bin/wrought-runner
+237:def secret_scan_or_halt(repo: Path, rlog: RunLog, stage: str) -> None:
+275:    secret_scan_or_halt(repo, rlog, stage)
+280:        git(repo, "add", "--", *present, check=False)
+
+$ python3 -c "... courier_publishable({})"   # derived from the same cfg keys used to WRITE
+  ('STATUS.md', 'QUEUE.md', 'bundles', 'prompts', 'QUEUE-ARCHIVE.md', 'README.md', 'review')
+
+$ ./bin/test-f3-runner-scan
+  ok    A rc=0  clean -> proceeds                halted=False
+  ok    A rc=1  secret found -> HALT             halted=True
+  ok    A rc=2  scan could not run -> HALT       halted=True
+  ok    B clean tree                             exit=0
+  ok    B key-shaped file under bundles/         exit=1
+  ok    B removing it unblocks                   exit=0
+F-3: PASS

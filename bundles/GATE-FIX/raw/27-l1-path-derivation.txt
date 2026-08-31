@@ -1,0 +1,38 @@
+# L1 -- path derivation feeds a root rm -rf. 2026-08-31T11:05:58Z
+# PROMOTED FROM KNOWN-OPEN TO A FIX. The spec filed this under 'docs, not fixes'.
+# Deviation stated in REPORT-FIX.md: it is a root-level recursive delete on a path built
+# from an unvalidated id, the guard already exists one file over, and pins.lock ALREADY
+# says the charset applies at path derivation. Documenting it was the wrong call.
+
+## The line that makes it a root rm -rf
+192:    subprocess.run(["sudo", "-n", "rm", "-rf", str(src)], capture_output=True)
+
+## pins.lock already said where it must be enforced
+1172:  task_id_charset: "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" # enforced at InputValidation AND at path derivation
+
+## Copies of the rule: was 2 (pins.lock + verify-job, and NOT the oracle). Now 2, but the
+## code copy is single and lives where the dangerous derivation is.
+$ grep -rn "TASK_ID_RE" bin/verify-job src/wrought_supervisor/oracle.py
+bin/verify-job:110:    if not TASK_ID_RE.match(task_id):
+src/wrought_supervisor/oracle.py:106:TASK_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+src/wrought_supervisor/oracle.py:122:    if not TASK_ID_RE.match(task_id):
+
+$ ./bin/test-l1-path-derivation
+  ok    parent traversal         refused
+  ok    absolute-ish             refused
+  ok    embedded slash           refused
+  ok    dot only                 refused
+  ok    empty                    refused
+  ok    leading dash             refused
+  ok    attempt out of range     refused
+  ok    attempt not an int       refused
+  ok    normal id                -> /var/lib/wrought/jobs/TASK-2026-0831-01/0
+  ok    escalation slot          -> /var/lib/wrought/jobs/T.a_b-1/4
+  ok    module_filename traversal      refused
+  ok    module_filename separator      refused
+  ok    module_filename not .py        refused
+  ok    module_filename empty          refused
+L1: PASS
+
+## No legitimate id is broken by the guard
+   534 existing job+oracle ids checked; violations: NONE

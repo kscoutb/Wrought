@@ -1,0 +1,28 @@
+# F-8 -- a console interrupt must not outlive the gate child. 2026-08-31T10:57:32Z
+
+## BEFORE (at review-rc2)
+$ git show review-rc2:bin/wrought-runner | grep -c "^import signal"
+0
+0   <- no signal handling at all
+$ ... | grep -n "except Halt as h" -A2   # the only exception the wrapper caught
+1135:    except Halt as h:
+1136-        pending = h
+1137-    finally:
+--
+1447:    except Halt as h:
+1448-        halt_reason, breaker_name = h.reason, h.breaker
+
+## AFTER
+$ grep -n "^import signal\|except BaseException\|install_signal_handlers(cfg\|_register_child(" bin/wrought-runner
+54:import signal
+315:def _register_child(pgid: int) -> None:
+366:def install_signal_handlers(cfg: dict, rlog: RunLog) -> None:
+1025:        _register_child(child_pgid)
+1317:    except BaseException as exc:                                    # noqa: BLE001
+1531:    install_signal_handlers(cfg, rlog)
+
+$ ./bin/test-f8-signal-teardown
+  ok    A group of 3 pids signalled; survivors=[]
+  ok    B SIGTERM ignored -> SIGKILLed after 1.0s: ['pgid 155278: SIGTERM ignored for 1.0s, SIGKILLed']
+  ok    C SIGINT -> KeyboardInterrupt=True, finally ran=True, child alive=False
+F-8: PASS

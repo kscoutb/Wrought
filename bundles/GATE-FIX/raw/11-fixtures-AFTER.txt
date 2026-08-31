@@ -1,0 +1,18 @@
+# GATE-FIX F-1 attack fixtures -- 2026-08-31T11:05:55Z
+# verify-job: 476395a  (working tree may carry the fix)
+
+## fixture hijack    
+rc=1  unit=wrought-verify-gate-fix-f1-0-1788174355258072681.scope classification: CODE_DEFECT -- repairable findings in: py.cov.threshold, py.test.pytest 
+
+## fixture exit0     
+rc=1  unit=wrought-verify-gate-fix-f1-0-1788174356158079421.scope classification: SUBSTRATE -- py.cov.threshold: tool error (exit 1: the metric tool did not succeed, so its output file is not its verdict -- refusing to read a file this run did not demonstrably write) 
+
+## fixture exit0b    (KNOWN OPEN -- expected to reach PASS; see REPORT-FIX.md F-1 residual)
+rc=0  unit=wrought-verify-gate-fix-f1-0-1788174357022042691.scope classification: PASS -- all checks passed 
+
+## fixture classify  (backdoor installed for this run only)
+verify-job: REFUSING TO LAUNCH -- src/wrought_supervisor/classify.py is not the pinned decision code (pins.lock oracle_decision_code=a6b5991da7a9c572297a28614607d60fd3e71bb00c7649f6aa18de46fa021a0b, on disk=93c11e39b78a0494943abac9c78f37bdd55d17792a1e2a4fd39c394bc5d4ad6f). This file decides verdicts; if the change is intended, re-pin it deliberately. 
+   classify.py restored: 0 modifications outstanding
+
+## fixture happy     (REGRESSION -- must be PASS)
+rc=0  unit=wrought-verify-gate-fix-f1-0-1788174358019540267.scope classification: PASS -- all checks passed 

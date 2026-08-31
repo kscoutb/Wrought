@@ -1,0 +1,34 @@
+# F-2 -- REPAIRING/ESCALATING rest. 2026-08-31T11:01:35Z
+
+## The store.py caveat z-ai could not settle from its packet, SETTLED FROM SOURCE
+$ grep -n "carry_received" src/wrought_orchestrator/store.py src/wrought_orchestrator/worker.py
+src/wrought_orchestrator/worker.py:156:            # (`store.enqueue(..., carry_received=fence)` at the code_defect and substrate
+src/wrought_orchestrator/worker.py:157:            # branches). `carry_received` exists BECAUSE of this bug class -- J-62 measured 1,989
+src/wrought_orchestrator/worker.py:169:            store.enqueue(conn, t["task_id"], carry_received=prior)
+src/wrought_orchestrator/worker.py:389:            store.enqueue(conn, task_id, carry_received=fence)
+src/wrought_orchestrator/worker.py:442:            store.enqueue(conn, task_id, carry_received=fence)
+src/wrought_orchestrator/store.py:408:            carry_received: int = 0) -> str:
+src/wrought_orchestrator/store.py:409:    """`carry_received` carries the prior message's delivery count into the new message.
+src/wrought_orchestrator/store.py:424:        (qid, queue, json.dumps({"task_id": task_id}), priority, now(), now(), carry_received),
+
+   store.enqueue HAS the parameter (J-62, after 1,989 requeues for 4 tasks), and worker's
+   two D12 requeue paths pass it. recover() was the ONE call site that did not -- so the
+   per-message budget was reset on every restart. z-ai's finding is CONFIRMED and its
+   caveat resolves in its favour.
+
+## BEFORE (review-rc2 source, run from a clean git archive)
+   process_one -> steps=[] acked=True final_state=REPAIRING
+   queue 1 -> 0;  task state still REPAIRING
+   ^ zero transitions, message DELETED, task unmoved, queue looks drained
+   received across 3 recovery requeues: [0, 0, 0]  <- never accumulates, so F-27 never fires
+
+## AFTER
+$ ./bin/test-f2-repairing-rest
+  ok    A refused, not acked: raised=True queue 1->1 state=REPAIRING
+  ok    B carried_received across restarts=[0, 1, 2, 3, 4] -> HUMAN_REVIEW
+        dead-letter event: present
+F-2: PASS
+
+## Regression: the correctness core still holds
+$ ./bin/gate39-chaos | tail -1
+======== GATE-39: ZERO LOSS, ZERO DUPLICATION ========

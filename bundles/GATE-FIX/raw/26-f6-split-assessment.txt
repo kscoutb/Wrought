@@ -1,0 +1,32 @@
+# F-6 -- assessment: SPLIT to the process-starting gate. 2026-08-31T11:03:28Z
+
+## Half 2 (authproxy EMFILE) CANNOT be fixed in this repo: the file is not in it.
+$ git ls-files | grep -i authproxy
+   (no match -- authproxy3.py is NOT tracked by the foundry repo)
+   It exists only at courier bundles/GATE-J0B-CLOSE/sources/authproxy3.py, which is why
+   GATE-REVIEW had to note its provenance when packing it for the panel.
+
+$ ss -lntH "sport = :8081" | wc -l     # is the proxy even up?
+0
+   0 -- the proxy is not running, so the EMFILE burst cannot be exercised here either.
+
+## Half 1 (network isolation) needs the child's LAUNCH SHAPE changed, not a flag added.
+$ grep -n "systemd-run\", \"--user\", \"--scope\"" bin/wrought-runner
+970:        "systemd-run", "--user", "--scope", "--quiet", f"--unit={unit}",
+
+   A systemd SCOPE cannot take the sandboxing properties at all:
+$ systemd-run --user --scope --quiet -p PrivateNetwork=yes /bin/true
+   exit=1  ->  Unknown assignment: PrivateNetwork=yes
+$ systemd-run --user --quiet --wait -p PrivateNetwork=yes /bin/true   # a SERVICE accepts it
+   exit=0  ->  (no output; accepted)
+
+   So closing half 1 means moving the gate child from --scope to a service (or wrapping it
+   in its own netns) AND giving it a deliberate path back to 127.0.0.1:8080. That changes
+   process supervision, output capture, the deadman attach, and the reaper's scope-membership
+   logic -- i.e. the whole child-launch architecture. It is the process-starting gate's work.
+
+## Corroboration of the F-7 class, found by accident while assessing this
+$ pgrep -af "authproxy"    # matched THIS SESSION S OWN SHELL, because the word was in its argv
+   A pattern match over /proc/*/cmdline matched a shell whose command line merely CONTAINED
+   the string. That is exactly the failure mode F-7 removed from gate13-measure, observed
+   independently and by accident. Recorded, not fixed here.

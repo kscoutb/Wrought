@@ -1,0 +1,27 @@
+# F-7 -- gate13-measure must not reap the resident model server. 2026-08-31T10:51:34Z
+
+## The hazard is LIVE right now: the resident unit is up
+$ systemctl is-active wrought-inference.service
+active
+
+## What the OLD stop_server pattern matched -- shown with pgrep, NEVER pkill
+   old line 43:  pkill -f "$LLAMA .*--port $PORT"
+$ pgrep -af "/opt/wrought/bin/llama-server .*--port 8080"
+102501 /opt/wrought/bin/llama-server --model /var/lib/wrought/models/Qwen3.6-27B-UD-Q4_K_XL.gguf --alias primary-qwen27b --n-gpu-layers 99 --ctx-size 65536 --flash-attn on --cache-type-k q8_0 --cache-type-v q8_0 --batch-size 2048 --ubatch-size 512 --no-mmproj --reasoning on --reasoning-budget 24000 --device Vulkan0 --host 127.0.0.1 --port 8080 --parallel 1 --metrics --api-key-file /run/credentials/wrought-inference.service/inference-api-key
+
+   ^ those pids are the RESIDENT server. The old pkill would have killed them on
+     every one of its three call sites, and the caller discarded the pid of the child
+     the gate actually started.
+
+## AFTER: the gate refuses to run at all while the unit is active
+$ ./bin/gate13-measure
+   exit=1
+   FATAL: wrought-inference.service is ACTIVE. This gate starts and stops its own
+          llama-server on port 8080 and must not contend with, or reap, the resident one.
+          Stop the unit deliberately and re-run:  sudo systemctl stop wrought-inference.service
+
+## The resident server is untouched by this test
+$ pgrep -af "/opt/wrought/bin/llama-server .*--port 8080" | wc -l
+1
+$ systemctl is-active wrought-inference.service
+active

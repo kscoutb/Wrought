@@ -1,0 +1,29 @@
+# F-4 -- allowlist separator. 2026-08-31T10:46:06Z
+
+## BEFORE: the OLD comma-only split, applied to the two LIVE courier headers
+$ python3 -c "..."   # entries = [e.strip() for e in header.split(\",\") if e.strip()]
+  GATE-ST-1-v1.0.md
+    header      : 'Read Edit Write Bash'
+    OLD split   : ['Read Edit Write Bash']
+    OLD bare    : []   <- empty, so the guard PASSED it
+    NEW split   : ['Read', 'Edit', 'Write', 'Bash']
+    NEW bare    : ['Bash']   <- caught, so the guard HALTS
+  GATE-RUNNER-ARM-v1.0.md
+    header      : 'Read, Edit, Bash   (declared per rails §13)'
+    OLD split   : ['Read', 'Edit', 'Bash   (declared per rails §13)']
+    OLD bare    : []   <- empty, so the guard PASSED it
+    NEW split   : ['Read', 'Edit', 'Bash', '(declared', 'per', 'rails', '§13)']
+    NEW bare    : ['Bash']   <- caught, so the guard HALTS
+
+## AFTER: bin/test-f4-allowed-tools
+$ ./bin/test-f4-allowed-tools
+  ok    LIVE  prompts/GATE-ST-1-v1.0.md            halted (halt)
+  ok    LIVE  prompts/GATE-RUNNER-ARM-v1.0.md      halted (halt)
+  ok    tab-separated                              halted (halt)
+  ok    newline-separated                          halted (halt)
+  ok    comma form, already caught before          halted (halt)
+  ok    empty parens                               halted (halt)
+  ok    all scoped                                 -> ['Read', 'Edit', 'Write', 'Bash(git:*)', 'Bash(sha256sum:*)']
+  ok    scoped, spaces                             -> ['Read', 'Edit', 'Bash(git:*)']
+  ok    no bash at all                             -> ['Read', 'Edit', 'Write', 'Glob', 'Grep']
+F-4: PASS
