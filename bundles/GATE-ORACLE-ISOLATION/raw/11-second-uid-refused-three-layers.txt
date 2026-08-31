@@ -1,0 +1,45 @@
+# GATE-ORACLE-ISOLATION raw/11 -- IS A SECOND UID REACHABLE?  THE ANSWER IS NO, AND IT IS
+# REFUSED AT THREE INDEPENDENT LAYERS.  Each layer measured separately so no single
+# explanation has to carry the conclusion.
+# taken 2026-08-31T20:00:38Z
+
+LAYER 1 -- the SHIPPED sandbox has exactly one uid and zero capabilities.
+  see raw/10: uid_map '0 0 1', CapEff/CapPrm/CapBnd/CapAmb all 0, setresuid(65534) -> EINVAL(22)
+  (EINVAL, not EPERM: the target uid is not in the map at all.)
+
+LAYER 2 -- a NESTED bwrap is refused by the PINNED seccomp filter, by argument.
+  $ grep -nE 'NEWUSER' bin/build-seccomp-deny.c
+  72:	                      SCMP_A0(SCMP_CMP_MASKED_EQ, CLONE_NEWUSER, CLONE_NEWUSER)), "clone+NEWUSER");
+  74:	                      SCMP_A0(SCMP_CMP_MASKED_EQ, CLONE_NEWUSER, CLONE_NEWUSER)), "unshare+NEWUSER");
+  bwrap inside the sandbox: 'No permissions to create a new namespace'. This is a
+  DELIBERATE, load-bearing control -- a nested userns is how a candidate would become
+  root in a namespace it owns -- and it is pinned by seccomp_bpf_sha256. It is right.
+
+LAYER 3 -- rebuilding the sandbox with a RANGE-MAPPED userns AND FULL capabilities STILL
+  cannot drop uid, because the host AppArmor policy denies CAP_SETUID to every bwrap.
+  Method: verify-job's identity (root, via sudo) creates a userns, writes a range map
+  with the privilege root holds in the PARENT ns, and hands the ns fd to bwrap --userns.
+  $ cat /proc/<child>/uid_map   ->  '0          0      65536'   (65536 uids mapped)
+
+  CONTROL, same userns, NO bwrap:  CapEff=000001ffffffffff  NNP=0
+      setgroups([]): OK / setresgid(65534): OK / setresuid(65534): OK / final uid = 65534
+  So the range map and the privilege are BOTH sound.  Now the same drop under bwrap:
+
+    variant                                          CapEff              setresuid(65534)
+    --userns FD, --cap-drop ALL --cap-add SETUID/SETGID  00000000000000c0   EPERM(1)
+    --userns FD, no cap flags at all                     000001ffffffffff   EPERM(1)
+    --userns FD, --cap-add SETUID/SETGID only            000001ffffffffff   EPERM(1)
+
+  securebits = 0x0, and clearing them with prctl(PR_SET_SECUREBITS,0) changes nothing.
+  THE CAUSE, taken from the kernel rather than inferred:
+    $ cat /proc/self/attr/current      (inside bwrap)
+      'bwrap//&unpriv_bwrap (enforce)'          -- the host is 'unconfined'
+    $ sudo dmesg | grep -i apparmor | tail
+      [284921.832714] audit: type=1400 audit(1788206358.400:595): apparmor="DENIED" operation="capable" class="cap" profile="unpriv_bwrap" pid=160334 comm="python" capability=7  capname="setuid"
+      [284921.832730] audit: type=1400 audit(1788206358.400:596): apparmor="DENIED" operation="capable" class="cap" profile="unpriv_bwrap" pid=160334 comm="python" capability=7  capname="setuid"
+      [284938.880028] audit: type=1400 audit(1788206375.447:597): apparmor="DENIED" operation="capable" class="cap" profile="unpriv_bwrap" pid=160347 comm="python" capability=7  capname="setuid"
+
+  Ubuntu 26.04 confines EVERY bubblewrap sandbox on this box under the distro profile
+  'unpriv_bwrap', which denies 'capability setuid' unconditionally.  Granting it would be
+  a HOST-WIDE AppArmor policy change affecting every bwrap on the machine, not a change to
+  this pipeline -- that is an operator/ferry decision and emphatically not a gate's.

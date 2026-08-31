@@ -1,0 +1,30 @@
+# GATE-ORACLE-ISOLATION raw/20 -- fixtures BEFORE, at this gate's start (HEAD 52fade2, clean tree).
+#   $ build-evidence/gate-oracle-isolation/fixtures/run-all-fixtures
+# exit0b PASSes here, as GATE-FIX left it; exit0c -- the adaptive form authored by THIS gate --
+# PASSes too, which is the finding that decides the gate.
+
+# GATE-ORACLE-ISOLATION fixtures -- 2026-08-31T20:05:53Z
+# verify-job: 52fade2  (working tree may carry the fix)
+
+## fixture hijack   
+rc=1  unit=wrought-verify-gate-fix-f1-0-1788206754014158211.scope classification: CODE_DEFECT -- repairable findings in: py.cov.threshold, py.test.pytest 
+
+## fixture exit0    
+rc=1  unit=wrought-verify-gate-fix-f1-0-1788206754911377579.scope classification: SUBSTRATE -- py.cov.threshold: tool error (exit 1: the metric tool did not succeed, so its output file is not its verdict -- refusing to read a file this run did not demonstrably write) 
+
+## fixture exit0b    (GATE-FIX residual -- PASSes at this gate start; hard-codes /work/out)
+rc=0  unit=wrought-verify-gate-fix-f1-0-1788206755781373246.scope classification: PASS -- all checks passed 
+
+## fixture exit0c    (THIS GATE -- the same attack with NO hard-coded path)
+rc=0  unit=wrought-verify-gate-fix-f1-0-1788206756643443865.scope classification: PASS -- all checks passed 
+
+## fixture classify  (backdoor installed for this run only)
+verify-job: REFUSING TO LAUNCH -- src/wrought_supervisor/classify.py is not the pinned decision code (pins.lock oracle_decision_code=a6b5991da7a9c572297a28614607d60fd3e71bb00c7649f6aa18de46fa021a0b, on disk=93c11e39b78a0494943abac9c78f37bdd55d17792a1e2a4fd39c394bc5d4ad6f). This file decides verdicts; if the change is intended, re-pin it deliberately. 
+   classify.py restored: 0 modifications outstanding
+
+## fixture outwrite  (THIS GATE -- the fence measurement; full stderr below, not just the verdict)
+rc=0  unit=wrought-verify-gate-fix-f1-0-1788206757637044443.scope classification: PASS -- all checks passed 
+   --- what the kernel actually said, from the check output ---
+
+## fixture happy     (REGRESSION -- must be PASS)
+rc=0  unit=wrought-verify-gate-fix-f1-0-1788206759392806081.scope classification: PASS -- all checks passed 

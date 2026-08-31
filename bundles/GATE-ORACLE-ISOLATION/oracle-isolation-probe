@@ -1,0 +1,226 @@
+#!/opt/wrought/venv-orch/bin/python
+"""oracle-isolation-probe — IS A SECOND UID REACHABLE INSIDE THE VERIFICATION SANDBOX?
+
+GATE-ORACLE-ISOLATION asked that question and the answer is NO. This is the committed command
+that produces the answer, so the negative result is reproducible rather than remembered (J-95:
+"a measured value carries the exact command that produced it, or it is not evidence" — and a
+measured IMPOSSIBILITY is the value most likely to be re-litigated from memory).
+
+It probes three layers, separately, so no single explanation has to carry the conclusion:
+
+  1. THE SHIPPED SANDBOX. Runs a probe inside the exact production sandbox, by importing
+     `bin/verify-job` and calling its OWN `build_argv()` with only the final program swapped —
+     never a hand-copied flag list, because a probe of a different invocation is worthless
+     (GATE-25's criterion, applied to a measurement instead of a gate).
+  2. A NESTED bwrap, from inside that sandbox.
+  3. A REBUILT sandbox: a range-mapped user namespace created by this process (root, via sudo)
+     and handed to bwrap with `--userns`, with capabilities retained.
+
+Run:  sudo -n bin/oracle-isolation-probe            (all three layers)
+      sudo -n bin/oracle-isolation-probe --layer 3  (one layer)
+
+Layer 3 needs a task whose job tree exists only for layers 1-2; it builds its own sandbox.
+"""
+
+from __future__ import annotations
+
+import argparse
+import ctypes
+import os
+import pathlib
+import subprocess
+import sys
+import time
+
+REPO = pathlib.Path(__file__).resolve().parent.parent
+CLONE_NEWUSER = 0x10000000
+LOW_UID = 65534  # nobody. Any uid other than the sandbox's own would do; this one is conventional.
+
+INNER = r'''
+import ctypes, os, subprocess, sys
+w = sys.stdout.write
+def _status(*keys):
+    d = {k.strip(): v.strip() for k, v in
+         (l.split(":", 1) for l in open("/proc/self/status") if ":" in l)}
+    return {k: d.get(k) for k in keys}
+w("  identity: uid=%d euid=%d gid=%d\n" % (os.getuid(), os.geteuid(), os.getgid()))
+st = _status("CapEff", "CapPrm", "CapBnd", "CapAmb", "NoNewPrivs", "Seccomp")
+w("  %s\n" % "  ".join("%s=%s" % kv for kv in st.items()))
+w("  uid_map: %r   gid_map: %r   setgroups: %r\n" % (
+    open("/proc/self/uid_map").read().strip(), open("/proc/self/gid_map").read().strip(),
+    open("/proc/self/setgroups").read().strip()))
+w("  ns/user: %s\n" % os.readlink("/proc/self/ns/user"))
+try:
+    w("  apparmor: %r\n" % open("/proc/self/attr/current").read().strip())
+except OSError as exc:
+    w("  apparmor: unreadable (%s)\n" % exc)
+pid = os.fork()
+if pid == 0:
+    try:
+        os.setresuid(@LOW@, @LOW@, @LOW@)
+        w("  setresuid(@LOW@): OK -- A SECOND UID IS REACHABLE\n"); os._exit(0)
+    except OSError as exc:
+        w("  setresuid(@LOW@): REFUSED -- %s(%d) %s\n" % (
+            type(exc).__name__, exc.errno, exc.strerror))
+        w("     errno 22 EINVAL = the uid is not in the map at all;"
+          " errno 1 EPERM = mapped, but the switch is denied\n")
+        os._exit(1)
+os.waitpid(pid, 0)
+r = subprocess.run(["/usr/bin/bwrap", "--unshare-user", "--uid", "@LOW@", "--gid", "@LOW@",
+                    "--ro-bind", "/usr", "/usr", "--symlink", "usr/bin", "/bin",
+                    "--symlink", "usr/lib", "/lib", "--symlink", "usr/lib64", "/lib64",
+                    "--proc", "/proc", "--dev", "/dev", "/usr/bin/id"],
+                   capture_output=True, text=True)
+w("  nested bwrap --unshare-user --uid @LOW@: rc=%d %s\n"
+  % (r.returncode, (r.stdout or r.stderr).strip()[:160]))
+'''.replace("@LOW@", str(LOW_UID))
+
+
+def _load_verify_job():
+    """Import bin/verify-job as a module. It has no .py suffix, so exec its source."""
+    sys.path.insert(0, str(REPO / "src"))
+    sys.path.insert(0, str(REPO / "bin"))
+    mod = type(sys)("verify_job")
+    mod.__dict__["__file__"] = str(REPO / "bin" / "verify-job")
+    exec(compile((REPO / "bin" / "verify-job").read_text(), str(REPO / "bin" / "verify-job"),
+                 "exec"), mod.__dict__)
+    return mod
+
+
+def layer12(task_id: str, attempt: int, pack: str) -> int:
+    """Layers 1 and 2: the SHIPPED sandbox, and a nested bwrap from inside it."""
+    vj = _load_verify_job()
+    p = vj.job_paths(task_id, attempt)
+    for d in (p["tests_dir"], p["src_dir"]):
+        if not os.path.isdir(d):
+            print(f"  SKIPPED: {d} does not exist -- stage a fixture first "
+                  f"(build-evidence/gate-oracle-isolation/fixtures/run-fixture happy)")
+            return 2
+    rt, stop = vj.wall_clock_bounds()
+    unit = f"wrought-isolation-probe-{time.time_ns()}"
+    argv = vj.build_argv(task_id, attempt, pack, unit, p, rt, stop)
+    # Swap ONLY the final program. Everything before the last "--" is the production sandbox.
+    cut = len(argv) - argv[::-1].index("--")
+    argv = ["sudo", "-n", *argv[:cut], f"{vj.VENV}/bin/python", "-I", "-c", INNER]
+    fd = os.open(vj.SECCOMP_BPF, os.O_RDONLY)
+    try:
+        r = subprocess.run(argv, stdin=fd, capture_output=True, text=True)
+    finally:
+        os.close(fd)
+    print(r.stdout.rstrip() or "  (no output)")
+    if r.stderr.strip():
+        print("  stderr:", r.stderr.strip()[:400])
+    subprocess.run(["sudo", "-n", "systemctl", "reset-failed", f"{unit}.scope"],
+                   capture_output=True)
+    return 0
+
+
+def layer3() -> int:
+    """Layer 3: rebuild the sandbox with a RANGE-MAPPED userns and capabilities retained.
+
+    This is the strongest form of the prompt's own proposal. root in the PARENT namespace may
+    write a full-range uid_map, so the second uid genuinely exists; capabilities are retained
+    rather than dropped. If the drop still fails here, it is not bwrap's flags and not the map.
+    """
+    if os.geteuid() != 0:
+        print("  SKIPPED: layer 3 must run as root (sudo -n bin/oracle-isolation-probe)")
+        return 2
+    libc = ctypes.CDLL("libc.so.6", use_errno=True)
+    rfd, wfd = os.pipe()
+    sys.stdout.flush()          # never fork with a dirty buffer: the child would reprint it
+    pid = os.fork()
+    if pid == 0:
+        os.close(wfd)
+        if libc.unshare(CLONE_NEWUSER) != 0:
+            os._exit(20)
+        os.read(rfd, 1)
+        os.pause()
+        os._exit(0)
+    os.close(rfd)
+    time.sleep(0.3)
+    try:
+        pathlib.Path(f"/proc/{pid}/setgroups").write_text("allow")
+        pathlib.Path(f"/proc/{pid}/uid_map").write_text("0 0 65536\n")
+        pathlib.Path(f"/proc/{pid}/gid_map").write_text("0 0 65536\n")
+    except OSError as exc:
+        print("  MAP WRITE FAILED:", exc)
+        os.kill(pid, 9)
+        return 1
+    print("  range map written:", repr(pathlib.Path(f"/proc/{pid}/uid_map").read_text().strip()),
+          "-- 65536 uids, so uid", LOW_UID, "IS mapped")
+
+    # CONTROL: the same drop in the same namespace with NO bwrap. If this fails, the map is the
+    # problem; if it succeeds, whatever fails under bwrap is bwrap's confinement, not the map.
+    sys.stdout.flush()
+    cpid = os.fork()
+    if cpid == 0:
+        os.setns(os.open(f"/proc/{pid}/ns/user", os.O_RDONLY), CLONE_NEWUSER)
+        try:
+            os.setresuid(LOW_UID, LOW_UID, LOW_UID)
+            print(f"  CONTROL (same userns, no bwrap): setresuid({LOW_UID}) OK -> uid={os.getuid()}")
+        except OSError as exc:
+            print(f"  CONTROL (same userns, no bwrap): setresuid REFUSED {exc!r}")
+        sys.stdout.flush()
+        os._exit(0)
+    os.waitpid(cpid, 0)
+
+    nsfd = os.open(f"/proc/{pid}/ns/user", os.O_RDONLY)
+    os.set_inheritable(nsfd, True)
+    for tag, capflags in (
+        ("--cap-drop ALL --cap-add CAP_SETUID --cap-add CAP_SETGID",
+         ["--cap-drop", "ALL", "--cap-add", "CAP_SETUID", "--cap-add", "CAP_SETGID"]),
+        ("no cap flags at all (bwrap keeps what it has)", []),
+    ):
+        r = subprocess.run(
+            ["bwrap", "--userns", str(nsfd), "--unshare-ipc", "--unshare-pid", "--unshare-net",
+             "--unshare-uts", "--unshare-cgroup", *capflags,
+             "--ro-bind", "/usr", "/usr", "--symlink", "usr/bin", "/bin",
+             "--symlink", "usr/lib", "/lib", "--symlink", "usr/lib64", "/lib64",
+             "--ro-bind", "/opt/wrought/venv", "/opt/wrought/venv",
+             "--proc", "/proc", "--dev", "/dev", "--tmpfs", "/tmp",
+             "/opt/wrought/venv/bin/python", "-I", "-c",
+             "import os,sys\n"
+             "d={k.strip():v.strip() for k,v in (l.split(':',1) for l in open('/proc/self/status') if ':' in l)}\n"
+             "sys.stdout.write('    CapEff=%s apparmor=%s\\n' % (d.get('CapEff'), "
+             "open('/proc/self/attr/current').read().strip()))\n"
+             f"try:\n os.setresuid({LOW_UID},{LOW_UID},{LOW_UID})\n"
+             " sys.stdout.write('    setresuid: OK\\n')\n"
+             "except OSError as e:\n"
+             " sys.stdout.write('    setresuid: REFUSED %s(%d) %s\\n' % (type(e).__name__, e.errno, e.strerror))\n"],
+            capture_output=True, text=True, close_fds=False)
+        print(f"  bwrap --userns FD, {tag}")
+        print(r.stdout.rstrip() or "    (no output)")
+        if r.stderr.strip():
+            print("    stderr:", r.stderr.strip()[:200])
+    os.write(wfd, b"x")
+    os.kill(pid, 9)
+    os.waitpid(pid, 0)
+
+    print("  kernel's own record of the refusal (AppArmor audit):")
+    d = subprocess.run(["dmesg"], capture_output=True, text=True)
+    hits = [ln for ln in d.stdout.splitlines()
+            if 'apparmor="DENIED"' in ln and "capname=" in ln][-3:]
+    print("\n".join("    " + h for h in hits) or "    (none in the current dmesg window)")
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--layer", type=int, choices=(1, 3), default=None,
+                    help="1 = shipped sandbox (+nested bwrap), 3 = rebuilt sandbox. Default: both")
+    ap.add_argument("--task-id", default="GATE-FIX-F1")
+    ap.add_argument("--attempt", type=int, default=0)
+    ap.add_argument("--pack", default="/etc/wrought/packs/py.toml")
+    a = ap.parse_args()
+    rc = 0
+    if a.layer in (None, 1):
+        print("LAYER 1+2 -- the SHIPPED sandbox (verify-job's own build_argv), and a nested bwrap:")
+        rc |= layer12(a.task_id, a.attempt, a.pack)
+    if a.layer in (None, 3):
+        print("\nLAYER 3 -- a REBUILT sandbox: range-mapped userns + capabilities retained:")
+        rc |= layer3()
+    return rc
+
+
+if __name__ == "__main__":
+    sys.exit(main())

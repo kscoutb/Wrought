@@ -1,0 +1,124 @@
+#!/opt/wrought/venv-orch/bin/python
+"""deploy-verifier — copy src/wrought_verifier/ into the hash-frozen venv and re-pin it.
+
+WHY THIS EXISTS AS A COMMITTED COMMAND RATHER THAN A REMEMBERED ONE. `bin/verify-job` REFUSES TO
+LAUNCH unless the DEPLOYED module hashes to `pins.lock: verifier_module_sha256`, so a gate that
+edits `src/wrought_verifier/` and does not deploy has shipped nothing: the sandbox keeps running
+the old code, every gate stays green, and the edit is inert. GATE-FIX performed this step and it
+appears in no document — exactly the shape rails §5.1 was written about ("the scan itself was
+never the problem — the fact that it had no committed command was"). So it is written down here.
+
+    bin/deploy-verifier --check     what would change (default; writes nothing)
+    sudo -n bin/deploy-verifier     copy + re-pin verifier_module_sha256
+    sudo -n bin/deploy-verifier --repin-decision-code   also re-pin oracle_decision_code
+
+THE RAILS TENSION, STATED RATHER THAN WORKED AROUND. `docs/EXECUTOR-RAILS.md` §1 says never write
+under `/opt/wrought/venv*`. That rail is aimed at sessions with no business moving production
+state, and it is right for them. A gate explicitly dispatched to change the verifier cannot honour
+it and also ship, and §1 carries no carve-out. This tool does not grant itself one: it makes the
+write NARROW (three named files, enumerated, never a glob), REVERSIBLE (it prints the prior
+digest), and VISIBLE (the re-pin lands in a reviewed diff). Whether §1 needs a carve-out or the
+deploy needs to move elsewhere is a FERRY question, raised by GATE-ORACLE-ISOLATION, not settled
+here.
+"""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import pathlib
+import shutil
+import subprocess
+import sys
+
+REPO = pathlib.Path(__file__).resolve().parent.parent
+SRC = REPO / "src" / "wrought_verifier"
+DEST = pathlib.Path("/opt/wrought/venv/lib/python3.14/site-packages/wrought_verifier")
+# Enumerated, never globbed (rails §3). These three are the module.
+FILES = ("__init__.py", "__main__.py", "pack.py")
+DECISION_CODE = ("bin/verify-job", "src/wrought_supervisor/classify.py",
+                 "src/wrought_supervisor/oracle.py")
+
+
+def _sha(path: pathlib.Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def module_digest(root: pathlib.Path) -> str:
+    """Byte-identical to bin/verify-job's verifier_module_digest(): name then bytes, sorted."""
+    h = hashlib.sha256()
+    for f in sorted(root.glob("*.py")):
+        h.update(f.name.encode())
+        h.update(f.read_bytes())
+    return h.hexdigest()
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--check", action="store_true", help="report only; write nothing")
+    ap.add_argument("--repin-decision-code", action="store_true",
+                    help="also refresh pins.lock oracle_decision_code (F-1 Face C)")
+    a = ap.parse_args()
+
+    missing = [f for f in FILES if not (SRC / f).is_file()]
+    if missing:
+        print(f"deploy-verifier: REFUSING -- missing in {SRC}: {missing}", file=sys.stderr)
+        return 1
+    extra = sorted(p.name for p in SRC.glob("*.py") if p.name not in FILES)
+    if extra:
+        print(f"deploy-verifier: REFUSING -- {SRC} holds {extra}, which this tool does not know "
+              "about. Add it to FILES deliberately; an unenumerated file is not deployed silently.",
+              file=sys.stderr)
+        return 1
+
+    print(f"  source   {SRC}  digest {module_digest(SRC)}")
+    print(f"  deployed {DEST}  digest {module_digest(DEST) if DEST.is_dir() else '(absent)'}")
+    for f in FILES:
+        s, d = _sha(SRC / f), (_sha(DEST / f) if (DEST / f).is_file() else "-" * 64)
+        print(f"    {f:<14} {'SAME' if s == d else 'DIFFERS'}  src={s[:16]} deployed={d[:16]}")
+
+    if a.check:
+        print("  --check: nothing written")
+        return 0
+
+    for f in FILES:
+        shutil.copyfile(SRC / f, DEST / f)
+        (DEST / f).chmod(0o644)
+    shutil.rmtree(DEST / "__pycache__", ignore_errors=True)
+    new = module_digest(DEST)
+    print(f"  deployed OK -- new digest {new}")
+
+    pins = REPO / "pins.lock"
+    text = pins.read_text(encoding="utf-8")
+    lines = text.splitlines(keepends=True)
+    for i, ln in enumerate(lines):
+        if ln.startswith("verifier_module_sha256:"):
+            head, _, comment = ln.partition("#")
+            lines[i] = f"verifier_module_sha256: {new}" + (f"          # {comment.strip()}\n"
+                                                           if comment else "\n")
+            print(f"  pins.lock verifier_module_sha256 -> {new}")
+            break
+    else:
+        print("deploy-verifier: REFUSING -- pins.lock has no verifier_module_sha256 line",
+              file=sys.stderr)
+        return 1
+
+    if a.repin_decision_code:
+        for j, ln in enumerate(lines):
+            for rel in DECISION_CODE:
+                if ln.startswith(f"  {rel}: "):
+                    got = _sha(REPO / rel)
+                    if not ln.strip().endswith(got):
+                        print(f"  pins.lock oracle_decision_code[{rel}] -> {got}")
+                    lines[j] = f"  {rel}: {got}\n"
+    pins.write_text("".join(lines), encoding="utf-8")
+
+    r = subprocess.run([str(REPO / "bin" / "verify-job"), "--task-id", "PINCHECK",
+                        "--print-identities"], capture_output=True, text=True)
+    print("  verify-job --print-identities:",
+          "OK" if r.returncode == 0 else f"REFUSES\n{r.stderr.strip()[:600]}")
+    return 0 if r.returncode == 0 else 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,48 @@
+# GATE-ORACLE-ISOLATION raw/10 -- THE DECISIVE MEASUREMENT: is a second uid reachable
+# inside the SHIPPED sandbox?  Probe run through bin/verify-job's OWN build_argv(), with only
+# the final program swapped -- no hand-copied flag list, so this is the production sandbox.
+# $ /opt/wrought/venv-orch/bin/python /tmp/claude-1000/runprobe.py /opt/wrought/venv/bin/python -I /work/src/probe1.py
+# taken 2026-08-31T19:49:51Z
+
+== identity ==
+uid/euid/gid: 0 0 0
+== /proc/self/status caps + ns ==
+   Uid:	0	0	0	0
+   Gid:	0	0	0	0
+   CapInh:	0000000000000000
+   CapPrm:	0000000000000000
+   CapEff:	0000000000000000
+   CapBnd:	0000000000000000
+   CapAmb:	0000000000000000
+   NoNewPrivs:	1
+   Seccomp:	2
+   Seccomp_filters:	1
+== user namespace ==
+   user user:[4026532888]
+   mnt mnt:[4026532889]
+   pid pid:[4026532894]
+   net net:[4026532896]
+== uid_map / gid_map / setgroups ==
+   /proc/self/uid_map -> '         0          0          1\n'
+   /proc/self/gid_map -> '         0          0          1\n'
+   /proc/self/setgroups -> 'deny\n'
+== can we setresuid to 65534? ==
+   setresuid(65534) -> FAILED rc=11
+== is bwrap present inside? ==
+   True True
+== nested bwrap, single-id map to a different inner uid ==
+   rc= 1 out=  err= bwrap: No permissions to create a new namespace, likely because the kernel does not allow non-privileged user namespaces. See <https://deb.li/bubblewrap> or <file:///usr/share/doc/bubblewrap/README.Debian.gz>.
+== nested bwrap WITHOUT --unshare-user (inherit ns), --uid ==
+   rc= 1 out=  err= bwrap: Specifying --uid requires --unshare-user or --userns
+
+--- stderr ---
+setresuid FAILED: OSError(22, 'Invalid argument')
+
+--- rc = 0
+
+# WHY the nested bwrap is refused -- the SHIPPED seccomp filter denies it BY ARGUMENT.
+# $ grep -nE 'NEWUSER' bin/build-seccomp-deny.c
+17: *     only way to force the call onto a path where CLONE_NEWUSER can actually be filtered.
+69:	/* clone/unshare only when CLONE_NEWUSER is requested — filtered by argument, which is
+72:	                      SCMP_A0(SCMP_CMP_MASKED_EQ, CLONE_NEWUSER, CLONE_NEWUSER)), "clone+NEWUSER");
+74:	                      SCMP_A0(SCMP_CMP_MASKED_EQ, CLONE_NEWUSER, CLONE_NEWUSER)), "unshare+NEWUSER");

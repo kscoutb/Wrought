@@ -1,0 +1,25 @@
+# GATE-ORACLE-ISOLATION raw/12 -- the SAME measurement as raw/10+raw/11, taken by the COMMITTED
+# tool so the negative result is reproducible rather than remembered (J-95).
+#   $ sudo -n bin/oracle-isolation-probe
+
+LAYER 1+2 -- the SHIPPED sandbox (verify-job's own build_argv), and a nested bwrap:
+  identity: uid=0 euid=0 gid=0
+  CapEff=0000000000000000  CapPrm=0000000000000000  CapBnd=0000000000000000  CapAmb=0000000000000000  NoNewPrivs=1  Seccomp=2
+  uid_map: '0          0          1'   gid_map: '0          0          1'   setgroups: 'deny'
+  ns/user: user:[4026532888]
+  apparmor: 'bwrap//&unpriv_bwrap (enforce)'
+  nested bwrap --unshare-user --uid 65534: rc=1 bwrap: No permissions to create a new namespace, likely because the kernel does not allow non-privileged user namespaces. See <https://deb.li/bubblewrap> or <fi
+
+LAYER 3 -- a REBUILT sandbox: range-mapped userns + capabilities retained:
+  range map written: '0          0      65536' -- 65536 uids, so uid 65534 IS mapped
+  CONTROL (same userns, no bwrap): setresuid(65534) OK -> uid=65534
+  bwrap --userns FD, --cap-drop ALL --cap-add CAP_SETUID --cap-add CAP_SETGID
+    CapEff=00000000000000c0 apparmor=bwrap//&unpriv_bwrap (enforce)
+    setresuid: REFUSED PermissionError(1) Operation not permitted
+  bwrap --userns FD, no cap flags at all (bwrap keeps what it has)
+    CapEff=000001ffffffffff apparmor=bwrap//&unpriv_bwrap (enforce)
+    setresuid: REFUSED PermissionError(1) Operation not permitted
+  kernel's own record of the refusal (AppArmor audit):
+    [285517.400611] audit: type=1400 audit(1788206953.971:599): apparmor="DENIED" operation="capable" class="cap" profile="unpriv_bwrap" pid=162455 comm="python" capability=7  capname="setuid"
+    [285525.759680] audit: type=1400 audit(1788206962.330:600): apparmor="DENIED" operation="capable" class="cap" profile="unpriv_bwrap" pid=162481 comm="python" capability=7  capname="setuid"
+    [285525.773296] audit: type=1400 audit(1788206962.344:601): apparmor="DENIED" operation="capable" class="cap" profile="unpriv_bwrap" pid=162484 comm="python" capability=7  capname="setuid"

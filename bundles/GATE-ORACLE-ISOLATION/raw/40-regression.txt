@@ -1,0 +1,80 @@
+# GATE-ORACLE-ISOLATION raw/40 -- REGRESSION. The verifier module changed, so the suites that
+# read its envelope or classify it are re-run. taken 2026-08-31T20:13:36Z
+
+$ ./bin/gate38-canon
+  PASS  garbage A == garbage B (64 'a's vs 64 'b's)
+  PASS  all three == the base document's digest
+    all four inputs -> 90af3bae5ec30ddf6102e0b16d0f7e939af5fc5ee2529fe5d6d9f78cca76ac20
+
+=== stability across processes (a hash that varies per run is not an identity) ===
+  PASS  a separate process with PYTHONHASHSEED=random agrees  -- 90af3bae5ec30ddf6102e0b16d0f7e93
+
+======== GATE-38: ALL VECTORS AND PROPERTIES PASS ========
+
+$ sudo -n ./bin/gate23-classifier (envelope -> classification taxonomy)
+           expected CODE_DEFECT, got CODE_DEFECT  -- repairable=True -- py.test.pytest: the candidate's own module failed at import/collection (exit 2) -- §10.7 rule 4
+    6a/6d together: the exact defect Track B hit is now repaired instead of requeued,
+    and the reason sends a human to the candidate rather than to the toolchain.
+
+=== arm 7: wall-clock bound — a non-terminating candidate (STOP-32, §10.7 rule 3a) ===
+  PASS  [INDUCED  ] 7a a non-terminating candidate hits its OWN wall-clock bound
+           expected CODE_RESOURCE_DEFECT, got CODE_RESOURCE_DEFECT  -- repairable=True -- the job hit its own wall-clock bound (8s) and was killed by systemd (RuntimeMaxSec; unit result 'timeout'), while running py.test.pytest
+  PASS  [INDUCED  ] 7b and is NOT tagged SUBSTRATE (the silent-forever-requeue direction)
+           expected True, got True  -- rule 1 requeues substrate incidents and never repairs them
+  PASS  [INDUCED  ] 7c it REACHES THE REPAIR LOOP -- repairable, with feedback naming the cause
+           expected True, got True  -- feedback=verification exceeded 8s wall-clock; likely non-terminating -- check loop bounds and termination conditions (it was still inside py.test.pytest)
+  PASS  [INDUCED  ] 7d the verdict came from systemd's DURABLE record, not from the envelope
+           expected True, got True  -- the scope's cgroup is gone by classification time (J-49/J-51); a killed runner's in-place envelope write can also be truncated, so the envelope cannot be the source
+  PASS  [INDUCED  ] 7e a job INSIDE the bound is untouched by it (no false CODE defect)
+           expected True, got True  -- got PASS at the PINNED bound -- all checks passed
+  PASS  [INSPECTED] 7f the SHIPPED invocation carries the PINNED bound from pins.lock
+           expected True, got True  -- pins.lock verification_slice.runtime_max_sec=120s timeout_stop_sec=10s (measured basis: bin/measure-verify-walltime)
+
+======== GATE-23: ALL ARMS PASS ========
+# fixture packs (mutations, never shipping): /tmp/gate23-fixtures-pnhi2jsl
+
+$ sudo -n ./bin/gate24-pack-loader (the verifier's pack path, end to end)
+  PASS  unknown tool (outside the pinned toolchain)  -- PACK_INVALID / unknown_tool: tool 'curl' is not in the pack's pinned toolchain ['basedpyright', 'coverage', 'pytest', '
+  PASS  duplicate check id  -- PACK_INVALID / duplicate_check_id: id 'py.lint.ruff' appears more than once
+  PASS  json_metric criterion with no bound  -- PACK_INVALID / threshold_without_number: criterion.max is None; a json_metric criterion without a number is rejected, never default
+  PASS  json_metric naming a metric the verifier cannot extract  -- PACK_INVALID / unknown_metric: metric 'vibes' is not one this verifier can extract ['basedpyright_error_count']
+  PASS  config_files key escaping /work/out  -- PACK_INVALID / bad_config_files: config_files names must be bare filenames (no path separators); got ['../../etc/pyrightcon
+
+=== end to end: rejected PRE-EXECUTION inside the real sandbox (no check may run) ===
+Traceback (most recent call last):
+  File "/home/kalib/review-rc1/bin/gate24-pack-loader", line 174, in <module>
+    sys.exit(main())
+             ~~~~^^
+  File "/home/kalib/review-rc1/bin/gate24-pack-loader", line 128, in main
+    argv = vj.build_argv("GATE-25-SELFTEST", 0, str(fx), unit, p)
+TypeError: build_argv() missing 2 required positional arguments: 'runtime_max_sec' and 'timeout_stop_sec'
+
+$ sudo -n ./bin/gate21-bwrap-smoke (the sandbox itself)
+-- 4. multiprocessing needs working semaphores (a classic sandbox tripwire) --
+   mp.Pool round-trip                             OK    6
+
+-- 5. offline by construction: the network ns must hold only lo --
+   ifaces: (no /sys/class/net)
+   connect refused/unreachable, as required: OSError
+
+================ VERDICT ================
+checks passed: 9   failed: 0
+GATE-21: **PASS** — merged-/usr symlink layout resolves the interpreter on this
+kernel; the bwrap #686 --ro-bind fallback is NOT required here.
+======== END ========
+
+$ sudo -n ./bin/gate24-pack-loader   (RE-RUN after fixing its pre-existing TypeError)
+  PASS  config_files key escaping /work/out: reason 'bad_config_files' + location named  -- bad_config_files @ /work/pack.toml#py.type.basedpyright
+  PASS  config_files key escaping /work/out: NOTHING executed (checks map empty)  -- checks=[]
+  PASS  config_files key escaping /work/out: runner exit is nonzero  -- rc=2
+
+=== the shipping pack is still valid, and still matches pins.lock (item 9) ===
+  PASS  shipping pack loads  -- 4 checks, toolchain={'ruff': '0.16.0', 'basedpyright': '1.39.9', 'pytest': '9.1.1', 'coverage': '7.15.3'}
+  PASS  gen-pack --check: the pack still matches pins.lock  -- gen-pack --check: packs/py.toml matches pins.lock  sha256=37d1c39c146a01782c43cd994a666afd8ead01c163db13f861873bdedad3edd9
+
+=== item 9 enforcement: a HAND-EDITED shipping pack is detected, not tolerated ===
+  PASS  gen-pack --check rejects a hand-edited pack  -- gen-pack --check: /tmp/gate24-fixtures-fkco0crg/hand-edited.toml DIFFERS from what pins.lock implies -- the pack was hand-edited, or pins.lock changed
+  PASS  loader rejects a hand-edited tool version  -- check pins ruff==0.15.0 but the pack's toolchain pins 0.16.0 (the pack is generated -- this means it
+
+======== GATE-24: ALL ARMS PASS ========
+# fixtures (never shipping): /tmp/gate24-fixtures-fkco0crg

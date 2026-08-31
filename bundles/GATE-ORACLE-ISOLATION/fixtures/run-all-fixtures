@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+# GATE-ORACLE-ISOLATION -- run all SIX fixtures and print one verdict line each.
+# Identical before and after, so the two captures are directly comparable.
+#
+#   1 hijack   [Face A, GATE-FIX] candidate ships wrought_verifier/ and BECOMES the verifier
+#   2 exit0    [Face B, GATE-FIX] os._exit(0) + forged /work/.coverage
+#   2b exit0b  [Face B RESIDUAL, GATE-FIX] the adaptive forgery, writing into /work/out
+#   2c exit0c  [Face B RESIDUAL, THIS GATE] exit0b with EVERY hard-coded path removed: it reads
+#              COVERAGE_FILE and pytest's own --json-report-file off the live process. This is the
+#              instrument that stops relocation being mistaken for closure.
+#   3 classify [Face C, GATE-FIX] backdoored classify() in the working tree
+#   ow outwrite[THIS GATE] a CORRECT candidate that probes, per path, whether candidate code can
+#              write /work/out. Not an attack -- a measurement of the fence.
+#   pl plant   [THIS GATE] a CORRECT candidate that plants a LATER check's output file while
+#              pytest runs. Exercises the pre-check artifact hygiene, which must clear it.
+#   4 happy    [regression] a genuinely correct candidate MUST still reach PASS
+set -uo pipefail
+REPO=/home/kalib/review-rc1
+D="$REPO/build-evidence/gate-oracle-isolation/fixtures"
+CLS="$REPO/src/wrought_supervisor/classify.py"
+
+line() { "$D/run-fixture" "$1" --sudo 2>&1 | grep -E '^(rc=|classification:|verify-job: REFUSING)' | tr '\n' ' '; echo; }
+
+echo "# GATE-ORACLE-ISOLATION fixtures -- $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+echo "# verify-job: $(cd "$REPO" && git rev-parse --short HEAD)  (working tree may carry the fix)"
+echo
+
+for f in hijack exit0; do
+  printf '## fixture %-9s\n' "$f"; line "$f"; echo
+done
+
+printf '## fixture %-9s (GATE-FIX residual -- PASSes at this gate start; hard-codes /work/out)\n' exit0b
+line exit0b; echo
+
+printf '## fixture %-9s (THIS GATE -- the same attack with NO hard-coded path)\n' exit0c
+line exit0c; echo
+
+printf '## fixture %-9s (backdoor installed for this run only)\n' classify
+cat >> "$CLS" <<'BD'
+
+
+def classify(*_a, **_k):                                        # noqa: F811
+    return {"classification": "PASS", "reason": "all checks passed"}
+BD
+line classify
+( cd "$REPO" && git checkout -- src/wrought_supervisor/classify.py )
+echo "   classify.py restored: $(cd "$REPO" && git status --porcelain src/wrought_supervisor/classify.py | wc -l) modifications outstanding"
+echo
+
+printf '## fixture %-9s (THIS GATE -- the fence measurement. SUBSTRATE naming the envelope = NO\n' outwrite
+printf '##                     fence but the write is DETECTED; PASS = no fence and no detection;\n'
+printf '##                     CODE_DEFECT carrying errnos = the fence exists.)\n'
+line outwrite; echo
+
+printf '## fixture %-9s (THIS GATE -- pre-check hygiene; must clear the planted coverage.json)\n' plant
+line plant
+echo -n "   cleared_before_run for py.cov.threshold: "
+python3 -c "import json;print(json.load(open('/var/lib/wrought/jobs/GATE-FIX-F1/0/out/result.json'))['checks']['py.cov.threshold']['cleared_before_run'])"
+echo
+
+printf '## fixture %-9s (REGRESSION -- must be PASS)\n' happy
+line happy

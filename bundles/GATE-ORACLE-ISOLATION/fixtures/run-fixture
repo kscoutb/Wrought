@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# GATE-ORACLE-ISOLATION fixture driver.
+#   run-fixture <name>  [-- extra args to verify-job]
+# Looks the candidate up in THIS gate's candidates/ first, then falls back to GATE-FIX's, so the
+# GATE-FIX F-1 fixtures are re-run BYTE-IDENTICAL rather than re-authored (rails §4).
+# Stages the fixture oracle + the named candidate into the real job tree and runs the SHIPPED
+# bin/verify-job. Prints the classification, which is what decides COMPLETED.
+set -euo pipefail
+FIX="${1:?usage: run-fixture <name>}"
+REPO=/home/kalib/review-rc1
+MINE="$REPO/build-evidence/gate-oracle-isolation/fixtures"
+FX="$REPO/build-evidence/gate-fix/fixtures"
+SRC="$MINE/candidates/$FIX"; [ -d "$SRC" ] || SRC="$FX/candidates/$FIX"
+TASK="GATE-FIX-F1"
+ATT=0
+
+O=/var/lib/wrought/oracle/$TASK
+J=/var/lib/wrought/jobs/$TASK/$ATT
+sudo -n rm -rf "$O" "$J"
+mkdir -p "$O/tests" "$J/src" "$J/out"
+
+install -m 644 "$FX/oracle/tests/test_widget.py" "$O/tests/test_widget.py"
+( cd "$O" && sha256sum tests/test_widget.py > manifest.sha256 )
+
+cp -r "$SRC/." "$J/src/"
+sudo -n install -d -o root -g root -m 755 "$J/out"
+sudo -n install -o root -g root -m 644 /dev/null "$J/out/result.json"
+
+echo "### fixture=$FIX  (from ${SRC#$REPO/})  task=$TASK  attempt=$ATT"
+echo "### candidate tree:"; find "$J/src" -type f | sed "s|$J/src|  src|"
+echo
+"$REPO/bin/verify-job" --task-id "$TASK" --attempt "$ATT" "${@:2}"

@@ -1,0 +1,14 @@
+# GATE-ORACLE-ISOLATION raw/30 -- the deploy + re-pin, by the committed tool.
+#   $ sudo -n bin/deploy-verifier --repin-decision-code
+# NOTE: superseded twice by later deploys in the same session (the module was edited again after
+# this capture). Kept, not overwritten (rails §4); the shipping digest is whatever pins.lock and
+# `bin/verify-job --print-identities` agree on at HEAD.
+
+  source   /home/kalib/review-rc1/src/wrought_verifier  digest b794239ad0ee75aadab5192779266fdfb956e1f2c41ffd8d3d87f545dd2b949d
+  deployed /opt/wrought/venv/lib/python3.14/site-packages/wrought_verifier  digest 28888080f90eaf474daba9a1e9949285a6998bf431a136a05804e58c20257ac7
+    __init__.py    SAME  src=e3b0c44298fc1c14 deployed=e3b0c44298fc1c14
+    __main__.py    DIFFERS  src=0e76bf7ecac5af51 deployed=6ddfbb7e4e5eb15e
+    pack.py        SAME  src=195483548cde393e deployed=195483548cde393e
+  deployed OK -- new digest b794239ad0ee75aadab5192779266fdfb956e1f2c41ffd8d3d87f545dd2b949d
+  pins.lock verifier_module_sha256 -> b794239ad0ee75aadab5192779266fdfb956e1f2c41ffd8d3d87f545dd2b949d
+  verify-job --print-identities: OK

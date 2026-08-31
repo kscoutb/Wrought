@@ -1,0 +1,34 @@
+# GATE-ORACLE-ISOLATION raw/21 -- fixtures AFTER, same command, same seven fixtures.
+#   $ build-evidence/gate-oracle-isolation/fixtures/run-all-fixtures
+# READ THE exit0b AND exit0c LINES FIRST: both still PASS. F-1 Face B IS NOT CLOSED.
+
+# GATE-ORACLE-ISOLATION fixtures -- 2026-08-31T20:15:34Z
+# verify-job: 52fade2  (working tree may carry the fix)
+
+## fixture hijack   
+rc=1  unit=wrought-verify-gate-fix-f1-0-1788207334693457209.scope classification: CODE_DEFECT -- repairable findings in: py.cov.threshold, py.test.pytest 
+
+## fixture exit0    
+rc=1  unit=wrought-verify-gate-fix-f1-0-1788207335606662015.scope classification: SUBSTRATE -- py.cov.threshold: tool error (exit 1: the metric tool did not succeed, so its output file is not its verdict -- refusing to read a file this run did not demonstrably write) 
+
+## fixture exit0b    (GATE-FIX residual -- PASSes at this gate start; hard-codes /work/out)
+rc=0  unit=wrought-verify-gate-fix-f1-0-1788207336423244059.scope classification: PASS -- all checks passed 
+
+## fixture exit0c    (THIS GATE -- the same attack with NO hard-coded path)
+rc=0  unit=wrought-verify-gate-fix-f1-0-1788207337265663233.scope classification: PASS -- all checks passed 
+
+## fixture classify  (backdoor installed for this run only)
+verify-job: REFUSING TO LAUNCH -- src/wrought_supervisor/classify.py is not the pinned decision code (pins.lock oracle_decision_code=a6b5991da7a9c572297a28614607d60fd3e71bb00c7649f6aa18de46fa021a0b, on disk=93c11e39b78a0494943abac9c78f37bdd55d17792a1e2a4fd39c394bc5d4ad6f). This file decides verdicts; if the change is intended, re-pin it deliberately. 
+   classify.py restored: 0 modifications outstanding
+
+## fixture outwrite  (THIS GATE -- the fence measurement. SUBSTRATE naming the envelope = NO
+##                     fence but the write is DETECTED; PASS = no fence and no detection;
+##                     CODE_DEFECT carrying errnos = the fence exists.)
+rc=1  unit=wrought-verify-gate-fix-f1-0-1788207338255692550.scope classification: SUBSTRATE -- py.test.pytest: tool error (py.test.pytest wrote the verifier's own envelope: the envelope changed on disk between writes by this process (expected sha256 c6468d3c675cedbe..., found 61bc6a8d36f500d0...) -- a check wrote the verifier's own verdict artifact. A check that edits the verdict artifact is never a pass, whatever its exit code said.) 
+
+## fixture plant     (THIS GATE -- pre-check hygiene; must clear the planted coverage.json)
+rc=0  unit=wrought-verify-gate-fix-f1-0-1788207339230700208.scope classification: PASS -- all checks passed 
+   cleared_before_run for py.cov.threshold: ['/work/out/coverage.json']
+
+## fixture happy     (REGRESSION -- must be PASS)
+rc=0  unit=wrought-verify-gate-fix-f1-0-1788207340111545799.scope classification: PASS -- all checks passed 
