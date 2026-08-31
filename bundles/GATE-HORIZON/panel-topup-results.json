@@ -1,0 +1,83 @@
+{
+  "ceiling_usd": 5.0,
+  "max_tokens": 20000,
+  "total_spend_usd": 0.3135,
+  "results": [
+    {
+      "lineage": "google",
+      "slug": "google/gemini-3.1-pro-preview",
+      "zdr_prechecked": true,
+      "precall_cost_bound_usd": 0.3572,
+      "cost_source": "usage.cost returned by OpenRouter",
+      "status": "OK",
+      "elapsed_s": 91.7,
+      "provider": "Google",
+      "generation_id": "gen-1788215912-BOcMJTkW2G7w9MCQtYPu",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 73481,
+        "completion_tokens": 4095,
+        "total_tokens": 77576,
+        "cost": 0.196102,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.196102,
+          "upstream_inference_prompt_cost": 0.146962,
+          "upstream_inference_completions_cost": 0.04914
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 2031,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "cost_usd": 0.1961,
+      "cumulative_usd": 0.1961,
+      "response_chars": 8615
+    },
+    {
+      "lineage": "deepseek",
+      "slug": "deepseek/deepseek-v4-pro-0813",
+      "zdr_prechecked": true,
+      "precall_cost_bound_usd": 0.0783,
+      "cost_source": "usage.cost returned by OpenRouter",
+      "status": "OK",
+      "elapsed_s": 85.0,
+      "provider": "DigitalOcean",
+      "generation_id": "gen-1788216003-gwxtLswTQIurjDLa6JAF",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 68223,
+        "completion_tokens": 6902,
+        "total_tokens": 75125,
+        "cost": 0.11738628,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.11738628,
+          "upstream_inference_prompt_cost": 0.09005436,
+          "upstream_inference_completions_cost": 0.02733192
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 0,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "cost_usd": 0.1174,
+      "cumulative_usd": 0.3135,
+      "response_chars": 30241
+    }
+  ]
+}

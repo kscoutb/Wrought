@@ -1,0 +1,1286 @@
+The 1.0 goal: the operator loads a local-LLM tool, points it at this box, gives it a free-range agentic task in plain language, and it just goes — the framework provides structure and lifts output quality so the local model can carry work end to end, leaning on as much public-domain and open software as possible. Concrete target tasks a 1.0 must handle with stability: "generate an AI video of a tiger hunting a polar bear using public-domain images sourced from the web"; "organize a video library by the person depicted"; "take a training video and replace each person with a 3D-modeled avatar"; and, for slower turn-based games, play using the local LLM plus the NPU plus optionally a cloud model. Required subsystems the review must assess: an agentic multi-step task planner/executor that maximizes the single-node GPU and system RAM; media generation and editing pipelines (image and video generation, segmentation, compositing, 3D/avatar) on less-filtered local models; asset acquisition with provenance (public-domain/licensed-source verification); a VM-hosted computer-use loop with vision (screenshot plus vision-model) so the agent drives software like a person; tiered model routing across local GPU, NPU, and cloud; and — because the system is built and run entirely by AI — context management as a first-class engineering discipline. COMPLIANCE IS A HARD REQUIREMENT, not a feature: every media capability must enforce content provenance and licensing, and likeness/consent controls for anything depicting real people (avatar replacement, identity-based organization, and face recognition carry legal and consent constraints); the cyber-capable, deliberately-slightly-adversarial agent must operate within explicit legal, logged, human-approved boundaries. The operator is unsure how close the current system is to any of this and wants an honest, concrete assessment.
+
+
+====================================================================================================
+# ARCHITECTURE — Wrought Foundry as built, 2026-08-31
+
+A single-node, local-first, air-gap-capable **software-manufacturing pipeline**: a task description
+in, a verified tool out, with a deterministic non-AI oracle deciding pass or fail. It is built and
+operated almost entirely by AI agents, under a protocol designed around that fact.
+
+**Read this as an honest inventory, not a brochure.** Where something is unproven it says so, and
+the qualifiers are load-bearing — this project has twice had a summary drop a qualifier and turn a
+narrow result into a broad claim, which is why they are written in the strongest available form.
+
+---
+
+## 1. Substrate
+
+**One box, `forge-mini`.** AMD Ryzen AI 9 HX 370 (12C/24T, single NUMA, AVX-512 incl. VNNI and
+BF16), 87 GiB RAM, Ubuntu 26.04, headless, **reachable only over Tailscale**. Inference runs on an
+**RX 7900 XTX, 24 GB, over OCuLink PCIe 4.0 ×4** — an external dGPU, deliberately independent of
+the iGPU's UMA carve.
+
+**Serving is llama.cpp on Vulkan**, not ROCm. The device is selected **by name**, never by a
+`Vulkan0`-style index, `llvmpipe` is excluded by assertion, and a boot-time `ExecStartPre` refuses
+to start if the wrong device would be bound. That check exists because a silent fallback to
+CPU rasterization produces garbage at plausible-looking speeds.
+
+**The NPU is present and unused.** XDNA2, the in-tree `amdxdna` driver is bound and
+`/dev/accel/accel0` is live — **and no userspace stack is installed.** Nothing in this system
+offloads anything to it today. Any roadmap item that routes work to the NPU is starting from a
+driver node and a kernel driver, not from a working runtime.
+
+**Disposable guests are plain QEMU/KVM**, launched as descendants of a systemd scope so they die
+with it. A libvirt domain deliberately is *not* used for gate work: libvirtd is a separate daemon
+and the domain re-parents into `machine.slice`, outside the scope entirely — measured, after a
+gate died and left a guest running for **seven days** with an API key in a proxy's memory.
+
+**Measured substrate facts:** boot-to-ssh ≈ 15 s; a full discard-and-revert overlay cycle ≈ 15 s;
+the base image is **immutable by hash** across guest boots (the disposable-guest model's core
+assumption, measured rather than assumed).
+
+## 2. Orchestrator and FSM
+
+An explicit, hand-rolled finite state machine over ten states —
+`PENDING → VALIDATING → PLANNING → IMPLEMENTING → VERIFYING → {REPAIRING, ESCALATING} →
+{COMPLETED, HUMAN_REVIEW} → ARCHIVED`. It is a **transition table**, `(state, event) → (guard,
+target)`, and **an undefined pair raises**. That is the design's central reflex, stated as a hard
+rule: *an underspecified requirement is a defect to report, never a blank to fill.* An if-chain's
+default branch is precisely the silent-ignore the spec forbids, which is why it is a table.
+
+**Persistence is SQLite + Litestream.** Every state transition is **one transaction** — event
+append plus projection update, never two. Delivery is at-least-once, handlers are idempotent, and
+acks are **fenced on `received`**. Repair is capped at **3** attempts, enforced.
+
+**Escalation to a cloud model is a rare, budget-capped tier**, reached only through a ledger path
+with a pre-call cost bound and an explicit `max_tokens`. It is the only component that spends
+money and the only one that leaves the box.
+
+**The governing metric is escalation rate, not tokens/sec** — verification is deterministic and
+free, so what matters is how often local generation fails badly enough to need the paid tier. Note
+the honest gap: **escalation rate is not currently measured anywhere in the present phase.**
+
+## 3. The deterministic oracle and its sandbox
+
+This is the heart of the system and the thing most worth reviewing.
+
+**The verification oracle is non-AI and read-only.** Tests, manifest, toolchain and candidate
+source are read-only binds; only `/work/out` and `/tmp` are writable. The sandbox is `bwrap
+--unshare-all` and **has no network by construction** — a fetch failure inside it is not a problem
+to work around, *it is the signal*.
+
+**The result envelope is the classification primitive.** The in-sandbox runner writes
+`/work/out/result.json` **last**; an absent or invalid envelope is classified `SUBSTRATE`
+regardless of exit code, because bwrap proxies child exits and raw integers are ambiguous.
+Substrate incidents (126/127/137/139, bwrap errors, pack-tool network attempts) are **never** fed
+to the repair loop and never blamed on generated code. Two signatures are deliberately
+*discriminated* rather than blanket-classified: ENOSPC is substrate only when the job's own
+size-bounded `/work/out` is not itself exhausted, and a network attempt by *candidate* code during
+the execution phase is a **security finding**, not substrate.
+
+**Verification packs are generated from `pins.lock` by a pinned generator and content-hashed for
+identity.** Hand-editing a shipping pack is a defect: the TOML is a derived artifact, and a version
+bump edits the lock and regenerates. Two packs exist today: `py.toml` and `security.toml`.
+
+**The invariant, stated honestly** — this is the single most important line in this document:
+
+> **`COMPLETED ⟹ the oracle passed` holds against escape and persistence (Faces A, C) but NOT
+> against an adversarial candidate forging its own in-process verdict (Face B).**
+
+Face B is **detected, not prevented**, and is contained by the network-less, capability-dropped,
+disposable sandbox to **one tool falsely stamped `COMPLETED`** — never escape, never persistence.
+The compensating control is in force: **a `COMPLETED` artifact is provisionally verified and must
+be re-verified out-of-band before it is trusted or shipped.** Full detail, including why a uid
+boundary is both unavailable and insufficient, is in `SECURITY-HISTORY.md` §4.
+
+## 4. The autonomous runner and its containment
+
+`bin/wrought-runner` executes queued work unattended. **It is started manually by the operator once
+a day — there is no daemon and no timer, and the manual start *is* the human gate.** It walks a
+queue and starts only rows marked `APPROVED`, a status that means a human agreed this may run.
+
+Containment is four mechanisms that must be read together, and several of them exist because the
+obvious reading was measured wrong:
+
+- **Private ephemeral `$HOME` *and* private `$XDG_RUNTIME_DIR`, per child.** Both are required:
+  peer *listing* is keyed on `$HOME`, the addressable *socket* on the runtime dir. Closing one
+  leaves the other open — *not listed* is not *not addressable*.
+- **`systemd-run --user --scope` with `MemoryMax` and `MemorySwapMax=0`.** The swap cap is not
+  belt-and-braces: **`MemoryMax` alone does not cap memory on this box** — the overrun is paid out
+  of swap and the process exits 0. Only with swap capped is it an OOM kill.
+- **A reaper** that snapshots processes, domains and listening sockets before and after each gate;
+  any new survivor is enumerated, terminated, and the batch **halts on a latching fault**. It
+  matches on **executable identity** (`/proc/<pid>/exe`), never on command line — because
+  `pgrep -f` matches the checking process's own argv, a bug that recurred three times in two days
+  and once killed the shell doing the killing.
+- **A deny-only PreToolUse hook** that can only ever subtract. It matches against the serialised
+  tool input, so it matches file *content*, not just paths.
+
+**Honest limits.** The runner has taken three unattended batches, **all doc-only**. Nothing
+establishes that a *manufacturing* batch runs unattended. The reaper's `virsh destroy` branch has
+never executed. And the fence list above has a hole worth stating plainly: the box has
+**passwordless root** and children inherit it, so the permission allowlist and the systemd scope
+are the *only* fences between a gate child and root — with the allowlist itself measured
+non-binding for interpreter grants (`Bash(python3:*)` escapes the workspace boundary with zero
+denials, because the path lives inside `-c` program text the permission layer never inspects).
+
+## 5. The agent surface
+
+**Goose v1.46.0**, pinned, driving the local model inside a disposable guest, with the host
+inference endpoint reached through an **authenticating proxy over an ssh reverse tunnel** — the
+guest keeps `restrict=on` and gains only a loopback listener, and the carrier is authenticated,
+which is tighter than an IP-level forward.
+
+**What is proven, in the narrowest true form:** the surface **reaches the model and acts on the
+filesystem**. The work product that established it is a **five-byte file containing `FORGE`**. It
+is **not proven to build software.** That distinction is preserved deliberately — the gate's own
+audit is what caught its headline claiming more than the artifact carried.
+
+An earlier transport, `guestfwd`, was replaced after measurement: it is **one always-on
+multiplexed byte stream**, not a per-connection forwarder — 16 guest connections yielded **0**
+accepted, against 8 concurrent host connections yielding **8**.
+
+## 6. The git-courier gate protocol, and context as an engineering discipline
+
+This is the part with the least precedent elsewhere, and the part most relevant to the question of
+whether the approach scales.
+
+The system is built by AI sessions that **do not share memory**. Work is decomposed into **gates**.
+Each gate is a self-contained prompt, executed in a fresh context, producing a **bundle** of raw
+evidence with a `SHA256SUMS` manifest, returned through a **public git repo (the courier)** that
+carries text only — no secrets, no images, no zips. An off-box advisor reviews the bundle and
+returns an adjudication, which the *next* prompt carries in, because the advisor cannot push.
+
+The protocol's real subject is **context**, and its rules are all consequences of that:
+
+- **A measured value carries the exact command that produced it, or it is not evidence.** Twice, a
+  number whose command was never committed failed to reproduce.
+- **Corrections are made by addition, never by editing the record.** The superseded text stays.
+- **The two live state files carry a size budget — and the discovered problem is a *rate*, not a
+  size.** Every gate must update them, so they have a per-gate growth rate of roughly +7–9 KB, and
+  a one-time cut is fully regrown in about seven gates. Narrative was therefore moved to an
+  append-only journal that nothing reads by default, leaving only the live position in front of the
+  next session.
+- **A gate proves work happened by inspecting the artifact, never by reading an exit code.** The
+  measured instance: `goose` exits 0 on total failure, having written nothing at all.
+- **Prompts travel as files with a block count**, because a paste eats indentation. *This very gate
+  is the second instance of that failing:* its two appendices — 8,063 bytes of authoritative
+  Python — arrived empty, and the file the operator later supplied carried 57 indented blocks
+  against the paste's 0.
+
+**Honest assessment of the protocol's cost:** a clean doc-only unattended gate consumed **99.8 % of
+its $8 budget cap**. The cheapest possible gate shape has effectively exhausted the cap. Whatever
+else is true, the per-gate overhead of this discipline is not small, and it is currently unmeasured
+against a *manufacturing* gate.
+
+## 7. Model tiers
+
+- **Primary: Qwen3.6-27B, UD-Q4_K_XL**, served resident on the dGPU at **65,536 context**,
+  `--parallel 1` (one request at a time), reasoning on with a 24,000-token reasoning budget. MTP is
+  promotion-gated. SHA-256 verified against `pins.lock` on every pull; a mismatch is treated as
+  compromise, and GGUF loading is treated as untrusted-code execution.
+- **Fallback: Devstral-Small-2-24B, Q4_K_M.**
+- **Escalation: a cloud tier**, budget-capped, ledgered, used rarely and only through the
+  escalate-once path.
+
+**A measured caveat that matters for anything built on the local model:** the correctness window
+established for it is **96 tokens** — every comparison diff is blind past token 96, so
+later-onset corruption is invisible to all of them. Long-context correctness is **untested**.
+
+---
+
+## 8. What actually exists, in one table
+
+| Thing | Status |
+|---|---|
+| FSM, event store, repair loop, escalation ledger | **Built**, exercised |
+| Deterministic oracle + bwrap sandbox + packs | **Built**; invariant holds for Faces A/C, not B |
+| Batch runner + containment + reaper | **Built**; 3 unattended batches, all **doc-only** |
+| Agent surface (Goose in a guest) | **Reaches the model and writes a file.** Not proven to build software |
+| Git-courier gate protocol | **Built and in daily use**; cost per gate is high |
+| Manufactured products | **One** (`products/queue-health`) |
+| The ten fixture tasks | **Do not exist.** Named in planning, never built |
+| NPU offload | **Nothing.** Driver bound, no userspace stack |
+| Media generation / vision / computer-use | **Nothing.** No component of any kind |
+| Escalation rate (the governing metric) | **Not measured in this phase** |
+
+**The last four rows are the honest distance between this system and the 1.0 vision it is being
+reviewed against.**
+
+
+====================================================================================================
+# SECURITY-HISTORY — what has already been reviewed, found, and fixed
+
+**Read this before reporting a security finding.** This system has been through a full internal
+code review, a four-lineage external panel, and two dedicated fix gates in the last two days. The
+ground below is *hardened and adjudicated*. Re-deriving it costs you output and tells the operator
+nothing new. **What is genuinely still open is listed at the end — that list is short and it is
+where a security-minded reviewer adds value.**
+
+This digest is deliberately compressed. The full artifacts are:
+`review/code-review.md` (43 findings), `review/external/` (four independent panel reviews),
+`review/PANEL.md` (method and spend), and the two fix gates' reports at
+`bundles/GATE-FIX/REPORT-FIX.md` and `bundles/GATE-ORACLE-ISOLATION/REPORT-ORACLE-ISOLATION.md`.
+
+---
+
+## 1. The internal review
+
+`review/code-review.md` reviewed tag `review-rc2` (`bbecf2d`) across the four security-critical
+paths: the batch runner's containment, the deny hook, the authenticating proxy, and the oracle
+invariant with its verification sandbox. **43 findings**, of which the strongest cluster was the
+oracle — including one **CRITICAL** against the governing invariant itself.
+
+## 2. The external panel
+
+Four models, **one per distinct non-Anthropic lineage** (google, openai, deepseek, z-ai), each
+given the same packet and asked explicitly for *disagreement grounded in the source*, not
+corroboration. ZDR was checked two ways and enforced router-side on every call. Total spend
+$8.82. Method, roster and per-model accounting: `review/PANEL.md`.
+
+**The panel's most useful output was not a new finding. It was that all four independently said
+our own remediation order was wrong** — two of them calling its top item unimplementable as
+written. They were right: the proposed `--ro-bind` fix would have broken the verifier's only
+output channel, and the fix gate measured exactly that failure (`ruff` exit 2 on a read-only cwd)
+when it tried.
+
+**One inter-panel conflict was settled on evidence rather than averaged.** google refuted a
+finding about tasks resting in `REPAIRING`/`ESCALATING` without consulting the code; z-ai proved
+it from `worker.py`; the box confirmed z-ai independently from `store.py`. **google was wrong.**
+Recorded because it is the argument for a panel over a single reviewer, and against averaging one.
+
+## 3. The two fix gates
+
+**`GATE-FIX` (2026-08-31)** landed F-1 (partially), F-2, F-3, F-4, F-5, F-7, F-8 and L1 — one
+commit each, each with its test. Highlights: `bin/gate13-measure`'s `pkill -f` was aimed at a
+model server and matched the **resident inference service** (hazard proven live at fix time); a
+task resting in `REPAIRING`/`ESCALATING` is now refused rather than silently acked; the runner's
+push path now runs the secret scan from **outside** the gate child and halts on "could not run"
+as well as on "found"; and `oracle.stage_candidate`'s unvalidated `task_id` — which fed a path
+straight into `sudo -n rm -rf` — is validated by a rule that now lives once in code.
+
+**`GATE-ORACLE-ISOLATION` (2026-08-31)** was dispatched to close the oracle's remaining face and
+**honestly failed to**, which is the more valuable result. See §4.
+
+## 4. The oracle invariant — the one thing worth understanding before you review anything else
+
+The governing invariant is **`COMPLETED ⟹ the oracle passed`**. The threat model explicitly
+includes adversarial or prompt-injected candidate code executing inside the verification sandbox.
+The invariant has three attack faces:
+
+| Face | What it is | Status |
+|---|---|---|
+| **A** | Candidate hijacks the oracle's **import namespace** | **CLOSED**, fixture-proven |
+| **C** | Candidate replaces the oracle's **decision code** | **CLOSED**, fixture-proven |
+| **B** | Candidate **forges its own in-process verdict** | **OPEN — detected, not prevented** |
+
+**The honest statement of the invariant, and the one to quote:**
+
+> `COMPLETED ⟹ the oracle passed` holds against escape and persistence (Faces A, C) but **NOT**
+> against an adversarial candidate forging its own in-process verdict (Face B).
+
+**Do not propose a uid boundary for Face B.** It was tried and measured unavailable at three
+independent layers — the shipped sandbox has a single-id uid map and zero capabilities
+(`setresuid` → EINVAL); a nested `bwrap` is refused by the **pinned seccomp filter**, which
+filters `CLONE_NEWUSER` *by argument* and is a load-bearing control that must not be weakened;
+and even a rebuilt sandbox with a range-mapped userns **and full capabilities** is denied by host
+AppArmor `unpriv_bwrap` (`capname="setuid"` in the kernel audit log), with a no-bwrap control
+proving the map and privilege are themselves fine.
+
+**And a uid would not have sufficed even if available.** The oracle's assertions execute *inside
+the pytest process*, and pytest is where candidate code runs — **the forger IS the reporter** and
+shares whatever uid it holds. Committed proof: fixture `exit0c` hard-codes no path (it reads
+`COVERAGE_FILE` and pytest's own `--json-report-file` off the live process) and still reaches
+PASS, so **no relocation-based fix can be mistaken for closure**.
+
+**Blast radius, adjudicated:** Face B is contained by the network-less, capability-dropped,
+disposable sandbox to **one tool falsely stamped `COMPLETED`** — never escape, never persistence.
+A forged verdict is a lie about one artifact, not a foothold.
+
+**Compensating control, in force now:** a `COMPLETED` artifact is **PROVISIONALLY verified** and
+must be **re-verified out-of-band** before it is trusted or shipped.
+
+**The real fix, and its real cost:** candidate tests must run **out of the reporting process**.
+That closes Face B — and it **eliminates `py.cov.threshold` entirely**, because in-process
+coverage measures the process it runs inside, so moving the candidate out leaves the metric with
+nothing to name. The oracle can have a coverage threshold *or* an unforgeable verdict, **not both
+in one process**. That trade is an open operator/ferry decision, not a settled plan.
+
+## 5. What is genuinely still open — the short list
+
+These are the live items. **A finding here is worth reporting; a finding in §1–4 is not.**
+
+1. **Face B itself** (above) — the redesign is unchosen.
+2. **A quiet network attempt by candidate code is never classified as a security finding.** The
+   detection is a substring scrape over candidate-influenced stderr, so a candidate that reaches
+   the network without printing anything recognisable is never classified at all.
+3. **Convention-not-control:** the STOP-33b closed set is prefix-matched, and on the escalation
+   path the provenance string is supplied by the very code it audits.
+4. **`oracle.staged()` is the third instance of a glob defect** thirty lines below a docstring
+   forbidding it.
+5. **The pre-call cost bound is unsound for reasoning models** — measured: one model bounded at
+   $0.94 cost $7.35, 8× over, because `reasoning.mode: pro` re-bills the prompt across internal
+   passes and `max_tokens` does not cap completion billing. A bound that under-reads by 8× is not
+   a bound, and it guards the one path that spends real money.
+6. **Two `pgrep -f` instances remain in `bin/`** — the class that matches the checking process's
+   own command line.
+7. **The gate child is not network-isolated**: it launches under a `systemd-run --user --scope`,
+   and a scope cannot take `PrivateNetwork`.
+8. **The permission allowlist is of unsettled status** — measured fact: `Bash(python3:*)` escapes
+   the `--add-dir` workspace boundary with zero denials, because the path lives inside the
+   interpreter's `-c` program text where the permission layer never sees it. Whether the allowlist
+   is a *security boundary* or a *convenience layer* over the real fences (kernel scope, AppArmor,
+   private `$HOME`, and a box with passwordless root) is a design-intent question the operator has
+   not yet ruled on.
+
+**One standing fact that bounds every containment claim above:** `sudo -n -l` reports
+`(ALL) NOPASSWD: ALL` for the executing user, and gate children inherit it. The permission
+allowlist and the systemd scope are the only fences between a gate child and root. There is no
+second, credential-shaped one.
+
+
+====================================================================================================
+# LIVE STATE — the LIVE BLOCKS of docs/PHASE-J-STATE.md, verbatim
+
+TRIMMED FOR THE RESIDENT MODEL'S CONTEXT, AND THE TRIM IS RECORDED RATHER THAN SILENT.
+This member carries the state doc's LIVE blocks only — REVIEW-READINESS, KNOWN-OPEN and
+NON-CLAIMS (lines 460-655 of 769) — plus the header. OMITTED: the CLOSED table, ESTABLISHED
+FACTS, OPEN, and the two dispatcher addenda. Nothing was rewritten; whole blocks were dropped.
+Rationale: those blocks are per-gate history, and the live blocks are what a reviewer must not
+mistake. The full file is in PACKET.txt.
+
+```markdown
+# PHASE-J-STATE — the live rail position for Phase J
+
+> **CLOSED DETAIL LIVES IN `docs/PHASE-J-HISTORY.md`.** Struck-through entries, blocks marked
+> FIXED or RESOLVED, and preserved "original finding, for the record" blocks were moved there
+> **byte-for-byte** by `GATE-TRIM` on 2026-08-30 — nothing was rewritten or deleted. **A session
+> reconstructing how a decision was reached, or citing the original form of a finding that was
+> later corrected, MUST read that file.** This one keeps the current position; the archive keeps
+> the working-out. Where the split rule was ambiguous, content was **kept here** deliberately —
+> `GATE-TRIM`'s report lists every such case.
+
+**Read this first.** It is the one doc a fresh session needs to know where Phase J stands. It is
+updated at every wind-down (`docs/EXECUTOR-RAILS.md` §9); if it disagrees with a prompt's stated
+premise, **this file and the box win, and the disagreement is reported, not reconciled by guessing.**
+
+Rails for running a session: `docs/EXECUTOR-RAILS.md`. Versions: `pins.lock`. Narrative and
+per-gate detail: `BUILD-JOURNAL.md`.
+
+**Last updated 2026-08-31 by `GATE-HORIZON`** (ATTENDED-DIRECT). It is a REVIEW gate — it wrote no `bin/` or `src/` code and changed no behaviour. It recorded the `GATE-ORACLE-ISOLATION` adjudication (**ACCEPTED**, verbatim at courier `bundles/GATE-ORACLE-ISOLATION/ADJUDICATION.md`) and then **STABILIZED THE INVARIANT'S WORDING**: `NON-CLAIMS` now opens with the honest one-sentence form — **`COMPLETED ⟹ the oracle passed` holds against escape and persistence (Faces A, C) but NOT against an adversarial candidate forging its own in-process verdict (Face B)** — together with the **COMPENSATING CONTROL** that makes the open face survivable: **a `COMPLETED` artifact is PROVISIONALLY verified and MUST be re-verified out-of-band before it is trusted or shipped.** `KNOWN-OPEN` item 16 now carries the real fix (candidate tests out of the reporting process) and its real cost (**`py.cov.threshold` ceases to have a referent** — the oracle can have a coverage threshold or an unforgeable verdict, not both in one process), referred to the ferry as a stated trade. **`DO NOT TAG review-rc3` STILL STANDS** — the operator tags it after the advisor adjudicates this gate. Narrative in `docs/GATE-JOURNAL.md`. Before that: **2026-08-31 by `GATE-ORACLE-ISOLATION`** (ATTENDED-DIRECT). It attempted F-1 Face B and **DID NOT CLOSE IT** — read `KNOWN-OPEN` item 16 and `docs/03-verification.md` §10.9 before citing the oracle as sound. **`COMPLETED ⟹ the oracle passed` DOES NOT HOLD AT HEAD**, and two committed fixtures (`exit0b`, `exit0c`) prove it. **DO NOT TAG `review-rc3`.** What it did land is DETECTION, not a fence: pre-check artifact hygiene, envelope tamper detection, and honest `evidence_provenance` in every envelope. It also found and fixed an unrelated defect — `bin/gate24-pack-loader`'s end-to-end arm has raised `TypeError` before building a single sandbox since STOP-32, so that arm has proven nothing since. Narrative in `docs/GATE-JOURNAL.md`, entry `BUILD-JOURNAL.md` J-174. Before that: **2026-08-31 by `GATE-FIX`** (ATTENDED-DIRECT — it edits `bin/` and `src/`, so it must not run under the runner it changes). It landed **F-1 (partially), F-2, F-3, F-4, F-5, F-7, F-8 and L1**, one commit each with its test, and **SPLIT F-6** to the process-starting gate on measured grounds. **READ `KNOWN-OPEN` ITEM 16 BEFORE CITING F-1 AS CLOSED: it is not.** The oracle's import namespace (Face A) and its decision code (Face C) are closed and fixture-proven; Face B is only partially closed and the open half ships as a committed fixture that still reaches a false `COMPLETED`. Narrative in `docs/GATE-JOURNAL.md`, full entry `BUILD-JOURNAL.md` J-173, report at courier `bundles/GATE-FIX/REPORT-FIX.md`. Before that: **2026-08-30 by `GATE-REVIEW`** (ATTENDED-DIRECT — it reaches OpenRouter, so it is not a runner child). It sent the `review-rc2` packet (`bbecf2d`) to four non-Anthropic lineages and pushed their reviews to courier `a1fbd62` under `review/`. **Its narrative is in `docs/GATE-JOURNAL.md`; the full entry is `BUILD-JOURNAL.md` J-172.** **Nothing the panel found has been verified or acted on** — see `NON-CLAIMS` below. Before that: **2026-08-30 by `GATE-NARRATIVE`** (RUNNER-RUN, doc-only — the THIRD unattended batch, and the first gate authorized to edit prose in this file). **Its narrative is NOT here: it is in `docs/GATE-JOURNAL.md`, under rails §11.1, which that gate created.** What it changed here: six dated per-gate sections moved to `docs/PHASE-J-HISTORY.md` (79,960 → 59,588 B, −25.5 %), two stale passages struck by addition, three orphans re-homed (`KNOWN-OPEN` 11/12 and rails §18). Rails **+§11.1** and **+§17.1**, both PROVISIONAL. The dispatcher's addendum for that batch is **also in the journal**, not here — that is the amendment working. Before that: **2026-08-30 by `GATE-CONSOLIDATE`** (RUNNER-RUN, doc-only — the first genuinely unattended batch). Its section is at the very bottom and ends with a **`REVIEW-READINESS`** block: the four security-critical paths to point an external reviewer at, the KNOWN-OPEN list with each item's measured status, and a **`NON-CLAIMS`** block. **Read `NON-CLAIMS` before quoting any result from this file** — in particular, the agent surface is proven to reach the model and act on the filesystem, **not** to build software. It also records three verdicts (`GATE-RUNNER-POLISH`, `GATE-ST-1`, `GATE-J0B-CLOSE` — all ACCEPTED, all closed) and adds rails §15, §16 and a §12.2.1 extension. Before that: **2026-08-29 by `GATE-J0B-CLOSE`** (ATTENDED-DIRECT). Its section is just above. **It closes the agent-surface capability question — the surface MANUFACTURES — and it CORRECTS two things this document asserts:** GATE-J0B-RESUME's *"the agent had no filesystem tool"*, and the ESTABLISHED FACT about the QEMU seam, which is true only for a SINGLE SEQUENTIAL connection. Both corrections are written in BY ADDITION below. Before that: **2026-08-29 by `GATE-RUNNER-POLISH`** (ATTENDED-DIRECT — it edits the runner and the rails, so it must not run under the thing it changes). Its section is at the bottom; it closes eight open rulings (including F-1 and F-2) and adds two. Before that: **2026-08-28, the `GATE-J0B-RESUME` LAUNCH ORCHESTRATOR, after the batch closed** (the gate child's own section below is its half; the runner-side verdict is the section after it, which the child could not write because it is produced after the child exits). Earlier that day: the `GATE-J0B-RESUME` pre-flight (same day: `GATE-RECONCILE`, `GATE-RUNNER-HARDEN`, `GATE-RUNNER-ARM`). The same facts, with the full evidence
+pointers, are in the courier at `bundles/RECONCILE/SNAPSHOT.md` — that file and this one are
+mirrors; if they ever disagree, the raw captures under `bundles/RECONCILE/raw/` decide.
+
+
+---
+
+## REVIEW-READINESS
+
+*Written 2026-08-30 by `GATE-CONSOLIDATE`. This section exists so an external reviewer can be
+pointed at the right four paths and cannot mistake what has and has not been established.*
+
+**UPDATE 2026-08-30, `GATE-REVIEW`: the external review HAPPENED, twice over.** An internal
+review of `bbecf2d` is at courier `review/code-review.md` (43 findings, 1 CRITICAL against the
+oracle invariant). It was then sent to a four-lineage non-Anthropic panel whose reviews are at
+courier `review/external/`, with method and spend in `review/PANEL.md`. **The four paths below
+are still the right four to point a reviewer at** — the panel was pointed at them and returned
+candidate findings against three. **All panel findings are UNADJUDICATED**; the advisor holds
+that pass.
+
+### The four security-critical paths a reviewer should be pointed at
+
+**1. Runner containment — `bin/wrought-runner`.** Four mechanisms that must be read together:
+
+- **Private `$HOME` and private `$XDG_RUNTIME_DIR`, per gate** (`make_ephemeral_home()`, :343;
+  `teardown_ephemeral_home()`, :397; rails §14). **Both are required** — the peer *listing* is keyed
+  on `$HOME`, the addressable *socket* on the runtime dir, and closing one leaves the other open.
+  *Not listed* is not *not addressable*. The ephemeral HOME holds **live credential copies** (mode
+  `0700`, under `state_dir`, removed with the gate), so it is itself worth review.
+- **`systemd-run --user --scope`** (:802) with **`MemoryMax`** and **`MemorySwapMax=0`** (:803–809).
+  The swap cap is not belt-and-braces: **`MemoryMax` alone does not cap memory on this box** — with
+  swap available the allocation succeeds, and only with `MemorySwapMax=0` is it OOM-killed. Plus
+  `RuntimeMaxSec` (:810). Kill signatures are measured, not assumed (:927–940).
+- **The reaper** (`residue_snapshot()`, :533; `reap()`, :603; `qemu_processes()`, :483; rails §13).
+  Matches on **executable identity** (`/proc/<pid>/exe`, `comm` fallback), excludes zombies, takes
+  **every** owning pid of a listening socket, and refuses to signal pid≤1 / itself / its own group
+  or session.
+- **`bin/wrought-runner-hook`** — a deny-only PreToolUse hook. It **only ever subtracts**: anything
+  it does not deny is left to the permission mode, so it can never widen a gate's surface.
+
+**2. Sealed-key / proxy handling.** The authenticating proxy reads its key on **stdin only** (rails
+§5) — the key never reaches a file, an argv, or an environment variable, and **dies with the
+process**. The proxy is **operator-side and must PREDATE the runner start**, so it lands in the
+reaper's before-set and can never be misread as gate residue; it is torn down by **recorded PID,
+never `pkill -f`**. Reviewer note on scope: after teardown the proxy's **in-memory** copy is gone,
+but the **TPM2-sealed credential and the running `wrought-inference.service`'s own copy remain, by
+design.** See also `bin/wrought-precommit-secret-scan` and rails §5.1 — the staged-diff scan has a
+committed home precisely because improvising it leaked argv twice.
+
+**3. The byte-freeze and oracle invariant.** Rails §2, and the hook's single deny pattern. The
+frozen paths are the orchestrator store under `/var/lib/wrought/state/` (the main file plus its
+`-wal` and `-shm` siblings). Two properties a reviewer should check separately: **who owns the
+freeze** (§2.1 a direct session does it itself; **§2.2 under the runner it is the RUNNER's duty and
+a gate child MUST NOT attempt it**), and **that the hook enforces it by content match** —
+`decide()` searches `json.dumps(tool_input)`, so the pattern matches file *content* and not merely
+paths.
+
+**4. The interception seam.** `bundles/GATE-J0B-CLOSE/raw/49-P4-realpath-seam.txt`. The seam is
+closed through a shim attached by the **baked config** — no CLI flag, no hand-written client — with
+goose's own `clientInfo: goose-cli/1.46.0` in the frame and goose's own session/working-dir/
+tool-call-request-id fields on the `tools/call`. Reviewer note: goose negotiates
+**`protocolVersion 2025-11-25`**, where the earlier hand-written client used **2024-11-05** — the
+seam had previously been probed at a version the real client does not use.
+
+### KNOWN-OPEN, with each item's MEASURED status as of this gate
+
+| # | Item | Measured status, 2026-08-30 | Owner |
+|---|---|---|---|
+| 1 | **Long-context correctness UNTESTED** (ST-1 A-2) | SPEC-R11.1 names math / code / **long-context**; the harness has math / code / reason / struct, the last two short. **Untested here AND at GATE-16** — pre-existing, surfaced not absorbed. | a future correctness gate |
+| 2 | **A-1 / A-7 — `-ub 512` unpinned in the correctness harness** | **A real latent defect, still open.** Production pins `--ubatch-size 512` explicitly; the test harness relies on the default. **The instrument that decides corruption is the weaker of the two surfaces.** Remediation touches `bin/`, so not this gate. | `GATE-BOUNDARY` / a `bin/`-touching gate |
+| 3 | **ST-6 owed** (ST-1 A-4) | The **PRIMARY** canary layer did not run where §11.1 puts it — the resident server needs the sealed key. **Still owed, and it is the operator's.** | operator |
+| 4 | **`ssh -R` under a runner child** | **UNTESTED and NOT AUTHORIZED.** Proven **attended only**. Whether the tunnel survives in-scope and is reaped by §13 is unmeasured, and an untested reaper path is the shape that cost `GATE-J0B-SURFACE` seven days. **No runner-run gate may use it until measured.** | `GATE-BOUNDARY` |
+| 5 | **GATE-23/25 exit-code taxonomy** (ST-1 A-5) | **Un-reclassified post-AppArmor.** `bin/gate21-bwrap-smoke` passes **9/9** on kernel `-30` + AppArmor `5.0.2`, but **"AppArmor validated" does NOT re-classify the taxonomy** — narrowed, not closed. | open |
+| 6 | **`linux-headers-7.0.0-28` removed** | Still gone; **`-28` is still not rebuildable.** Unchanged by the `-30` re-pin. | operator |
+| 7 | **15 libvirt point-release pins** | Untouched; **still an open advisor question.** All 15 are the libvirt closure, `12.0.0-1ubuntu5.2` → `5.3`, one `unattended-upgrade`. The question is live: **libvirt is not a declared ST-1 trigger — does a point release need its own re-measure?** | advisor |
+| 8 | **Permission allowlist: security boundary or convenience layer?** | **OPEN — design intent, not a measurement.** The facts are settled (eight shapes; `Bash(python3:*)` escapes `--add-dir` with zero denials); the *reading* is not. Put to the ferry. | operator, via `GATE-BOUNDARY` |
+| 9 | **`pgrep -f` in `bin/`** | **THE SHARP ONE IS CLOSED (`GATE-FIX` F-7, 2026-08-31).** `bin/gate13-measure:43`'s `pkill -f` matched the RESIDENT model server — same binary, same port — and all three call sites discarded the pid `start_server` already had. It now signals only its own child's pid and refuses to run while `wrought-inference.service` is active; the hazard was LIVE at fix time (pid 102501 matched, `build-evidence/gate-fix/raw/22`). **The other two `pgrep -f` instances are untouched and still open**, and the class recurred by accident during this gate: `pgrep -af authproxy` matched a shell whose argv merely contained the word (`raw/26`). | `GATE-BOUNDARY` (attended-direct; may touch `bin/`) |
+| 10 | **Cost-cap RE-CALIBRATION** | **NOT discharged.** `GATE-J0B-CLOSE`'s 41,444,106 tokens are ratified; its **$33.45 is not**. This gate is runner-run but **doc-only, not manufacturing**, so its cost sizes the doc-only shape only. The debt **still lands at the first runner-run MANUFACTURING gate**. | advisor |
+| 11 | **Leftover `failed` transient scope units from `GATE-RUNNER-HARDEN`'s dry run** | **Still present** (`raw/42b`) — no process, no cgroup, harmless. **Never enumerated by any prompt, so never cleared**; clearing them is a deliberate operator action, not a gate's. **Re-homed here by `GATE-NARRATIVE` PHASE 1** from the `GATE-RUNNER-POLISH` narrative, which PHASE 4 archives — it was a true orphan, living at exactly one line inside the cut. | operator |
+| 12 | **`P-2` — may a key carry the escalation-ratified `24000` into the guest-agent path?** | **ACCEPTED IN PRINCIPLE** (advisor): the ratified value may be carried, **but the `pins.lock` commit that carries it stays OPERATOR-AUTHORED** — no gate child commits it. **Re-homed here by `GATE-NARRATIVE` PHASE 1** from `GATE-J0B-CLOSE`'s *Open, and needing a ruling* list, which PHASE 4 archives — also a true orphan at exactly one line inside the cut. Its siblings `P-3`, `B-1` and `B-3` are already carried at items 4 and 8 above and by `GATE-BOUNDARY`. | operator |
+| 13 | **A fenced gate cannot run its own mandated secret scan** | **STRUCTURAL, and now measured three gates running** (`GATE-CONSOLIDATE`, `GATE-TRIM`, `GATE-NARRATIVE`). Rails §5.1's scan needs `sudo`; a real `ADD-DIRS` fence needs no interpreter granted — so a gate that is properly fenced **cannot** discharge §5.1 on its own bundle push, and each of the three correctly refused to manufacture a pass. The dispatcher discharged it afterwards each time (this gate: **PASS exit 0 on all three surfaces**, `build-evidence/gate-narrative-dispatch/raw/20`). **PROPOSED FIX, not adopted here — the RUNNER should hold the scan**, run from outside the child before the push as part of the mechanical verdict, on rails §2.2's own logic that the runner holds the freeze. Then a fenced gate pushes lawfully and no gate needs `sudo`. Raised by the `GATE-TRIM` adjudication; **a runner change, so not a gate's to make.** **ADOPTED 2026-08-31 by `GATE-FIX` F-3**, which is a runner-touching attended-direct gate and therefore was its to make: `git_push` now runs the scan over the whole courier TREE from outside the child before anything is staged, at all three push sites, and **halts on exit 2 as well as exit 1** — a scan that could not run has proven nothing. It also replaced `git add -A` with an enumerated set derived from the same cfg keys the runner writes through. The structural gap this item describes is closed for the runner path; a gate child still cannot scan its own bundle, which no longer matters because it is no longer the component that pushes it. | **CLOSED by `GATE-FIX` F-3** |
+
+| 14 | **`claude` CLI drift — 2.1.251 installed, 2.1.250 pinned** | **OPEN, and nothing mechanical will catch it** — `bin/installed-drift-check` does not cover the supervisor toolchain. The four containment properties `wrought-runner` depends on were verified on 2.1.250 and are `[UNVERIFIED]` on 2.1.251; `claude_code_commit` was not re-read. Recorded at J-171 with the exact commands. **OWED: re-run the four-property matrix on 2.1.251, then move the pin or roll back.** | operator |
+| 15 | **§13.5's pre-call cost bound is UNSOUND for reasoning models** | **RATIFIED by the `GATE-REVIEW` adjudication and sent here, not to a fix gate.** MEASURED: `openai/gpt-5.6-sol-pro` was bounded at **$0.94** and cost **$7.35**, 8× over, while three sibling models landed at or under their bounds. Two causes, both properties of the model class: `reasoning.mode: pro` re-bills the prompt across internal passes (**708,638** billed input tokens for a ~178k payload), and **`max_tokens` does not cap completion billing** (69,793 billed against a 64,000 cap, 57,048 of them reasoning tokens). The obvious formula — `est_input × prompt_price + max_tokens × completion_price` — is wrong for exactly the model class `escalate-once` targets, and a bound that under-reads by 8× is not a bound. **The escalation path was NOT touched by `GATE-FIX`.** | advisor / a future escalation gate |
+| 16 | **F-1 Face B — the oracle's verdict is SELF-REPORTED by the process it judges** | **OPEN, and now measured rather than scoped.** `GATE-ORACLE-ISOLATION` set out to put candidate code on its own uid and found TWO things. (1) **A second uid is not available on this box**, refused at three layers: the shipped sandbox has a single-id uid map and zero capabilities (`setresuid` → EINVAL); a nested `bwrap` is denied by the PINNED seccomp filter, which filters `CLONE_NEWUSER` by argument and is a control that must NOT be relaxed; and even a rebuilt sandbox with a range-mapped userns AND full capabilities is refused by host AppArmor `unpriv_bwrap` (`capname="setuid"` in the kernel audit log), with a no-bwrap control proving the map and the privilege are both fine. (2) **A uid would not have been enough anyway** — the oracle's assertions run INSIDE the pytest process and pytest is where candidate code runs, so the forger IS the reporter and shares whatever uid it has. Committed proof: fixture **`exit0c`**, which hard-codes NO path (it reads `COVERAGE_FILE` and pytest's own `--json-report-file` off the live process) and reaches PASS — so **relocation can never be mistaken for closure**. `exit0b` still PASSes too. **Closing it needs the candidate out of the reporting PROCESS, not merely off its uid** — which cannot preserve `py.cov.threshold` at all, and is an operator design decision. **THE REAL FIX AND ITS REAL COST, recorded 2026-08-31 by `GATE-HORIZON` PHASE 1 so the trade is on the table as a decision rather than rediscovered as a surprise. THE FIX: candidate tests must execute OUT OF THE REPORTING PROCESS.** The reporting process becomes a parent that never imports, never executes, and never links candidate code; the candidate runs as a separate child whose only channel back is a serialised result the parent parses as untrusted input, exactly as `docs/03` §10.7 already treats the result envelope. That is what actually severs forger from reporter — a uid does not, because (2) above measured that they are the SAME PROCESS whatever uid it holds, and `exit0c` is committed proof that relocation alone can never close it. **THE COST, and it is not a detail — it is the whole reason this is an operator decision and not a fix gate: `py.cov.threshold` DIES.** In-process coverage measures the process it runs inside; move the candidate out and the reporting process's coverage of it is structurally zero. **The check is not degraded, weakened, or made approximate — it ceases to have a referent**, and no amount of care recovers it, because the metric it names is a property of an execution that no longer happens where the metric is taken. So the trade is exact and unavoidable: **the oracle can have a coverage threshold, or it can have an unforgeable verdict. It cannot have both in one process.** Two consequences travel with that. (a) Every pack, fixture and gate that asserts on `py.cov.threshold` is downstream of this and must be re-specified, not merely re-run — the number changes meaning, which is worse than the number changing. (b) The replacement, if one is wanted, is out-of-process coverage instrumentation whose output is *also* candidate-written and therefore *also* untrusted — so it buys a measurement, never a guarantee, and must be labelled that way from the first line or it re-creates this exact defect one level up, which is the failure `GATE-ORACLE-ISOLATION` already caught once in its own `_provenance`. **NOT PROPOSED AND DELIBERATELY NOT COSTED HERE:** this gate is a review, it wrote no verifier code, and it takes no position on whether the trade is worth making. It records what the fix IS and what it COSTS so the ferry can rule on a stated trade. | `docs/03-verification.md` §10.9; `bin/oracle-isolation-probe`; `REPORT-ORACLE-ISOLATION.md`; **the trade is a FERRY decision** |
+| 17 | **F-6 — the gate child is not network-isolated, and `authproxy3.py` can be bricked** | **SPLIT to the process-starting gate by `GATE-FIX`, on two measured grounds** (`build-evidence/gate-fix/raw/26`). (a) `authproxy3.py` **is not tracked by this repo at all** — it exists only at courier `bundles/GATE-J0B-CLOSE/sources/`, so the EMFILE bound cannot be written here, and the proxy is not running (nothing on :8081) so it cannot be exercised here either. (b) The child is launched `systemd-run --user --scope`, and **a scope cannot take the sandboxing properties**: `-p PrivateNetwork=yes` returns `Unknown assignment` (a `--user` *service* accepts it). Closing (b) means moving the child from a scope to a service or its own netns AND giving it a deliberate path back to `127.0.0.1:8080` — process supervision, output capture, the deadman attach and the reaper's scope-membership logic all move with it. | `GATE-BOUNDARY` / the process-starting gate |
+| 18 | **z-ai F3 — a QUIET network attempt by candidate code is never a `SECURITY_FINDING`** | **OPEN, docs only.** §10.7 rule 5's detection is a substring scrape over candidate-influenced stderr, so a candidate that attempts the network without printing anything recognisable is never classified as a security finding at all. Not fixed by `GATE-FIX`; recorded as the panel reported it. | a future verification gate |
+| 19 | **z-ai F4 / F5 — two convention-not-control findings** | **OPEN, docs only.** F4: `oracle.staged()` is the third instance of the F-C04/F-C05 glob defect, thirty lines below a docstring forbidding it. F5: the STOP-33b closed set is prefix-matched and, on the escalation path, the provenance string is supplied by the very code it audits — a convention, not a control. | a future verification gate |
+| 20 | **z-ai L2 — restage EACCES** | **OPEN, docs only.** A re-stage of the same (task, attempt) can hit EACCES on a root-owned tree from a previous `verify-job --sudo` run. Lead, not a proven chain. | a future verification gate |
+| 21 | **z-ai L1 — path derivation feeding a root `rm -rf`** | **CLOSED by `GATE-FIX`, deliberately AGAINST the spec, which filed it under "docs, not fixes".** `oracle.stage_candidate` runs `sudo -n rm -rf` on a path built by `oracle.job_dir` from an unvalidated `task_id`, while `bin/verify-job` validated the same id against the same charset — the derivation feeding the root-level delete was the one copy of the guard that did not exist, and `pins.lock:1172`'s own comment already said the charset applies "at path derivation". The rule now lives once in code and `verify-job` imports it; `module_filename` is validated too. 534 existing ids unaffected. | **CLOSED by `GATE-FIX` L1** |
+
+**One item the dispatching prompt listed as open is NOT open, and the disagreement is reported
+rather than reconciled (rails, preamble):** the prompt's KNOWN-OPEN list names *"the idle peer
+`claude` session on the box."* **That was RESOLVED on 2026-08-28** — the box rebooted that morning
+(`journalctl --list-boots`) and a `comm`-based listing showed exactly one `claude` process, the
+session's own (`bundles/RECONCILE/raw/03`). It is recorded above at the ADVISOR-SIDE NOTE and
+carries **no action outstanding**. The general point it stood for does survive and is worth keeping:
+stale sessions are maintainability debt, and a second session holding a stale view of *this file* is
+exactly the J-156 failure mode.
+
+### NON-CLAIMS — what has NOT been established
+
+- **THE INVARIANT, RESTATED HONESTLY AND IN THE FORM THE ADJUDICATION SETTLED ON**
+  (`GATE-HORIZON` PHASE 1, 2026-08-31, ADDED BY ADDITION above everything below it — nothing
+  below is edited, softened, or withdrawn). The two blocks that follow are the *measurements*;
+  this is the one-sentence claim they add up to, and it is written here so that the next session
+  quoting "the invariant" quotes something true:
+
+  > **`COMPLETED ⟹ the oracle passed` holds against escape and persistence (Faces A, C) but NOT
+  > against an adversarial candidate forging its own in-process verdict (Face B).**
+
+  **Why the sentence is shaped that way, and it is a NARROWING of the old claim in one direction
+  and a STRENGTHENING in another.** The old form — *the invariant does not hold* — is true but
+  reads as though nothing is established, and that under-reads what two gates measured. What is
+  CLOSED and fixture-proven is the pair that would let a candidate leave its own blast radius:
+  **Face A, import hijack** of the oracle's namespace, and **Face C, replacement of the decision
+  code itself.** What is NOT closed is **Face B: the candidate forges the single in-process verdict
+  about itself.** The advisor's adjudication of `GATE-ORACLE-ISOLATION` (recorded verbatim at
+  courier `bundles/GATE-ORACLE-ISOLATION/ADJUDICATION.md`) bounds Face B's blast radius explicitly
+  and that bound travels with the sentence: it is **detected-not-prevented, and contained by the
+  network-less, capability-dropped, disposable sandbox to ONE TOOL FALSELY STAMPED `COMPLETED` —
+  never escape, never persistence.** A forged verdict is a lie about one artifact. It is not a
+  foothold.
+
+  **THE COMPENSATING CONTROL, and it is the operative consequence for anyone using this system
+  today — it is a CONTROL, not a mitigation, and it is unconditional:**
+
+  > **A `COMPLETED` artifact is PROVISIONALLY VERIFIED. It MUST be re-verified out-of-band before
+  > it is trusted or shipped.**
+
+  Out-of-band means *by something that is not the process under judgement* — a fresh verification
+  run the candidate never influenced, or a human reading the diff. This is what makes Face B
+  survivable while it stays open, and it is the reason the open face is an accepted risk rather
+  than a stop-work: the invariant is doing real work for Faces A and C, and the one thing it
+  cannot promise has a named, cheap, mandatory backstop. **Anything shipped out of `products/`
+  without that second look is relying on a property this project has measured it does not have.**
+
+- **`COMPLETED ⟹ THE ORACLE PASSED` STILL DOES NOT HOLD AT HEAD — AND IS NOW MEASURED TO BE
+  UNREACHABLE BY THE MEANS PREVIOUSLY PROPOSED** (`GATE-ORACLE-ISOLATION`, 2026-08-31, ADDED BY
+  ADDITION above the `GATE-FIX` text it does not replace). The remedy `GATE-FIX` named — put the
+  candidate on a lower uid — is **unavailable on this box** (single-id uid map + zero caps; nested
+  userns denied by the PINNED seccomp filter *by argument*; host AppArmor `unpriv_bwrap` denies
+  `capability setuid` even to a range-mapped userns with full caps, with a no-bwrap control proving
+  the map and privilege are fine) **and would not have sufficed if it were**: the oracle's
+  assertions execute inside the pytest process, which is where candidate code runs, so the forger
+  and the reporter are ONE PROCESS and share whatever uid it has. **Fixture `exit0c` hard-codes no
+  path — it reads `COVERAGE_FILE` and pytest's own `--json-report-file` off the live process — and
+  reaches PASS, so no relocation can be mistaken for closure.** `py.cov.threshold` is worse: its
+  metric comes from a database the candidate's process wrote. What shipped is DETECTION, never a
+  fence — the candidate can still write every file in `/work/out`, and fixture `outwrite` measures
+  that it can. **DO NOT TAG `review-rc3`.** See `docs/03-verification.md` §10.9.
+
+- **`COMPLETED ⟹ THE ORACLE PASSED` STILL DOES NOT HOLD AT HEAD** (`GATE-FIX`, 2026-08-31).
+  This is the loudest non-claim in this file. F-1 closed two of its three faces and the third
+  only partially: `/work/out` remains writable by candidate code, which executes inside pytest at
+  the verifier's own uid, so a candidate that forges into the paths the fix moved things TO still
+  reaches a false `COMPLETED`. That is not an inference — it is committed as fixture `exit0b`,
+  it is expected to PASS, and it does. **Anyone citing F-1 as "the oracle is fixed" is wrong.**
+  See `KNOWN-OPEN` item 16.
+- **WHAT THE PANEL FOUND IS NOW PART-ESTABLISHED, AND THE PARTS ARE NOT INTERCHANGEABLE**
+  (supersedes this block's `GATE-REVIEW` wording of 2026-08-30, which said nothing was verified).
+  `GATE-FIX` re-derived each F-item from source and MEASURED it before and after, so
+  F-1 Faces A/B/C, F-2, F-3, F-4, F-5, F-7, F-8 and L1 are established as code shape with
+  before/after evidence in `build-evidence/gate-fix/raw/`. **The panel's remaining LOW/MEDIUM
+  leads — items 18, 19, 20 — were NOT verified and remain candidate findings**, exactly as an
+  escalation reply is a candidate and not a PASS. One inter-panel conflict was settled on
+  evidence rather than averaged: google refuted the REPAIRING/ESCALATING finding without the
+  code; z-ai proved it from `worker.py`; the box confirmed z-ai from `store.py` as well and
+  **google was wrong**.
+- **All four panelists said `code-review.md` §7 — our own remediation order — is wrong or
+  incomplete**, two of them calling its top item unimplementable as written. `GATE-FIX` did not
+  implement §7 item 1 as written, for that reason: the `--ro-bind` half would have broken the
+  verifier's only output channel, and the measured happy-path regression during this gate
+  (`ruff` exit 2 on a read-only cwd) is what that failure looks like when you actually run it.
+
+**Read this before quoting any result above. Each of these qualifiers has already been dropped once
+in this project's own summaries, which is why they are written here in the strongest form.**
+
+- **The surface is proven to REACH THE MODEL and ACT ON THE FILESYSTEM. It is NOT proven to BUILD
+  SOFTWARE.** The work product is a **5-byte write** — `/home/probe/FORGE.txt` containing exactly
+  `FORGE`. "The agent surface manufactures" is true **for that**, and the gate's own audit is what
+  caught the headline claiming more than its evidence carried. **Do not read it as manufacturing
+  competence.**
+- **`GATE-41`'s ten fixture tasks DO NOT EXIST.** They are named in planning, not built.
+- **The ORIGINAL F-5 WEDGE WAS NEVER REPRODUCED.** The transport was replaced and generation
+  bounded, and under the shape that previously wedged, nothing wedged. **"F-5 is CLOSED" must never
+  be written without that clause.** Relatedly, the causal attribution for runs 1 and 2 is a
+  **between-runs inference, not a per-run post-mortem**.
+- **The correctness window is 96 TOKENS.** Every diff in `GATE-ST-1` is blind past token 96, so
+  later-onset corruption is invisible to all of them. The drift claim is sound; the **absolute**
+  claim is bounded at 96.
+- **The egress pinhole is proven for a SINGLE SEQUENTIAL CONNECTION.** `guestfwd` is one always-on
+  multiplexed byte stream: **16 guest connections → 0 accepted**, against **8 concurrent host
+  connections → 8 accepted**. That qualifier travels with the pinhole.
+- **The `--add-dir` workspace boundary is NOT unconditional.** It is a real fence for
+  argument-shaped rules and **not a fence at all** for interpreter rules (`python3`, and by the same
+  argument `sh`, `bash`, `perl`, `awk`). Three documents once described it unconditionally.
+- **The runner had never run genuinely unattended before this gate**, and this gate is **doc-only**.
+  A doc-only unattended batch does not establish that a **manufacturing** batch runs unattended.
+- **THE HOOK MAP FOR `GATE-NARRATIVE` WAS SIMULATED, AND ONE PREDICTION WAS NEVER EXERCISED.** The dispatcher pre-flight predicted every payload's verdict before the gate ran, importing the patterns from `bin/wrought-runner-hook` itself; every predicted-clean payload came back clean (zero hook denials in 70 audited calls). But the **one predicted DENIAL** — the `GATE-CONSOLIDATE` dispatcher addendum, ~8.9 KB still live in this file — was scoped out for budget and never attempted. **A simulation that agrees with every case it was tested against is still a simulation on the case it was not.**
+- **The reaper's `virsh destroy` branch and the SIGTERM→SIGKILL escalation remain unexercised in
+  production** — `libvirtd` was inactive throughout the runs that would have exercised the first.
+
+```
+
+====================================================================================================
+# PINS — pins.lock, COMMENT-STRIPPED
+
+TRIMMED AND RECORDED: comment and blank lines removed (1,032 of 1,734 lines; 129,607 -> ~48,730
+bytes). The VALUES are intact and unaltered; the removed lines are the working-out that justifies
+them. Full file in PACKET.txt.
+
+```
+llama_cpp:
+  commit_sha: 0ab9d6fed73dbc5dc8026c868cb10a6728c4ed48   # pinned at GATE-07; F-40 — never configure from mutable master
+  commit_date: "2026-08-02 11:44:00 -0700"
+  build_number: b10233               # binary self-report (`--version` → 10233). `git describe --tags`
+  ggml_version: 0.18.0
+  binary_sha256:
+    llama-server: 23e27c09ac05b8e419b6500a93ba374142e428bd16bf8325451914df1e8fcd82   # GATE-08
+    llama-cli: d29df4016753fa208b35c1c63c01d8f99b2d8be6a9221116eef03e67926975a1      # GATE-08
+    llama-bench: f146e2876ecf46f35d2706083a558c48e723b43cd21a7be74a1a3fa8f3fd3f20    # GATE-08
+  cmake_flags: "-DGGML_VULKAN=ON -DGGML_NATIVE=ON -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DLLAMA_CURL=OFF"
+  source_tarball_path: /var/lib/wrought/src/llama.cpp-0ab9d6fed73dbc5dc8026c868cb10a6728c4ed48.tar.gz
+  source_tarball_sha256: 3e51322ce8a8108f368bcf0719427b346869acbc1b9ebd84f0e5fcd9be4b90f0   # F-40: commit alone doesn't preserve availability
+litestream:
+  version: 0.5.15                  # `litestream version` self-report on the installed binary
+  release_tag: v0.5.15             # published 2026-07-21
+  binary_path: /opt/wrought/bin/litestream
+  binary_sha256: 5ff810171618664667d24235479a9cda2f47b0348f6041cc46bbc7ca676fce04   # the BINARY, not the archive
+  archive: litestream-0.5.15-linux-x86_64.tar.gz
+  archive_sha256: 839a68e69d111409262775bed78ba9f73f0835cfd23d8c128da21eedaedb50ba   # verified vs upstream checksums.txt
+  variant: standard
+  sigstore_attestation: NONE-PUBLISHED-CHECKED-2026-08-02
+  sbom_published: true                       # litestream-0.5.15-linux-x86_64.tar.gz.sbom.json
+  config: DEFERRED-GATE-32-OPERATOR-CREDENTIAL
+monitoring:
+  prometheus:
+    version: 3.13.2                    # tag v3.13.2, published 2026-07-30
+    asset: prometheus-3.13.2.linux-amd64.tar.gz
+    url: https://github.com/prometheus/prometheus/releases/download/v3.13.2/prometheus-3.13.2.linux-amd64.tar.gz
+    archive_sha256: 0e8c4d46101bd025ea8265e377d2caabc57f488fc1be1c367f37db69ea41be6f
+    binary_sha256: 57cfcd19c4d577653e2101beaa6debcb2195b18f45c649f4c15e766e8966abc5   # MEASURED on /opt/wrought/bin/prometheus
+    sha256_matches_upstream_sums: true          # sha256sums.txt from the same release
+    sigstore_attestation: present
+  alertmanager:
+    version: 0.33.1                    # tag v0.33.1, published 2026-07-04
+    asset: alertmanager-0.33.1.linux-amd64.tar.gz
+    url: https://github.com/prometheus/alertmanager/releases/download/v0.33.1/alertmanager-0.33.1.linux-amd64.tar.gz
+    archive_sha256: 93d802cba6a8d27239d747ce117df7648d326ab67394e32247540b030e9842ba   # was mislabelled binary_sha256 (J-84)
+    binary_sha256: 1205a5c7a816f0fa8ee1c0ea4c26b4bdcbc64902996c1cf7c721b6dce93a1218   # MEASURED on /opt/wrought/bin/alertmanager
+    amtool_binary_sha256: 40333ec9ac64de6a0316331b1a0c1b2e9f2442e335a91f90252a030147273627
+    sha256_matches_upstream_sums: true
+    sigstore_attestation: absent
+  node_metrics_source: textfile-collector       # D23
+  node_metrics_collector: /opt/wrought/bin/wrought-node-metrics
+  node_metrics_textfile_dir: /var/lib/wrought/metrics
+toolchain:                          # apt-cache policy strings, measured 2026-08-02
+  gcc: 15.2.0                       # gcc (Ubuntu 15.2.0-16ubuntu1)
+  cmake: 4.2.3-2ubuntu2
+  glslc: 2026.1-1                   # shaderc
+  libshaderc_dev: 2026.1-1
+  spirv_headers: 1.6.1+1.4.341.0-1
+  libvulkan_dev: 1.4.341.0-1
+  glslang_tools: 16.2.0-2
+  vulkan_tools: 1.4.341.0+dfsg1-1
+  libssl_dev: 3.5.5-1ubuntu3.3
+  git: 2.53.0
+  python: 3.14.4
+  wheelset_sha256: ec10c7aaf77600d9d8b5bc06685f2c072530529fa9ddf664308c236ea2c6b28a   # GATE-10
+  wheelset_requirements: /etc/wrought/requirements-frozen.txt   # 22 distributions, 0 sdists
+  wheelset_dir: /var/lib/wrought/wheels
+  venv: /opt/wrought/venv                     # python 3.14.4
+  verification_toolchain:
+    ruff: 0.16.0                    # [doc]
+    basedpyright: 1.39.9            # [doc] — bundles node via nodejs-wheel; no nodeenv fetch (S9)
+    pytest: 9.1.1                   # [doc]
+    hypothesis: 6.164.0             # [doc]
+    tree_sitter: 0.26.0             # [doc]
+    tree_sitter_python: 0.25.0      # [doc]
+    coverage: 7.15.3                # [freeze] — named in §10.5 pack invocations, unversioned there
+    pytest_cov: 7.1.0               # [freeze]
+    pytest_json_report: 1.5.0       # [freeze]
+    pytest_metadata: 3.1.1          # [freeze] transitive
+    nodejs_wheel_binaries: 24.16.0  # [freeze] transitive — the bundled Node that removes the S9 failure mode
+    pluggy: 1.6.0                   # [freeze] transitive
+    iniconfig: 2.3.0                # [freeze] transitive
+    packaging: 26.2                 # [freeze] transitive
+    pygments: 2.20.0                # [freeze] transitive
+    sortedcontainers: 2.4.0         # [freeze] transitive
+  ruff_ruleset:
+    select: F,S
+    rule_count: 101                 # 43 F + 58 S, resolved on-box 2026-08-06
+    enabled_rules_file: /etc/wrought/ruff-enabled-rules.txt
+    enabled_rules_sha256: 90affbf9502d8dcfa72cf0edfbe8f377df554b778f75f814309350be7457282b
+    rules_only_sha256: 1974ec9661eecbe52ee8c240aeb70b1e0bbbab955accf4f1d832b5bbf414c2e6
+    resolver: bin/resolve-ruff-ruleset --select F,S
+    resolved_settings_file: /etc/wrought/ruff-resolved-settings.txt
+    resolved_settings_sha256: 5ada3ad1b4c5600b17460e005a38be2881b469ccefc30cb7e7271492f81d541e
+    superseded_2026_08_06:
+      selection: (ruff 0.16.0 default, no config present)
+      rule_count: 413
+      enabled_rules_sha256: aa666f8d7954eeb7ad3572eb21f24ea4d8231f1109e4aafea68593e6f7ea54a0
+      rules_only_sha256: e628bf594f42c1fb48c125b19b7ebe604c4cd897799481283ac4c7fb151f98f8
+      resolved_settings_sha256: d11f6aae98967762eac7cd2fe76f3a54b97215cc0aa4de89c865cdc0912c34a6
+  basedpyright_calibration:
+    type_checking_mode: standard
+    config_route: pack-carried config_files -> /work/out/pyrightconfig.json -> `-p`
+    config_filename: pyrightconfig.json
+    criterion_metric: basedpyright_error_count
+    criterion_max: 0
+    matrix_evidence: build-evidence/session-13/01-recalibration/S13-typecheck-mode-matrix.txt
+  orchestrator_toolchain:
+    ruamel_yaml: 0.19.1             # [spec] §7.5/§7.6 strict YAML. YAML 1.2 — no 1.1 yes/no booleans.
+    jsonschema: 4.26.0              # [spec] §7.6 schema over frontmatter + tests manifest
+    rfc8785: 0.1.4                  # [spec] §7.5 step 3 names JCS (RFC 8785) explicitly
+    attrs: 26.1.0                   # [freeze] transitive of jsonschema
+    jsonschema_specifications: 2025.9.1  # [freeze] transitive
+    referencing: 0.37.0             # [freeze] transitive
+    rpds_py: 2026.6.3               # [freeze] transitive (Rust ext; cp314 wheel published)
+  orchestrator_requirements: /etc/wrought/requirements-orch-frozen.txt   # 7 distributions, 0 sdists
+  orchestrator_wheels_dir: /var/lib/wrought/wheels-orch
+  orchestrator_venv: /opt/wrought/venv-orch                              # python 3.14.4
+  security_pack:
+    fetched_at: 2026-08-03
+    staging_dir: /var/lib/wrought/secpack        # populated by bin/secpack-fetch
+    ruff_select_S:
+      status: ALREADY-PINNED
+      note: "the S prefix is inside the 413 rules pinned in ruff_ruleset above; no new artifact"
+      threshold: "§10.6 fast gate; unchanged"
+    bandit:
+      version: 1.9.4
+      kind: python-wheel
+      wheel_sha256: f89ffa663767f5a0585ea075f01020207e966a9c0f2b9ef56a57c7963a3f6f8e
+      distributions: 7                            # bandit + PyYAML, stevedore, rich, markdown-it-py, mdurl, pygments
+      integrity: "PyPI sha256 over TLS — VERIFIED"
+      authenticity: "NONE AVAILABLE. PEP 740 provenance queried and absent (pypi.org/integrity
+        /bandit/1.9.4/provenance -> HTTP 404). Recorded as a GAP, not implied coverage."
+      threshold: "§10.6 unchanged: zero findings at SEVERITY=HIGH AND CONFIDENCE=HIGH;
+        MEDIUM/HIGH reported, non-failing"
+    gitleaks:
+      version: 8.30.1
+      kind: go-binary
+      asset: gitleaks_8.30.1_linux_x64.tar.gz
+      archive_sha256: 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
+      binary_sha256: 88f91962aa2f93ac6ab281d553b9e125f5197bbbce38f9f2437f7299c32e5509
+      integrity: "upstream gitleaks_8.30.1_checksums.txt — MATCH"
+      authenticity: "NONE AVAILABLE. The release publishes a checksums file and NOTHING ELSE —
+        no .sig, no .pem, no in-toto attestation (asset list enumerated, not assumed). This is a
+        REAL GAP: the checksums file arrives over the same host and TLS session as the archive,
+        so it proves neither origin nor integrity independently of that channel."
+      threshold: "§10.6 unchanged: ANY hit fails (>=1 = fail) — secrets are binary.
+        Runs over source AND the event log."
+      banned_alternative: "trufflehog — its default verifier phones candidate secrets to the
+        provider. §10.6 bans it outright; only ever --no-verification."
+    syft:
+      version: 1.50.0
+      kind: go-binary
+      asset: syft_1.50.0_linux_amd64.tar.gz
+      archive_sha256: bf7b29ff57f06da30918266a0e1c2885a8f99784798d1bdb1628886aa015d788
+      binary_sha256: 22f2b95baf524d45ad16b0ad5cdeb200c4b8a816493768cec50e4682b1f24b0e
+      integrity: "upstream syft_1.50.0_checksums.txt — MATCH"
+      authenticity: "VERIFIED — Sigstore/Fulcio. openssl-verified the detached signature over
+        checksums.txt under the public key in the accompanying Fulcio certificate: Verified OK.
+        Certificate identity, read from the cert, not assumed:
+          issuer  = O=sigstore.dev, CN=sigstore-intermediate
+          SAN URI = https://github.com/anchore/syft/.github/workflows/release.yaml@refs/heads/main
+          OIDC    = https://token.actions.githubusercontent.com  (GitHub Actions)
+          repo    = anchore/syft   commit = 16223e6dd7893fe578787658ceb876257483d404
+        Embedded SCT present (the cert was logged at issuance)."
+      authenticity_residual: "cosign is NOT installed on this box, so two links were NOT checked
+        and are not claimed: (1) the certificate chain up to the Sigstore ROOT, and (2) the Rekor
+        transparency-log INCLUSION PROOF. The Fulcio cert is short-lived by design (validity
+        17:43:03-17:53:03Z, ten minutes) and its expiry is expected — but validity-at-signing-time
+        is exactly what the Rekor proof establishes, so this residual is not cosmetic."
+      threshold: "§10.6 unchanged: SBOM artifact produced (CycloneDX JSON), not a failing check"
+      env_required:
+        SYFT_CHECK_FOR_APP_UPDATE: "false"       # quoted: J-86 (bare false is a YAML-1.1 boolean)
+    osv-scanner:
+      version: 2.4.0                              # tag v2.4.0, published 2026-06-18T13:35:18Z
+      kind: go-binary
+      asset: osv-scanner_linux_amd64
+      archive_sha256: NOT-APPLICABLE-NO-ARCHIVE-PUBLISHED
+      binary_sha256: 15314940c10d26af9c6649f150b8a47c1262e8fc7e17b1d1029b0e479e8ed8a0
+      binary_path: /opt/wrought/bin/osv-scanner   # verified BEFORE install, ST-2 style
+      integrity: "upstream osv-scanner_SHA256SUMS — MATCH (same host/TLS session: integrity only)"
+      authenticity: "VERIFIED, in three parts.
+        (1) BINDING: the SLSA provenance statement's subject digest for osv-scanner_linux_amd64
+            equals the binary we installed, 15314940c10d26af...
+        (2) SIGNATURE: the DSSE envelope verifies under the public key in the embedded Fulcio
+            certificate -- openssl dgst -sha256 -verify over the DSSE PAE encoding: Verified OK.
+            Cert SAN = https://github.com/slsa-framework/slsa-github-generator/.github/workflows
+            /generator_generic_slsa3.yml@refs/tags/v2.1.0
+        (3) SOURCE BINDING: the SAN names the SHARED SLSA builder, NOT the project -- unlike syft,
+            whose SAN was anchore/syft's own release workflow. The link to this project is the
+            predicate's configSource, covered by the SAME verified signature:
+            git+https://github.com/google/osv-scanner@refs/tags/v2.4.0
+            commit b56b5191101d5f27d4787d5583d8d01e9518a7af, entryPoint .github/workflows/goreleaser.yml"
+      authenticity_residual: "NOT CLAIMED: the Fulcio chain to the Sigstore ROOT and the Rekor
+        INCLUSION PROOF were not verified -- no cosign and no slsa-verifier on this box. A Rekor
+        entry IS present in the bundle (logIndex 1859712280, integratedTime 1781789537, with an
+        inclusion proof) and is recorded as METADATA ONLY: a proof anchored to a checkpoint that
+        arrived in the same file is not evidence the entry is in the real public log."
+      threshold: "§10.6 unchanged: fail CVSS >= 7.0; 4.0-6.9 triage; < 4.0 info"
+      invocation_required: ["--offline"]
+      env_required:
+        OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY: "/var/lib/wrought/osv-db"
+      offline_db:
+        cache_directory: /var/lib/wrought/osv-db
+        layout: "<cache>/osv-scanner/<Ecosystem>/all.zip   (MEASURED by running the tool's own
+          --download-offline-databases first, not assumed)"
+        source_bucket: https://osv-vulnerabilities.storage.googleapis.com
+        ecosystems: 46                              # ALL of them, per §10.6 -- not just PyPI
+        total_bytes: 1498789634                    # MEASURED: 1.50 GB against 1.7 TB free
+        fetched_at_utc: "2026-08-04T02:21:50Z"
+        snapshot_pypi_last_modified: "Mon, 03 Aug 2026 21:34:49 GMT"   # the ecosystem this build actually scans
+        snapshot_oldest: "2026-06-02T03:58:23Z (CRAN)"
+        snapshot_newest: "2026-08-04T02:04:54Z (GIT)"
+        manifest: /var/lib/wrought/osv-db/SNAPSHOT.json    # per-ecosystem bytes + sha256 + Last-Modified
+        manifest_sha256: de0b712230a2a20897e5bfb9253371c7601cc197b9a33c6d2d40ec4ae882d707
+        refresh_rule: "a re-download is a NEW pin: re-run bin/secpack-osv-fetch, re-record
+          manifest_sha256 and the snapshot dates. Staleness is visible only if the date is."
+    pip_audit:
+      status: WITHDRAWN-CANNOT-SATISFY-GATE-29
+      withdrawn_on: 2026-08-04
+      withdrawn_because: "no vendored-advisory-DB mode exists in 2.10.1 (measured, J-98), so
+        GATE-29's zero-outbound requirement is unsatisfiable for it and there is no snapshot to
+        date. Its 28 distributions were deliberately never frozen into the verification wheel set,
+        so withdrawal costs nothing to unpick. It remains INSTALLED IN A PROBE VENV ONLY, where it
+        serves as GATE-29's NEGATIVE CONTROL: 99 outbound attempts under the identical harness,
+        which is what proves the zeros elsewhere are measurements rather than blind spots."
+      retained_role: gate29-negative-control
+      version: 2.10.1
+      kind: python-wheel
+      wheel_sha256: 99ef3f600a317c1945f1e89e227ef26e1c2d618429b8bd3fa6f4f7c440c4611a
+      distributions: 28                           # NEVER FROZEN -- see wheel_set_consequence
+      integrity: "PyPI sha256 over TLS — VERIFIED"
+      authenticity: "NONE AVAILABLE. PEP 740 provenance queried and absent (HTTP 404). GAP."
+      advisory_db_snapshot_date: NOT-APPLICABLE-NO-VENDORED-DB-MODE-EXISTS
+    deferred:
+      hadolint:
+        trigger: "the first Dockerfile exists (none do today)"
+      semgrep:
+        trigger: "an operator-supplied vendored rules dir exists"
+        note: "§10.6 already excludes it without vendored local rules; registry packs fetch over
+          the network and are not in the offline pack"
+    wheel_set_consequence:
+      rule: "a Python distribution running as a PACK TOOL enters the FROZEN VERIFICATION wheel
+        set, which re-triggers GATE-09/10 per the recorded rule. As of 2026-08-04 that is BANDIT
+        ONLY: pip-audit was withdrawn before it was ever frozen, and osv-scanner is a Go binary."
+      measured_growth: "16 -> 22 distributions, bandit only (MEASURED at the freeze, J-102).
+        For the record, pip-audit would have taken it to 44 -- 28 distributions including the whole
+        HTTP client stack and pip itself, into the set that runs inside the no-network sandbox.
+        That cost is now not paid, and the vuln-scan slot is filled by a Go binary instead."
+      go_binaries: "gitleaks and syft are ST-2 BINARY pins, like litestream — not wheel-set members"
+      status: "PENDING — the rebuild was deliberately NOT performed while Track B round 2 was
+        in flight, because the oracle runs out of /opt/wrought/venv and rebuilding it mid-run
+        would have corrupted the measurements this session exists to produce."
+supervisor_toolchain:
+  claude_code_version: "2.1.250"                  # `claude --version`, build-evidence/runner-arm/raw/03
+  claude_code_commit: "2f71b9f41af6"              # `claude doctor` -> Commit:, raw/05
+  claude_code_path: /home/kalib/.local/bin/claude # a SYMLINK — the updater moves it, see below
+  claude_code_versions_dir: /home/kalib/.local/share/claude/versions
+  claude_code_install_method: native              # `claude doctor` -> Config install method
+  claude_code_autoupdate: DISABLED-BY-ENV
+  claude_code_autoupdate_switch: "DISABLE_AUTOUPDATER=1"     # honoured; `claude doctor` NAMES it
+  claude_code_autoupdate_config_pref_is_void: true           # autoUpdates:false, overridden (raw/04)
+  claude_code_autoupdate_surface_interactive: "~/.claude/settings.json -> env{DISABLE_AUTOUPDATER}"
+  claude_code_autoupdate_surface_gate_child: "bin/wrought-runner build_child_env(), hardcoded"
+substrate:
+  kernel: 7.0.0-30-generic                  # ST-1-VALIDATED 2026-08-29 (build-evidence/st-1/raw/09):
+  mesa: 26.0.3-1ubuntu1
+  apparmor: 5.0.2-0ubuntu1~26.04.1         # ST-1-VALIDATED (partial) 2026-08-29: st-1/raw/12
+  vulkan_instance: 1.4.341
+  amdgpu_smu_fw: "0x004e8300 (78.131.0)"    # smu_v13_0_0, dGPU 0000:c7:00.0
+  amdgpu_dmub_fw: "0x07002F00"
+  amdgpu_vcn_fw: "ENC 1.24 DEC 9 VEP 0 Revision 16"
+  bios_uma_carve: DEFERRED-GATE-04-D17      # GATE-04 needs physical presence; DEFERRED per D17.
+  dgpu_vram_total_mib: 24560                # llama-bench --list-devices, GATE-08 (24513 MiB free idle)
+  dgpu_matrix_cores: KHR_coopmat            # ggml-vulkan device init, GATE-08 — the coopmat path is live
+  pcie_dgpu_link: "16.0 GT/s PCIe x4"       # = PCIe 4.0 x4. Read from the OCuLink UPSTREAM port
+  kernel_cmdline_params: "amdgpu.runpm=0"
+  kernel_cmdline_full: "BOOT_IMAGE=/boot/vmlinuz-7.0.0-30-generic root=UUID=d05b8e41-3ced-4c77-83e0-b1fbf56589c6 ro amdgpu.runpm=0 quiet splash crashkernel=2G-4G:320M,4G-32G:512M,32G-64G:1024M,64G-128G:2048M,128G-:4096M"
+  os_update_policy:
+    tracks: resolute-security
+    mechanism: unattended-upgrades          # enabled; Package-Blacklist empty
+    holds: NONE                             # `apt-mark showhold` empty 2026-08-12
+    posture: RECORD-DRIFT-PER-GATE          # U-1, operator ruling 2026-08-11
+    drift_observed:
+      - "2026-08-28 claude CLI: 2.1.238 -> 2.1.250, SELF-INFLICTED and SILENT. The CLI updated ITSELF at 12:56:04Z (~/.claude/.last-update-result.json: {\"path\":\"native\",\"outcome\":\"success\",\"version_from\":\"2.1.238\",\"version_to\":\"2.1.250\"}), moving the /home/kalib/.local/bin/claude symlink, hours before GATE-RUNNER-HARDEN ran and under the pin GATE-RUNNER had proposed for it. THIS IS NOT AN OS-UPDATE-POLICY DRIFT — unattended-upgrade had nothing to do with it; the tool updates itself out of the user's own home, so os_update_policy's holds/blacklist could never have caught it. It is recorded in this list anyway because this list is where drift against a pin is recorded. UNLIKE the other entries here, this one IS RE-PINNED, in supervisor_toolchain above: GATE-RUNNER-ARM is the gate that re-measures the CLI, and the four containment properties were re-verified on 2.1.250 before the pin moved (build-evidence/runner-arm/raw/11..15). The mechanism is now DISABLED at both surfaces (raw/08), so the next move of this pin will be a deliberate one."
+      - "2026-08-28 kernel: running 7.0.0-30-generic vs pinned 7.0.0-28-generic (`uname -r`, /var/lib/wrought/reconcile/raw/16-drift-since-hj1.txt). SUPERSEDES the 2026-08-12 entry below, which read -29; the bump to -30 landed 2026-08-21 06:40 by unattended-upgrade. The SAME transaction REMOVED the pinned kernel's headers (`Remove: linux-headers-7.0.0-28-generic, linux-headers-7.0.0-28`, /var/log/apt/history.log) — so the pinned kernel is no longer fully rebuildable from what is on the box. ST-1 TRIGGER, still UNSATISFIED. GATE-RECONCILE recorded, did not re-pin. RESOLVED 2026-08-29 by GATE-ST-1: ST-1-VALIDATED, pin moved above. Token streams byte-identical to the 2026-08-02 GATE-16 baseline on all four trigger prompts (build-evidence/st-1/raw/09), corroborated independently by the CPU arm (raw/06). THE HEADER-REMOVAL HALF IS NOT RESOLVED: linux-headers-7.0.0-28 are still gone and -28 is still not fully rebuildable from the box -- validating -30 does not restore -28."
+      - "2026-08-28 libvirt closure: ALL 15 libvirt packages moved 12.0.0-1ubuntu5.2 -> 12.0.0-1ubuntu5.3 in one unattended-upgrade transaction on 2026-08-20 06:55 (/var/log/apt/history.log). Mechanical pin-by-pin verification of the 51 ratified pins: 36 HOLD, 15 DRIFTED, 0 missing — the 15 are exactly this closure (/var/lib/wrought/reconcile/raw/17-pin-verification.txt). These are RATIFIED pins from GATE-HJ1, so this is pin-vs-reality drift on ratified values, not on a provisional guess. NOT a declared ST-1 trigger (ST-1 covers llama.cpp/Mesa/kernel/model); whether a libvirt point-release needs its own re-measure is an OPEN QUESTION FOR THE ADVISOR. GATE-RECONCILE recorded, did not re-pin."
+      - "2026-08-12 kernel: running 7.0.0-29-generic vs pinned 7.0.0-28-generic (`uname -r`, /var/lib/wrought/hj1/raw/05-drift-check.txt). ST-1 TRIGGER, UNSATISFIED. mesa unchanged at 26.0.3-1ubuntu1. SUPERSEDED and now moot: the box is on -30, ST-1-VALIDATED 2026-08-29."
+      - "2026-08-11 apparmor + libapparmor1: 5.0.0~beta1-0ubuntu7 -> 5.0.2-0ubuntu1~26.04.1 (GATE-J0A round 2, SURPRISE S-1). Smoke-tested only: kernel.apparmor_restrict_unprivileged_userns = 1 and bwrap --unshare-all still builds a clean netns; the exit-code taxonomy of GATE-23/25 was NOT re-classified. ST-1 TRIGGER, UNSATISFIED. PARTIALLY RESOLVED 2026-08-29 by GATE-ST-1, and pinned above as substrate.apparmor: bin/gate21-bwrap-smoke re-run on kernel 7.0.0-30 + AppArmor 5.0.2 passes 9/9 -- merged-/usr symlinks resolve the interpreter, the import triad works, and the netns holds only lo (build-evidence/st-1/raw/12). THE GATE-23/25 EXIT-CODE TAXONOMY REMAINS NOT RE-CLASSIFIED, so this is DOWNGRADED from an unsatisfied ST-1 trigger to a NARROWER open item, not closed."
+virtualization:
+  substrate_systemd_baseline: "259.5-0ubuntu3.4"   # systemd, libsystemd-shared, libsystemd0, udev,
+  packages:
+    qemu_system_x86: "1:10.2.1+ds-1ubuntu3.2"      # resolute-updates/main — the hypervisor
+    qemu_utils: "1:10.2.1+ds-1ubuntu3.2"           # resolute-updates/main — qemu-img; the revert primitive
+    libvirt_daemon_system: "12.0.0-1ubuntu5.2"     # resolute-updates/main — system libvirtd + `default` net
+    libvirt_clients: "12.0.0-1ubuntu5.2"           # resolute-updates/main — virsh
+    virtinst: "1:5.1.0-1"                          # resolute/UNIVERSE — the only universe member of the set
+    ovmf: "2025.11-3ubuntu7"                       # resolute/main — UEFI firmware. NOT EXERCISED: both
+    cloud_image_utils: "0.33-1build1"              # resolute/main — cloud-localds (built seed.img)
+    cpu_checker: "0.7-1.4build1"                   # resolute/main — kvm-ok
+  closure_count: 51
+  closure_installed:
+    - "genisoimage 9:1.1.11-5"
+    - "gir1.2-libosinfo-1.0 1.12.0-3build1"
+    - "ipxe-qemu 1.21.1+git-20250829.969ce2c55+dfsg-3ubuntu2"
+    - "libaio1t64 0.3.113-8build1"
+    - "libcacard0 1:2.8.1-2"
+    - "libdaxctl1 81-1ubuntu1"
+    - "libfdt1 1.7.2-2ubuntu1"
+    - "libmpathcmd0 0.14.3-2ubuntu1"
+    - "libmpathpersist0 0.14.3-2ubuntu1"
+    - "libmultipath0 0.14.3-2ubuntu1"
+    - "libndctl6 81-1ubuntu1"
+    - "libpmem1 1.13.1-1.1ubuntu4"
+    - "librdmacm1t64 61.0-2ubuntu3"
+    - "libslirp0 4.9.1-1ubuntu1.1"
+    - "libusbredirparser1t64 0.15.0-1build1"
+    - "libvirt-common 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-common 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-config-network 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-config-nwfilter 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-driver-network 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-driver-nodedev 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-driver-nwfilter 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-driver-qemu 12.0.0-1ubuntu5.2"      # the strict-equality edge; see baseline above
+    - "libvirt-daemon-driver-secret 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-driver-storage 12.0.0-1ubuntu5.2"
+    - "libvirt-daemon-log 12.0.0-1ubuntu5.2"
+    - "libvirt0 12.0.0-1ubuntu5.2"
+    - "libxml2-utils 2.15.2+dfsg-0.1ubuntu0.1"
+    - "mdevctl 1.4.0-1ubuntu3"
+    - "msr-tools 1.3+git20220805.7d78c80-1build1"         # x86 MSR read/write tooling. Not required by any
+    - "ovmf-amdsev 2025.11-3ubuntu7"
+    - "ovmf-generic 2025.11-3ubuntu7"
+    - "ovmf-inteltdx 2025.11-3ubuntu7"
+    - "python3-libvirt 12.0.0-1build1"
+    - "python3-libxml2 2.15.2+dfsg-0.1ubuntu0.1"
+    - "qemu-system-common 1:10.2.1+ds-1ubuntu3.2"
+    - "qemu-system-data 1:10.2.1+ds-1ubuntu3.2"
+    - "seabios 1.17.0-1ubuntu1"
+    - "systemd-container 259.5-0ubuntu3.4"                # benign ONLY because the stack matches its
+    - "ubuntu-helper-virt-hwe 1:10.2.1+ds-1ubuntu4.3"     # note: 1ubuntu4.3, NOT the 1ubuntu3.2 the rest of
+    - "ubuntu-virt 1:10.2.1+ds-1ubuntu3.2"
+    - "virt-install 1:5.1.0-1"
+  guest_base_image:
+    file: noble-server-cloudimg-amd64.img
+    url: "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img"
+    sha256: 0533b0655c32e68b31d792ecd6ccfca95abdbc536c4446874fe0513bd4140ffe   # verify on EVERY pull
+    size_bytes: 624239616
+    release: "Ubuntu 24.04 LTS (noble) cloud image"
+    upstream_last_modified: "2026-08-01T13:17:55Z"   # quoted: an unquoted timestamp resolves to a
+    format: "qcow2 v3, 3758096384 bytes virtual"
+    path: /var/lib/wrought/j0a/noble-server-cloudimg-amd64.img
+    gpg_signature: WAIVED-OPERATOR-RULING-2026-08-11
+    url_stability: MOVING-POINTER-UPSTREAM
+  guest_agent_surface:
+    name: goose
+    tag: "v1.46.0"                  # api.github.com/repos/aaif-goose/goose/releases/latest -> tag_name (raw/21)
+    published_at: "2026-08-12T16:05:13Z"   # same JSON -> published_at; prerelease=False, draft=False
+    upstream_repo: "github.com/aaif-goose/goose"   # successor org to block/goose
+    asset: goose-x86_64-unknown-linux-gnu.tar.bz2  # chosen from a 22-asset list; the plain gnu
+    url: "https://github.com/aaif-goose/goose/releases/download/v1.46.0/goose-x86_64-unknown-linux-gnu.tar.bz2"
+    asset_size_bytes: 84957951      # `ls -l` after `curl -fsSL -O` in-guest (raw/22)
+    asset_sha256: a1cf4856a765d07d6b95689a53c7bca21fcc6e6d65c0dfd064fc704052b85a7b   # `sha256sum <asset>` (raw/22)
+    installed_path: /usr/local/bin/goose           # IN THE GUEST ONLY. Never installed on the host.
+    installed_size_bytes: 306057864                # `ls -l /usr/local/bin/goose` (raw/22)
+    installed_sha256: 29b3340ef3d80fd146bf01f752667549c212a09cfd1035acd7ac16457a2e4a89  # `sha256sum /usr/local/bin/goose` (raw/22)
+    version_string: "1.46.0"        # `goose --version` -> " 1.46.0" (leading space is upstream's); `goose info` agrees
+    signature: NONE-PUBLISHED-UPSTREAM
+    scope: GUEST-ONLY
+models:
+  primary:
+    id: qwen3.6-27b-mtp
+    hf_repo: unsloth/Qwen3.6-27B-MTP-GGUF
+    hf_revision: 5cb35eb3dcbf52dbce5f87dbc64df6aaffadcace
+    quant: UD-Q4_K_XL
+    gguf_file: Qwen3.6-27B-UD-Q4_K_XL.gguf
+    gguf_path: /var/lib/wrought/models/Qwen3.6-27B-UD-Q4_K_XL.gguf
+    gguf_sha256: 4085665ee36d82a672a238a43f0e5643f2f0e39f2d7bd5d373f0ef10ecf53095   # ST-2: verify on EVERY pull; mismatch = compromise
+    gguf_size_bytes: 17909097600
+    architecture: qwen35              # [SPEC-R4.1]: loads under qwen35, NOT qwen36 — confirmed in HF metadata
+    context_length_native: 262144
+    licence: apache-2.0
+    downloaded: true                  # fetched 2026-08-02; sha256 VERIFIED against the pin above
+  fallback:
+    id: devstral-small-2-24b
+    hf_repo: lmstudio-community/Devstral-Small-2-24B-Instruct-2512-GGUF
+    hf_revision: e471f62bf546b027d9f23f679bcd1a295eabf403
+    quant: Q4_K_M
+    gguf_file: Devstral-Small-2-24B-Instruct-2512-Q4_K_M.gguf
+    gguf_path: /var/lib/wrought/models/Devstral-Small-2-24B-Instruct-2512-Q4_K_M.gguf
+    gguf_sha256: fd9c29aee820b5db745434d43329e8803a72fc27e4261b661df8309c16bcde8c   # ST-2
+    gguf_size_bytes: 14334437504      # MEASURED from the downloaded file. An earlier value here
+    architecture: mistral3            # dense 24B — structurally incapable of the GDN failure (SPEC-R4.2)
+    context_length_native: 393216
+    licence: apache-2.0               # per the repo tag AND the upstream base model
+    base_model: mistralai/Devstral-Small-2-24B-Instruct-2512
+    downloaded: true                  # fetched 2026-08-02; sha256 VERIFIED against the pin (ST-2)
+serving:                                           # measured values, referenced by /etc/wrought/*.env
+  dgpu_device_name: "AMD Radeon RX 7900 XTX (RADV NAVI31)"
+  dgpu_token_at_gate11: Vulkan0                    # RECORD ONLY — never used as config (CR-3)
+  dgpu_vram_free_idle_mib: 24513
+  host: 127.0.0.1                                  # loopback; D17 scope fix (J-32)
+  port: 8080
+  ggml_vk_allow_graphics_queue: 1                  # GATE-15 winner: the ONLY lever with a
+  power_profile_delta: "no measurable difference (both metrics inside the noise band)"
+  cold_load_median_s: 12.78                        # runs: 14.27 / 12.78 / 12.77. PASS (<60 s)
+  warm_load_s: 4.59                                # page cache intact
+  hmb_host_memory_buffer_mib: 128                  # "nvme0: allocated 128 MiB host memory buffer"
+  template_overhead_tokens: 10                     # §9.3 allocator. Chat template around a
+  ttft_curve:
+    - {prompt_tokens: 8001,  prompt_ms: 10436.4,  prefill_tok_s: 766.6}
+    - {prompt_tokens: 32001, prompt_ms: 48413.8,  prefill_tok_s: 661.0}
+    - {prompt_tokens: 64001, prompt_ms: 120599.7, prefill_tok_s: 530.7}
+  startup_timeout_s: 180                           # GATE-14. max(180, 3 x 12.78) = 180 —
+  unit_timeout_start_sec: 200                      # > startup_timeout_s so wait-healthy reports
+  swap_wall_clock_s: 5.30                          # GATE-14, D13 one-line swap primary->fallback
+  vram_residual_after_stop_mib: 0                  # GATE-14: 46 MiB idle -> 46 MiB after stop
+  ctx_size: 65536                                  # D5 — FINAL
+  reasoning_mode: "on"                             # llama-server `--reasoning on`
+  reasoning_budget: 24000                          # llama-server `--reasoning-budget 24000`
+  profile_qwen36:
+    alias: primary-qwen27b
+    n_gpu_layers: 99
+    flash_attn: "on"          # QUOTED -- J-86: bare `on` is a YAML-1.1 boolean, and this is a
+    cache_type_k: q8_0
+    cache_type_v: q8_0
+    batch_size: 2048
+    ubatch_size: 512
+    no_mmproj: true           # a bare flag, emitted with no value
+  profile_devstral:
+    alias: fallback-devstral24b
+    n_gpu_layers: 99
+    ctx_size: 65536
+    flash_attn: "on"
+    cache_type_k: q8_0
+    cache_type_v: q8_0
+    batch_size: 2048
+    ubatch_size: 512
+  reasoning_flag: "--reasoning"                    # VERIFIED present in the pinned build's --help:
+  reasoning_request_override: chat_template_kwargs.enable_thinking
+  mtp_promoted: false                              # FINAL for v1.0 — not "pending"
+  mtp_declined_reason: "greedy stream divergence (issue #23335); equivalence unmet"
+  mtp_measured_speedup_pct: 49.0                   # recorded so the trade-off is legible
+  spec_draft_n_max: DEFERRED-GATE-19               # ship default 2 (D7); sweep {2,4,6,8}
+  draft_acceptance_rate: DEFERRED-GATE-19
+  vram_total_at_ctx65536_gib: 18.27                # GATE-13 incidental, single sample
+  vram_at_ctx:                                     # ctx=65536, MTP-off (shipping)
+    kv: 2176.00           # MiB — matches §5.2's ~2.1-2.3 GiB expectation at q8_0
+    recurrent: 299.24     # MiB — CONFLICT C1, see below
+    compute: 561.14       # MiB
+    output: 1.90          # MiB
+    total: 18711          # MiB resident (ground truth, not a sum of components)
+    headroom: 5849        # MiB = 5.71 GiB. PASS bar is >= 1 GB; this is 5.7x the bar.
+  vram_at_ctx_mtp_on:                              # not shipping; GATE-19 declined promotion
+    kv: 2432.00
+    recurrent: 897.76
+    compute: 1221.26
+    total: 19657
+    headroom: 4903        # MiB = 4.78 GiB — still comfortably above the bar
+  conflict_c1: "RESOLVED — recurrent state scales x(1+n_rs_seq); measured ratio exactly 3.0000 at draft-n 2"
+escalation:
+  transport: openrouter                            # D19 -- amends R13.2 transport ONLY
+  api_base: https://openrouter.ai/api/v1
+  endpoint: /chat/completions
+  provider: anthropic                              # the UNDERLYING provider (D2), pinned per-request
+  provider_only: anthropic
+  allow_fallbacks: false                           # R13.2, enforced in the request body
+  credential_name: openrouter-api-key              # TPM2-sealed, /etc/credstore.encrypted (§14.4)
+  model_id_catalog: anthropic/claude-opus-5             # the catalog's callable id (undated)
+  model_id_canonical_slug: anthropic/claude-opus-5-20260723   # dated -- catalog metadata only
+  model_id_sent: anthropic/claude-opus-5-20260723   # what the client SENDS (dated, preferred)
+  model_id_accepted: anthropic/claude-opus-5-20260723     # sent and served, not 404'd
+  model_id_echoed: anthropic/claude-opus-5                # what the response called itself
+  served_backend_expected: Anthropic               # asserted per call; mismatch = GATE-40 red
+  served_quantization: UNOBTAINABLE                # all 7 endpoints report "unknown" (D19 dg-2)
+  second_provider_model_id: NOT-IMPLEMENTED-BY-DECISION  # GPT-5.6 Sol, D2 fallback-of-record only
+  weekly_cap_usd: 15
+  monthly_cap_usd: 40                              # D21; was 100 (D2 default)
+  monthly_cap_window: utc-calendar-month           # [YYYY-MM-01T00:00:00Z, next month 00:00:00Z)
+  weekly_cap_window: utc-iso-week                  # [Mon 00:00:00Z, next Mon 00:00:00Z)
+  provider_side_backstop: prepaid-credits-plus-per-key-limit
+  provider_side_key_limit_usd: 50            # /auth/key `limit` -- bounds THIS credential
+  provider_side_account_balance_usd: 26.17   # /credits -- binds FIRST; measured 2026-08-03
+  provider_side_backstop_usd: 26.17          # the EFFECTIVE ceiling = min(key limit, balance)
+  provider_side_auto_top_up: "off"
+  caching: off                                     # D9; revisit at ST-4. Enforced by sending no
+  reasoning_enabled: false                         # explicit, not inherited -- see GATE-40 evidence
+  reasoning_supported_efforts: [max, xhigh, high, medium, low]   # catalog, for the record
+  max_completion_tokens_ceiling: 128000            # top_provider.max_completion_tokens
+  context_length: 1000000                          # top_provider.context_length
+  price_snapshot_id: openrouter-anthropic-claude-opus-5-2026-08-02
+  price_input_usd_per_mtok: 5.00
+  price_output_usd_per_mtok: 25.00
+  price_cache_read_usd_per_mtok: 0.50
+  price_cache_write_5m_usd_per_mtok: 6.25
+  price_cache_write_1h_usd_per_mtok: 10.00
+  input_estimate_safety_factor: 1.3
+  input_token_estimator_chars_per_token: 3.0
+  connect_timeout_s: 10
+  ttft_timeout_s: 60                               # R13.6: 15 s is "tight-to-inadequate" for reasoning
+  total_generation_timeout_s: 300                  # THE load-bearing limit (R13.6), >150 s + margin
+  stream_stall_timeout_s: 90                       # R8.6 token-stream heartbeat: no delta for N s
+  breaker_failure_rate_pct: 50
+  breaker_window: 100
+  breaker_half_open_probes: 3
+  breaker_open_seconds: 60
+llama_cpp_cache_flags:
+  cache_reuse: present                  # --cache-reuse N (min chunk for KV-shift reuse; default 0)
+  slot_save_path: present               # --slot-save-path PATH (default: disabled)
+  cache_ram: present                    # -cram/--cache-ram N MiB (default 8192; -1 no limit; 0 disable)
+  no_context_reuse: absent              # NOT in this build's --help
+ppl_baselines_c65536:
+  q8_0_q8_0: 5.5288        # ship default
+  q8_0_f16: 5.5272
+  f16_f16: 5.5282
+  q4_0_q4_0: 5.5377        # deliberately-bad CONTROL, not a shipping option
+  shippable_spread: 0.0016 # PASS bar <= 0.01
+  recall_32k: EXACT
+  recall_64k: EXACT
+jobs:
+  oracle_root: /var/lib/wrought/oracle       # operator-ratified tests + manifest (D11), task-scoped
+  job_root: /var/lib/wrought/jobs            # per-attempt working tree
+  tests_dir: "{oracle_root}/{task_id}/tests"           # -> /work/tests   RO  (F-05)
+  manifest: "{oracle_root}/{task_id}/manifest.sha256"  # post-run re-hash, §10.3
+  src_dir: "{job_root}/{task_id}/{attempt}/src"        # -> /work/src     RO
+  out_dir: "{job_root}/{task_id}/{attempt}/out"        # -> /work/out     see §10.3
+  envelope: "{out_dir}/result.json"                    # THE classification primitive (§10.7)
+  attempt_is: repair_index                   # 0..3 (R8.5 cap); same 'attempt' as R8.2's idempotency key
+  task_id_charset: "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$" # enforced at InputValidation AND at path derivation
+  out_tmpfs_bytes: 1073741824                # 1 GiB = CR-9 RLIMIT_FSIZE
+  envelope_is_the_only_channel_out: true
+verification_slice:
+  unit: wrought-verify.slice
+  cgroup_path: /sys/fs/cgroup/wrought.slice/wrought-verify.slice   # systemd nests slices on '-'
+  memory_max: 16G                  # CR-9 [ASSUMPTION], applied+readback-verified
+  memory_high: 14G                 # CR-9
+  cpu_quota: 800%                  # CR-9 (readback: CPUQuotaPerSecUSec=8s)
+  gauntlet_pids_peak: 28
+  tasks_max_margin: 4              # judgement: fork-bomb defense wants LOW, legit fixtures want headroom
+  tasks_max: 112                   # = 28 x 4. Raise only if a LEGITIMATE fixture trips it; re-measure.
+  io_bandwidth_max: DEFERRED-HARDENING
+  rlimit_fsize: 1073741824         # CR-9 1G -- also the derivation for jobs.out_tmpfs_bytes
+  rlimit_nproc: 512                # CR-9
+  runtime_max_sec: 120
+  timeout_stop_sec: 10
+  verification_timeout_verdict: "Failed with result 'timeout'"   # what classify() reads post-hoc
+packs:
+  py:
+    path: /etc/wrought/packs/py.toml
+    generator: bin/gen-pack
+    sha256: 37d1c39c146a01782c43cd994a666afd8ead01c163db13f861873bdedad3edd9
+    superseded_2026_08_06: e951ebecbeabc5bc0f63baa89dc35ee68a5f6ce4cb613627db31df99554957db
+  security:
+    path: /etc/wrought/packs/security.toml
+    generator: bin/gen-pack --pack security
+    sha256: cb0421ff3e6c8f0e569750fa0edf59e82b42883ceb06028d6af8cef25989dc34
+    execution_context: gate29-bwrap-unshare-net-NOT-the-oracle-sandbox
+db_path: /var/lib/wrought/state/orchestrator.db
+db_schema_sha256: eb23c2ea4624772a207238226628cca9093f981556f57ca2c7176e3bb8f406f4
+queue:
+  visibility_timeout_s: 1920      # 2 x 960.0 s = 1920 s exactly. 32 min.
+  max_receive: 8                  # 2 x the 4 deliveries a healthy task consumes (one per R8.5
+  measured_on: baseline-b1b2-2026-08-06   # ten GATE-41 fixtures x2, reasoning ON, escalation LIVE
+  gate39_test_values: "visibility=2s, max_receive=4 -- gate-scoped, chosen so lease lapse is
+    exercised in seconds; NEVER production values"
+replay:
+  measured_on: synthetic-corpus-2026-08-02      # bin/build-replay-corpus; NOT the GATE-41 fixtures
+  basis_events: 964
+  basis_streams: 71
+  basis_events_per_stream: 13.58
+  basis_db_bytes: 512000
+  basis_max_events_in_one_stream: 24
+  full_rebuild_cold_ms: 5.6                     # page cache dropped first (post-restore is the cold case)
+  full_rebuild_warm_ms: 1.9
+  full_rebuild_cold_ms_rerun: 6.0
+  full_rebuild_cold_ms_rerun2: 4.4
+  per_event_us_cold: 5.81                       # 5.6 ms / 964 events. THE basis snapshot_trigger uses.
+  per_event_us_warm: 1.97                       # 1.9 ms / 964 events.
+  per_event_us: 2.0                             # 2.1 on the third sample
+  per_event_us_BASIS: warm                      # <- the correction. Was unlabelled and read as cold.
+  headroom_events_at_1s_STATUS: "SUSPECT-WARM-BASIS -- re-pin at R2 step 2 from the SOAK-2A cold curve"
+  worst_per_stream_ms: 0.070
+  snapshot_trigger: "full-projection rebuild > 1 s cold"
+  headroom_events_at_1s: 494379                 # SUPERSEDED -- see replay_measured_2026_08_03 below.
+replay_measured_2026_08_03:
+  harness: bin/soak-harness            # SOAK-2A, chaos OFF, bulk-only, fresh store
+  checkpointing_state: "wal_autocheckpoint=1000 (D22 INTERIM) -- LIVE throughout"
+  event_counts: [10000, 50000, 100000, 250000, 500000]
+  streams_at_max: 25000
+  events_per_stream: 20
+  store_bytes_at_max: 247433920        # 494.9 B/event; -wal held flat at ~5.5 MB by D22
+  page_cache_dropped: true             # every rung; cold means cold
+  per_event_us_cold: 2.283             # least-squares slope over the five rungs
+  fit_intercept_ms: 1.483
+  fit_r_squared: 0.999991              # LINEAR, and now measured rather than assumed
+  headroom_events_at_1s: 437338        # (1000 ms - intercept) / slope. THE capacity figure.
+  revisit_trigger: "2x the measured corpus (1,000,000 events), or any events-table schema change"
+  caveat: "synthetic payloads, one process, no concurrent writer. Still a FLOOR, as §8.3 says."
+canon_version: canon_v2                            # F-12/F-28
+canon_v2_vectors:
+  path: fixtures/canon-v2-vectors.json
+  generator: bin/gen-canon-vectors
+  sha256: 14a3651151bed9c7e3056ced362db07f9fc4ec37f1843a71c47e34b15873ffc2
+  base_document_digest: 90af3bae5ec30ddf6102e0b16d0f7e939af5fc5ee2529fe5d6d9f78cca76ac20
+verifier_module_sha256: 32a83fafb891f3da7c48121020d69493a79a1a5b5d6da0c3e52ed8099e658425          # sha256 over the deployed wrought_verifier/*.py
+oracle_decision_code:
+  bin/verify-job: 67bc36a5039ea26e9acb297aea98901fc8cd0d3b3de8187e020eee551a9ba275
+  src/wrought_supervisor/classify.py: a6b5991da7a9c572297a28614607d60fd3e71bb00c7649f6aa18de46fa021a0b
+  src/wrought_supervisor/oracle.py: bc7e8b95b934a4d87425cb260b31ef699ab9f087788c3b630369fc766b152601
+verifier_module_superseded_2026_08_06: d78d54e16865b0b6e69ee6dfb19a9823490fa3d5c14982b911bf8df3c456658b
+verifier_module_source: src/wrought_verifier/
+seccomp_bpf_sha256: 879ff99cff036093923a3f7db6558280d5388e0c32d8a01acdbde59433afba12
+seccomp_bpf_path: /etc/wrought/seccomp-deny.bpf
+seccomp_bpf_builder: bin/build-seccomp-deny.c        # libseccomp 2.6.0-2ubuntu5
+serving_profiles_sha256:
+  qwen36: 16b51a430a470afb97452163c0f0ef302ca20532b97a78efb582f742b3e75273        # GENERATED
+  qwen36-mtp: REMOVED-2026-08-06-pins-defers-its-values   # was 26eaa525...f6c064ef (hand-maintained);
+  devstral: 59ed75570219d4cc7b57c0088d98542fd574805ff5f5de5d264aed92417b9eff   # GENERATED (was 5ad17815, hand-maintained at GATE-12; argv unchanged)
+gate44:
+  held_out_split:
+    rule: >-
+      k = max(1, ceil(n_fail_to_pass / 3)); hold out the LAST k fail_to_pass entries in
+      TASK.md frontmatter DECLARATION ORDER. Fixtures and tests are NOT edited -- only the
+      repair-feedback surface is filtered. The oracle and the final grade use the FULL suite.
+    generator: bin/gate44-split
+    split_sha256: a468831d10df7fe199dd24eaae60299d8c8d712785c27e37d6b5c5efe507e697
+    totals: {"fail_to_pass": 64, "fixtures": 10, "held_out": 25, "pass_to_pass": 10, "undeclared_collected": 3, "visible_fail_to_pass": 39}
+    fixtures:
+      - fixture: TASK-2026-0804-01-subnet
+        spec_sha256: 2927bfb0aed77503d14d61954e7a4bc4e0a23a5a8b0d9a1d86114c5139771abb
+        n_fail_to_pass: 5
+        k_held_out: 2
+        held_out: ["test_malformed_raises", "test_result_is_plain_dict"]
+        visible_fail_to_pass: ["test_basic_slash27", "test_slash31_rfc3021", "test_slash32_host_route"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: []
+      - fixture: TASK-2026-0804-02-cronnext
+        spec_sha256: 4b20711b54aa9a2c43d80205bd2e10ee344dbe11979087859e7af59937dccb4c
+        n_fail_to_pass: 7
+        k_held_out: 3
+        held_out: ["test_dom_dow_restricted_single", "test_invalid_rejected", "test_start_exclusive_deterministic"]
+        visible_fail_to_pass: ["test_simple_hourly", "test_steps_ranges_lists", "test_names_case_insensitive", "test_dom_dow_union"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: []
+      - fixture: TASK-2026-0804-03-ratelimit
+        spec_sha256: a6504e62d21a13410a9f1fc21df3266ca155c3105f0870159de6e4052d773c25
+        n_fail_to_pass: 7
+        k_held_out: 3
+        held_out: ["test_property_grant_bound", "test_validation", "test_injected_clock_only"]
+        visible_fail_to_pass: ["test_burst_then_refill", "test_per_key_isolation", "test_lru_eviction_bound", "test_thread_safety_no_overgrant"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: []
+      - fixture: TASK-2026-0804-04-syslog
+        spec_sha256: 1018745f74e24cefbd2009eb0a14f173d5ddbc31881f5bae8d26479c43b32930
+        n_fail_to_pass: 6
+        k_held_out: 2
+        held_out: ["test_malformed_raises", "test_plain_dict"]
+        visible_fail_to_pass: ["test_full_line", "test_missing_pri", "test_tag_without_pid", "test_msg_contains_bracket_colon"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: ["test_throughput_no_pathology"]
+      - fixture: TASK-2026-0804-05-logrotate
+        spec_sha256: a2df5ba8c9af8f4cd849716e4fb08d1c2b904f7addc83c0988045552fb889cae
+        n_fail_to_pass: 6
+        k_held_out: 2
+        held_out: ["test_no_rotation_no_deletes", "test_policy_validation"]
+        visible_fail_to_pass: ["test_size_trigger", "test_time_trigger_daily_weekly", "test_delete_list_shift", "test_compress_naming"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: []
+      - fixture: TASK-2026-0804-06-nftdiff
+        spec_sha256: 6206bd67a289ebef7d78795aa8d21c547b5452b5461f56ec6a3c36027961a66d
+        n_fail_to_pass: 7
+        k_held_out: 3
+        held_out: ["test_multiset_duplicates", "test_chain_policy_change", "test_metainfo_ignored"]
+        visible_fail_to_pass: ["test_identical_rulesets_empty_diff", "test_handles_are_noise", "test_order_insensitive_within_chain", "test_added_removed_rules"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: []
+      - fixture: TASK-2026-0804-07-dhcpleases
+        spec_sha256: 6075762ba75d433e3b2b2e0d650e859e6fdb1ac60b5977109dc381026485e9a6
+        n_fail_to_pass: 5
+        k_held_out: 2
+        held_out: ["test_malformed_block_skipped_with_warning", "test_report_counts"]
+        visible_fail_to_pass: ["test_parse_basic_block", "test_classification", "test_duplicate_ip_latest_wins"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: ["test_infinite_lease_never_expires"]
+      - fixture: TASK-2026-0804-08-akaudit
+        spec_sha256: e014aee28e025f4aef7096bfb8de58259c72198d30cf00c00530dd9b378678c7
+        n_fail_to_pass: 6
+        k_held_out: 2
+        held_out: ["test_duplicate_keys", "test_malformed_line_finding"]
+        visible_fail_to_pass: ["test_parse_plain_and_options", "test_quoted_option_commas", "test_weak_key_findings", "test_command_without_restrict"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: []
+      - fixture: TASK-2026-0804-09-zonefile
+        spec_sha256: 1776b7c5c40f20a12f56739417a680ba52b1d9136b1df40c76b0fded4187955e
+        n_fail_to_pass: 8
+        k_held_out: 3
+        held_out: ["test_cname_and_other_data_error", "test_mx_ns_to_cname_warning", "test_unknown_type_rejected"]
+        visible_fail_to_pass: ["test_basic_records_and_origin", "test_ttl_default_and_explicit", "test_soa_parens_multiline", "test_owner_inheritance", "test_at_and_absolute_names"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: []
+      - fixture: TASK-2026-0804-10-ipalloc
+        spec_sha256: 9188026e81ef0d49bd356b586a8d2e748f201351ec56b101c2d5536934b02766
+        n_fail_to_pass: 7
+        k_held_out: 3
+        held_out: ["test_exhaustion", "test_roundtrip_serialization", "test_property_never_double_allocated"]
+        visible_fail_to_pass: ["test_smallest_first_deterministic", "test_network_broadcast_excluded", "test_specific_and_double_allocation", "test_release_and_reuse"]
+        pass_to_pass: ["test_module_surface"]
+        undeclared_collected: ["test_large_pool_constructs_instantly"]
+```

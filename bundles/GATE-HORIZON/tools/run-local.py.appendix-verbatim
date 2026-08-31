@@ -1,0 +1,68 @@
+#!/usr/bin/env python3
+"""Drive the RESIDENT local model (127.0.0.1:8080, OpenAI-compatible) — shared, never restarted.
+Auth: key read from the path in env LOCAL_KEY_FILE (header only); if unset, sent with no auth.
+Modes:
+  run-local.py summarize <file-list.txt> <outdir>   one grounded summary per listed path
+  run-local.py ask <packet.txt> <ask.txt> <outfile> one call over packet+ask (baseline panelist)
+"""
+import json, os, sys, urllib.request, urllib.error
+
+URL = os.environ.get("LOCAL_URL", "http://127.0.0.1:8080/v1/chat/completions")
+MODEL = os.environ.get("LOCAL_MODEL", "primary-qwen27b")
+
+def key_header():
+    p = os.environ.get("LOCAL_KEY_FILE")
+    if p and os.path.exists(p):
+        return {"Authorization": "Bearer " + open(p).read().strip()}
+    return {}
+
+def call(messages, max_tokens):
+    body = {"model": MODEL, "stream": False, "max_tokens": max_tokens, "messages": messages}
+    hdr = {"Content-Type": "application/json"}; hdr.update(key_header())
+    req = urllib.request.Request(URL, data=json.dumps(body).encode(), headers=hdr)
+    with urllib.request.urlopen(req, timeout=1800) as resp:
+        r = json.load(resp)
+    return r["choices"][0]["message"]["content"] or ""
+
+def summarize(list_f, outdir):
+    os.makedirs(outdir, exist_ok=True)
+    paths = [l.strip() for l in open(list_f) if l.strip()]
+    sysmsg = ("You summarize one source file. Output 3-6 lines: purpose; key functions or classes "
+              "BY EXACT NAME as they appear; direct imports/dependencies; any obvious risk. "
+              "Cite only names that literally appear in the file. No preamble.")
+    done = 0
+    for path in paths:
+        if not os.path.exists(path): continue
+        src = open(path, encoding="utf-8", errors="replace").read()
+        if len(src) > 48000: src = src[:48000] + "\n...[truncated]"
+        try:
+            out = call([{"role": "system", "content": sysmsg},
+                        {"role": "user", "content": f"FILE: {path}\n\n{src}"}], 512)
+        except Exception as e:
+            out = f"ERROR summarizing: {e}"
+        safe = path.replace("/", "__")
+        open(os.path.join(outdir, safe + ".md"), "w", encoding="utf-8").write(f"# {path}\n{out}\n")
+        done += 1
+    print(f"summarized {done}/{len(paths)} files -> {outdir}")
+
+def ask(packet_f, ask_f, outfile):
+    packet = open(packet_f, encoding="utf-8").read()
+    q = open(ask_f, encoding="utf-8").read()
+    sysmsg = ("You are a staff-level software architect doing a gap analysis and roadmap. "
+              "Answer every lettered part concretely.")
+    try:
+        out = call([{"role": "system", "content": sysmsg},
+                    {"role": "user", "content": packet + "\n\n" + q}], 8000)
+    except Exception as e:
+        out = f"ERROR: {e}"
+    open(outfile, "w", encoding="utf-8").write(out)
+    print(f"baseline -> {outfile} ({len(out)} chars)")
+
+def main():
+    if len(sys.argv) < 2: sys.exit(__doc__)
+    if sys.argv[1] == "summarize": summarize(sys.argv[2], sys.argv[3])
+    elif sys.argv[1] == "ask": ask(sys.argv[2], sys.argv[3], sys.argv[4])
+    else: sys.exit(__doc__)
+
+if __name__ == "__main__":
+    main()

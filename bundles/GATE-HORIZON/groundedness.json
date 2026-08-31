@@ -1,0 +1,177 @@
+{
+  "threshold": 0.6,
+  "min_cited": 2,
+  "counts": {
+    "UNCHECKABLE": 2,
+    "RELIABLE": 15
+  },
+  "results": [
+    {
+      "summary": "bin__assert-power-profile.md",
+      "source": "bin/assert-power-profile",
+      "verdict": "UNCHECKABLE",
+      "cited": 1,
+      "reason": "cites fewer than 2 checkable names; ratio would be noise"
+    },
+    {
+      "summary": "bin__baseline-report.md",
+      "source": "bin/baseline-report",
+      "verdict": "RELIABLE",
+      "cited": 8,
+      "grounded": 8,
+      "ratio": 1.0,
+      "invented": []
+    },
+    {
+      "summary": "bin__baseline-run.md",
+      "source": "bin/baseline-run",
+      "verdict": "RELIABLE",
+      "cited": 11,
+      "grounded": 11,
+      "ratio": 1.0,
+      "invented": []
+    },
+    {
+      "summary": "bin__build-replay-corpus.md",
+      "source": "bin/build-replay-corpus",
+      "verdict": "RELIABLE",
+      "cited": 15,
+      "grounded": 12,
+      "ratio": 0.8,
+      "invented": [
+        "orchestrate",
+        "workflow",
+        "CLI"
+      ]
+    },
+    {
+      "summary": "bin__decompose-baseline.md",
+      "source": "bin/decompose-baseline",
+      "verdict": "RELIABLE",
+      "cited": 3,
+      "grounded": 3,
+      "ratio": 1.0,
+      "invented": []
+    },
+    {
+      "summary": "bin__deploy-verifier.md",
+      "source": "bin/deploy-verifier",
+      "verdict": "RELIABLE",
+      "cited": 2,
+      "grounded": 2,
+      "ratio": 1.0,
+      "invented": []
+    },
+    {
+      "summary": "bin__escalate-once.md",
+      "source": "bin/escalate-once",
+      "verdict": "RELIABLE",
+      "cited": 6,
+      "grounded": 6,
+      "ratio": 1.0,
+      "invented": []
+    },
+    {
+      "summary": "bin__escalation-config-assert.md",
+      "source": "bin/escalation-config-assert",
+      "verdict": "UNCHECKABLE",
+      "cited": 1,
+      "reason": "cites fewer than 2 checkable names; ratio would be noise"
+    },
+    {
+      "summary": "bin__gate05-postboot-collect.md",
+      "source": "bin/gate05-postboot-collect",
+      "verdict": "RELIABLE",
+      "cited": 3,
+      "grounded": 3,
+      "ratio": 1.0,
+      "invented": []
+    },
+    {
+      "summary": "bin__gate06-reverify.md",
+      "source": "bin/gate06-reverify",
+      "verdict": "RELIABLE",
+      "cited": 8,
+      "grounded": 6,
+      "ratio": 0.75,
+      "invented": [
+        "shell",
+        "executes"
+      ]
+    },
+    {
+      "summary": "bin__gate09b-10b-orch-freeze.md",
+      "source": "bin/gate09b-10b-orch-freeze",
+      "verdict": "RELIABLE",
+      "cited": 5,
+      "grounded": 5,
+      "ratio": 1.0,
+      "invented": []
+    },
+    {
+      "summary": "bin__gate12-devstral-ctx.md",
+      "source": "bin/gate12-devstral-ctx",
+      "verdict": "RELIABLE",
+      "cited": 14,
+      "grounded": 10,
+      "ratio": 0.714,
+      "invented": [
+        "standalone",
+        "Bash",
+        "relying",
+        "variables"
+      ]
+    },
+    {
+      "summary": "bin__gate13-measure.md",
+      "source": "bin/gate13-measure",
+      "verdict": "RELIABLE",
+      "cited": 16,
+      "grounded": 11,
+      "ratio": 0.688,
+      "invented": [
+        "manage",
+        "lifecycle",
+        "explicit",
+        "tracking",
+        "endpoint"
+      ]
+    },
+    {
+      "summary": "bin__gate14-swap.md",
+      "source": "bin/gate14-swap",
+      "verdict": "RELIABLE",
+      "cited": 17,
+      "grounded": 17,
+      "ratio": 1.0,
+      "invented": []
+    },
+    {
+      "summary": "bin__gate15-bench-matrix.md",
+      "source": "bin/gate15-bench-matrix",
+      "verdict": "RELIABLE",
+      "cited": 2,
+      "grounded": 2,
+      "ratio": 1.0,
+      "invented": []
+    },
+    {
+      "summary": "bin__gate16-fresh.md",
+      "source": "bin/gate16-fresh",
+      "verdict": "RELIABLE",
+      "cited": 12,
+      "grounded": 12,
+      "ratio": 1.0,
+      "invented": []
+    },
+    {
+      "summary": "bin__gate17-ordinal-sweep.md",
+      "source": "bin/gate17-ordinal-sweep",
+      "verdict": "RELIABLE",
+      "cited": 8,
+      "grounded": 8,
+      "ratio": 1.0,
+      "invented": []
+    }
+  ]
+}
