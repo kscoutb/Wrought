@@ -64,9 +64,14 @@ Where they diverged, the divergence is preserved rather than averaged.
     because if local escalation is high the local-first thesis itself changes shape — and Face B
     has a working compensating control in the meantime.
   - **This is a real fork and the advisor should rule on it rather than split the difference.**
-    The disagreement is about sequencing under uncertainty, and both readings are defensible from
-    the same packet. z-ai's argument is the sharper one: **Face B is contained today; the
-    escalation rate is not even measured**, and it is the project's own declared governing metric.
+    The disagreement is about sequencing under uncertainty, and **both readings are defensible from
+    the same packet.** The strongest form of each, stated so neither is strawmanned: *close the
+    oracle first*, because a forgeable verdict makes every downstream measurement untrustworthy
+    including the escalation rate itself; versus *measure first*, because Face B has a working
+    compensating control today while the governing metric has no measurement at all, and a
+    local-first thesis that turns out to escalate constantly changes the shape of everything after
+    it. **This gate does not rule and has no standing to** — §6 says so and this bullet does not
+    quietly take it back.
 
 ### 1.2 Media generation and editing
 
