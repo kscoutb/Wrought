@@ -61,10 +61,15 @@ Distinct, single-source:
    is imported from the working tree and covered by no pin or freeze, unlike the seccomp BPF and the
    deployed in-sandbox verifier.
 
-**Three of four attack our proposed remediation, not just our findings** (openai §2.1/§2.2,
-z-ai R1/R2): that §7 item 1's `--ro-bind` half is *unimplementable as written* because it breaks
-the pipeline's only output channel, and that structural envelope validation does not close the
-oracle. That is the half of the ask we thought we had lost — see below.
+**All four attack our proposed remediation, not just our findings.** Every panelist answered the
+§7 question and none endorsed the order as written: google (§4 — "fixing only §4.1 is
+insufficient"), openai (§2.1 — "the proposed top fix is not executable as written"; §2.2 —
+structural envelope validation "does not close the oracle"), deepseek (§4 — §7 "does not know about
+the largest reviewed-out gap"), z-ai (R1 — item 1 "unimplementable as written", because the
+`--ro-bind` half breaks the pipeline's only output channel; R2 — item 3's second half does not
+close §4.3). **Two independently call item 1 unimplementable as written**, and z-ai states its F1
+attack survives item 1 *and* the second half of item 3. That is the half of the ask we thought we
+had lost for want of a fix to send — see below.
 
 **One direct conflict between lineages, for adjudication:** google **refutes** §4.6 lead 2 ("tasks
 never rest in REPAIRING/ESCALATING; the transitions are synchronous"); z-ai **proves it from
