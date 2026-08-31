@@ -1,0 +1,158 @@
+{
+  "ceiling_usd": 12.0,
+  "total_spend_usd": 8.8181,
+  "results": [
+    {
+      "lineage": "google",
+      "slug": "google/gemini-3.1-pro-preview",
+      "zdr_prechecked": true,
+      "precall_cost_bound_usd": 1.0685,
+      "cost_source": "usage.cost returned by OpenRouter",
+      "status": "OK",
+      "elapsed_s": 264.5,
+      "provider": "Google",
+      "generation_id": "gen-1788142691-mfCTRIvXdnzB5Cm7Z7oJ",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 178718,
+        "completion_tokens": 25991,
+        "total_tokens": 204709,
+        "cost": 0.669328,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.669328,
+          "upstream_inference_prompt_cost": 0.357436,
+          "upstream_inference_completions_cost": 0.311892
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 24234,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "cost_usd": 0.6693,
+      "cumulative_usd": 0.6693,
+      "response_chars": 6992
+    },
+    {
+      "lineage": "openai",
+      "slug": "openai/gpt-5.6-sol-pro",
+      "zdr_prechecked": true,
+      "precall_cost_bound_usd": 0.9405,
+      "cost_source": "usage.cost returned by OpenRouter",
+      "status": "OK",
+      "elapsed_s": 471.0,
+      "provider": "Azure",
+      "generation_id": "gen-1788142955-04iJMrPB9JBGdPZvlUzj",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 708638,
+        "completion_tokens": 69793,
+        "total_tokens": 778431,
+        "cost": 7.350089,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 319664,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 7.350089,
+          "upstream_inference_prompt_cost": 4.209404,
+          "upstream_inference_completions_cost": 3.140685
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 57048,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "cost_usd": 7.3501,
+      "cumulative_usd": 8.0194,
+      "response_chars": 17112
+    },
+    {
+      "lineage": "deepseek",
+      "slug": "deepseek/deepseek-v4-pro-0813",
+      "zdr_prechecked": true,
+      "precall_cost_bound_usd": 0.4518,
+      "cost_source": "usage.cost returned by OpenRouter",
+      "status": "OK",
+      "elapsed_s": 1429.4,
+      "provider": "Novita",
+      "generation_id": "gen-1788143426-oEg2tkmA0tvs8C52d3h0",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 166804,
+        "completion_tokens": 47949,
+        "total_tokens": 214753,
+        "cost": 0.41005932,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.41005932,
+          "upstream_inference_prompt_cost": 0.22018128,
+          "upstream_inference_completions_cost": 0.18987804
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 45181,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "cost_usd": 0.4101,
+      "cumulative_usd": 8.4295,
+      "response_chars": 10300
+    },
+    {
+      "lineage": "z-ai",
+      "slug": "z-ai/glm-5.3",
+      "zdr_prechecked": true,
+      "precall_cost_bound_usd": 0.4919,
+      "cost_source": "usage.cost returned by OpenRouter",
+      "status": "OK",
+      "elapsed_s": 383.2,
+      "provider": "Modal",
+      "generation_id": "gen-1788144856-kFV8i2sOr1Vl23ny4s14",
+      "finish_reason": "stop",
+      "usage": {
+        "prompt_tokens": 159990,
+        "completion_tokens": 37410,
+        "total_tokens": 197400,
+        "cost": 0.38859,
+        "is_byok": false,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 0,
+          "audio_tokens": 0,
+          "video_tokens": 0
+        },
+        "cost_details": {
+          "upstream_inference_cost": 0.38859,
+          "upstream_inference_prompt_cost": 0.223986,
+          "upstream_inference_completions_cost": 0.164604
+        },
+        "completion_tokens_details": {
+          "reasoning_tokens": 33823,
+          "image_tokens": 0,
+          "audio_tokens": 0
+        }
+      },
+      "cost_usd": 0.3886,
+      "cumulative_usd": 8.8181,
+      "response_chars": 22153
+    }
+  ]
+}
