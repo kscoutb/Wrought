@@ -1,0 +1,89 @@
+# GATE-BUILD-01 raw/32 — THE FINAL CHECK FAILED, AND THAT IS THE POINT OF HAVING IT
+# captured: 2026-09-01T02:25:35Z
+#
+# raw/31 ran bin/test-wrought-scope and it PASSED. Then this session appended a
+# correction-by-addition to docs/GATE-JOURNAL.md and BUILD-JOURNAL.md and committed.
+# docs/GATE-JOURNAL.md IS INDEXED. A final re-run before declaring done therefore failed:
+#
+#     D. SYNC — the index describes the tree it claims to
+#       FAIL  1 indexed with a stale hash: ['docs/GATE-JOURNAL.md']
+#
+# THIS IS THE TRAP THIS GATE DOCUMENTED IN ITS OWN REPORT ONE HOUR EARLIER -- 'a gate that
+# ships a tool which validates the repository has to leave the repository valid' -- and then
+# walked into anyway, by editing an indexed file after the last rebuild. Knowing the rule is
+# not the same as having it in the fingers; rails 15 says exactly that about a different rule.
+#
+# IT IS ALSO THE DELIVERABLE'S OWN HALF-LIFE, demonstrated a second time in one session, and
+# it is already a KNOWN-OPEN line: the index is DERIVED, any commit touching bin/ src/ docs/
+# stales it, NOTHING REBUILDS IT AUTOMATICALLY, and this gate added no hook. The tool DETECTS
+# the staleness -- twice now, once through the manufactured module and once through its own
+# arm D -- and PREVENTS it never.
+#
+# ONE MORE THING WORTH RECORDING: the failing run printed 'EXIT=0'. The test's own exit code
+index -> /home/kalib/review-rc1/index/scope-index.json  (1,812,400 B)
+  156 files, 2,259,084 tree bytes, 624,093 MEASURED tokens
+
+## re-run, and this time nothing is edited afterwards
+## command: sudo -n cat <key> | ./bin/test-wrought-scope --key-stdin --require-all
+A. RETRIEVAL — 23 queries, uniform cap 25 of 156 files
+  ok    'oracle verdict logic'                               25 files, 159,542 tok (25.6% of tree), worst must-include rank 22
+  ok    'courier transport rules'                            25 files, 146,920 tok (23.5% of tree), worst must-include rank 2
+  ok    'runner containment'                                 25 files, 172,423 tok (27.6% of tree), worst must-include rank 3
+  ok    'escalation budget ledger'                           25 files, 150,663 tok (24.1% of tree), worst must-include rank 3
+  ok    'secret scan before commit'                          21 files, 148,251 tok (23.8% of tree), worst must-include rank 1
+  ok    'repair loop cap and state transitions'              25 files, 124,833 tok (20.0% of tree), worst must-include rank 3
+  ok    'verification pack generation'                       25 files, 141,786 tok (22.7% of tree), worst must-include rank 9
+  ok    'event store transaction'                            25 files, 111,257 tok (17.8% of tree), worst must-include rank 1
+  ok    'redact prompts before persistence'                  13 files,  72,015 tok (11.5% of tree), worst must-include rank 1
+  ok    'sandbox seccomp filter'                             25 files, 124,457 tok (19.9% of tree), worst must-include rank 2
+  ok    'byte freeze the orchestrator store'                 25 files, 188,082 tok (30.1% of tree), worst must-include rank 4
+  ok    'device selection by name not index'                 25 files, 104,788 tok (16.8% of tree), worst must-include rank 3
+  ok    'held out split for gate 44'                         25 files, 126,175 tok (20.2% of tree), worst must-include rank 2
+  ok    'vram measurement on the dgpu'                       25 files, 102,815 tok (16.5% of tree), worst must-include rank 1
+  ok    'chaos injection and recovery'                       15 files,  58,523 tok ( 9.4% of tree), worst must-include rank 3
+  ok    'replay corpus build'                                25 files, 112,833 tok (18.1% of tree), worst must-include rank 3
+  ok    'power profile assertion'                            18 files,  53,947 tok ( 8.6% of tree), worst must-include rank 2
+  ok    'offline wheel install and supply chain'             25 files, 114,718 tok (18.4% of tree), worst must-include rank 5
+  ok    'task spec canonical hash'                           25 files, 123,419 tok (19.8% of tree), worst must-include rank 9
+  ok    'routing to human review'                            25 files, 125,584 tok (20.1% of tree), worst must-include rank 2
+  ok    'long context correctness probe'                     25 files, 127,587 tok (20.4% of tree), worst must-include rank 1
+  ok    'prometheus node metrics exporter'                   14 files,  55,594 tok ( 8.9% of tree), worst must-include rank 1
+  ok    'input validation of task frontmatter'               18 files,  88,578 tok (14.2% of tree), worst must-include rank 1
+  AT THE TEST CAP (25):     22.8 files avg (14.6% of 156), 118,904 tok avg (19.1% of 624,093)
+  AT THE DEFAULT (12):      12.0 files avg (7.7% of 156), 66,356 tok avg (10.6% of 624,093)
+  LOAD REDUCTION at the default, over 23 queries: 13.0x fewer files, 9.4x fewer tokens
+  must-include files inside the DEFAULT cap of 12: 33/34
+  ok    average scope is far below the whole tree (19.1% of tokens, threshold 25%)
+
+B. SYMBOL — 12 lookups
+  ok    next_state             -> src/wrought_orchestrator/fsm.py
+  ok    guard_ok               -> src/wrought_orchestrator/fsm.py
+  ok    reachable_states       -> src/wrought_orchestrator/fsm.py
+  ok    append_and_project     -> src/wrought_orchestrator/store.py
+  ok    process_one            -> src/wrought_orchestrator/worker.py
+  ok    job_dir                -> src/wrought_supervisor/oracle.py
+  ok    oracle_verdict         -> src/wrought_supervisor/oracle.py
+  ok    verdict_for            -> src/wrought_supervisor/oracle.py  (also 1 other definer(s))
+  ok    classify               -> src/wrought_supervisor/classify.py  (also 1 other definer(s))
+  ok    authority              -> src/wrought_escalation/ledger.py
+  ok    make_ephemeral_home    -> bin/wrought-runner
+  ok    decide                 -> bin/wrought-runner-hook
+
+C. STABILITY — two rebuilds must produce a byte-identical index
+  ok    two rebuilds byte-identical  sha256 fc7269603c4ef309…
+  ok    the committed index matches a fresh rebuild
+  ok    same file set for 'oracle verdict logic' across the rebuild (25 files)
+
+D. SYNC — the index describes the tree it claims to
+  ok    0 tracked but not indexed
+  ok    0 indexed but absent from the tree
+  ok    0 indexed with a stale hash
+
+E. SEED — identical answers under different PYTHONHASHSEED values
+  ok    'oracle verdict logic'                               identical across 4 seeds  f1354676e27058b7…
+  ok    'courier transport rules'                            identical across 4 seeds  e614c36c575a4902…
+  ok    'runner containment'                                 identical across 4 seeds  978f3f54a702131c…
+  ok    'escalation budget ledger'                           identical across 4 seeds  08db694c43ba0e85…
+
+wrought-scope: PASS
+   the TEST's own exit code, read from the test and not from a pipeline tail: 0

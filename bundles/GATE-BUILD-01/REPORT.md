@@ -6,13 +6,14 @@
 **The deliverable is `bin/wrought-scope`**, and the number it exists to produce is this:
 
 > Over 23 committed fixture queries, at the tool's own default cap, a session loads **12.0 files of
-> 156** and **66,329 tokens of 623,884** — **13.0× fewer files and 9.4× fewer tokens** than reading
+> 156** and **66,356 tokens of 624,093** — **13.0× fewer files and 9.4× fewer tokens** than reading
 > the indexed tree. Every token count is **measured** by the served `/tokenize` endpoint, never
 > estimated.
 
 **TWO READINGS OF THAT NUMBER EXIST AND BOTH ARE KEPT, because the tree moved underneath it.** The
 figure above is the tree **as shipped** (`raw/31`), after wind-down committed `bin/wrought-scope`,
-`bin/test-wrought-scope` and the edited state docs — 156 indexed files, 623,884 measured tokens.
+`bin/test-wrought-scope` and the edited state docs — 156 indexed files, 624,093 measured tokens
+(`raw/32`, the final rebuild after §4.5's failure).
 Phase 2 measured **12.8× / 9.3×** on the tree as it stood then (`raw/13`), 154 files and 604,102
 tokens. **Neither supersedes the other and neither was edited to match**; each has its own raw
 capture with the command that produced it, which is J-95's whole point. The difference is that the
@@ -250,6 +251,37 @@ Corrected **by addition**, never edited out (rails §4):
    Redone by resolving `/proc/<pid>/exe`, the identity match rails §13's reaper was rewritten to use.
 
 ---
+
+## 4.5 THE LAST CHECK BEFORE DECLARING DONE FAILED, AND KEEPING IT IS THE POINT
+
+`raw/31` ran `bin/test-wrought-scope` after the wind-down rebuild and it **passed**. This session
+then appended a correction-by-addition to `docs/GATE-JOURNAL.md` and `BUILD-JOURNAL.md` — recording
+that the headline number had moved — and committed. **`docs/GATE-JOURNAL.md` is indexed.** A final
+re-run before declaring the gate done therefore failed:
+
+    D. SYNC — the index describes the tree it claims to
+      FAIL  1 indexed with a stale hash: ['docs/GATE-JOURNAL.md']
+
+**This is the exact trap §1 of this report describes, in the sentence *"a gate that ships a tool
+which validates the repository has to leave the repository valid"*, written about an hour before it
+was sprung.** The rule was known, written down, and sequenced for — and then broken by one more
+honest edit made after the last rebuild. Rails §15 says this about a different rule and it
+generalizes without alteration: **knowing the rule is not the same as having it in the fingers.**
+
+**It is also the deliverable's own half-life, demonstrated twice in one session by two different
+instruments** — first by the manufactured `scope_lint` module on its first contact with real data
+(§4.2), then by `wrought-scope`'s own arm D here. The index is **derived**; any commit touching
+`bin/`, `src/` or `docs/` stales it; **nothing rebuilds it automatically and this gate added no
+hook.** Both instruments *detect* the staleness. Neither *prevents* it, and §7 says so.
+
+**Fixed in the prescribed order** — rebuild, re-run, commit (`raw/32`). **All five arms pass on the
+tree finally shipped.**
+
+**AND ONE SMALLER THING THE FAILING RUN TAUGHT, recorded because the flattering move is to omit
+it:** that run printed `EXIT=0` beneath a verdict line reading `wrought-scope: FAIL (2 failing
+check(s))`. The `0` was `tail`'s, not the test's — a pipeline's `$?` is its **last** stage's. The
+verdict line is the work product; the exit code was not. **Rails §18 in miniature, produced by this
+gate's own reporting shell while it was writing about rails §18.**
 
 ## 4.4 The byte freeze, and the live-file deltas
 

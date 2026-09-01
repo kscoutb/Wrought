@@ -20,6 +20,7 @@ measurement are published here rather than left behind a checkout the advisor do
 | `raw/10`–`raw/15` | PHASE 2: repo-map coverage, the index build, the oracle's satisfiability AND falsifiability, the test, the tool in use, lint and chars/token. |
 | `raw/20`–`raw/25` | PHASE 3: pre-flight, the launch command with its five deliberate deviations, the result, the out-of-band re-verification, production-untouched, teardown. |
 | `raw/30`, `raw/31` | PHASE 4: the index rebuilt after the doc edits, and the test re-run against the tree as shipped. |
+| `raw/32` | **the final check FAILED and is kept.** One more honest edit to an indexed file, after the last rebuild, staled the index — the exact trap `REPORT.md` §1 describes. Fixed in the prescribed order; all five arms pass on the tree finally shipped. |
 | `SHA256SUMS` | `sha256sum -c SHA256SUMS` from this directory. |
 
 **Three things a reviewer should not have to dig for.**
@@ -31,3 +32,5 @@ measurement are published here rather than left behind a checkout the advisor do
    ledger row lands in the byte-frozen production store. **M2 remains unrun.** §4.1.
 3. **Three of this gate's own PHASE 3 verification checks were defective**, including two that
    returned error strings where a reader would see zeros. §4.3. All corrected by addition.
+4. **The final check before declaring done FAILED**, on the trap this report had already written
+   down — and it is kept rather than quietly re-run. §4.5.
