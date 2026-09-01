@@ -1,0 +1,44 @@
+# GATE-BUILD-01 raw/10 — WHICH TRACKED FILES THE GATE-HORIZON REPO-MAP COVERS
+# command: git ls-files bin src docs   vs   ls bundles/GATE-HORIZON/repo-map/
+# The mapping is computed FORWARD (path -> path.replace('/','__')+'.md') and never by
+# decoding a repo-map filename back to a path. GATE-HORIZON measured that the inverse is
+# LOSSY -- '__' collides with every dunder filename, and it silently mislabelled three
+# real modules as NO-SOURCE. Going forward from the tracked path cannot collide.
+
+tracked under bin/ src/ docs/ : 154
+covered by the repo-map      : 127
+NOT covered (need fresh)     : 27
+
+## the uncovered files, with size:
+        4261 B  bin/build-seccomp-deny.c
+        8315 B  docs/00-ground-truth.md
+       29729 B  docs/01-serving.md
+       39119 B  docs/02-pipeline.md
+       58942 B  docs/03-verification.md
+       12150 B  docs/04-persistence.md
+       14678 B  docs/05-escalation.md
+       20594 B  docs/06-security.md
+       36824 B  docs/07-build-rail.md
+       71535 B  docs/08-decisions.md
+       11191 B  docs/09-assumptions.md
+       12845 B  docs/10-cots-bom.md
+        6874 B  docs/11-video-annex.md
+       10126 B  docs/12-reconciliation.md
+       44486 B  docs/EXECUTOR-RAILS.md
+       44986 B  docs/GATE-JOURNAL.md
+       38168 B  docs/PHASE-J-HISTORY.md
+       83563 B  docs/PHASE-J-STATE.md
+       20018 B  docs/ROADMAP-1.0.md
+        5203 B  docs/history/BOOTSTRAP.md
+       10311 B  docs/history/CONTEST-RECORD.md
+       12693 B  docs/history/FIX-ACTIONS-SESSION-12.md
+        7047 B  docs/history/GATE-43-READINESS-2026-08-06.md
+        7050 B  docs/history/PHASE-A-ANSWER-SHEET.md
+        9283 B  docs/history/R12-ADJUDICATION.md
+       11172 B  docs/history/RESEARCH-PACKAGE-R12.md
+       30232 B  docs/history/REVIEW-TRIAGE.md
+
+## groundedness verdict of the covered ones (carried into the index, not re-derived):
+   RELIABLE     113
+   UNCHECKABLE  14
+## repo-map entries whose source is NOT in `git ls-files bin src docs`: 0

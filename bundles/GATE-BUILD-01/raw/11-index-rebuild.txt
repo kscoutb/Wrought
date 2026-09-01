@@ -1,0 +1,17 @@
+# GATE-BUILD-01 raw/11 — INDEX REBUILD, full (local-model pass live)
+# captured: 2026-09-01T01:47:11Z
+# command:
+#   sudo -n cat /run/credentials/wrought-inference.service/inference-api-key \
+#     | ./bin/wrought-scope rebuild --key-stdin
+# (key on STDIN only -- rails 5. The only credential-shaped thing in any argv is a PATH.)
+
+  5 file(s) have no committed purpose; asking the resident model (max_tokens=28000, floor 28000)
+    local-model            bin/build-seccomp-deny.c
+  5 file(s) have no committed purpose; asking the resident model (max_tokens=28000, floor 28000)
+    local-model            bin/build-seccomp-deny.c
+    local-model            docs/history/BOOTSTRAP.md
+    local-model            docs/history/FIX-ACTIONS-SESSION-12.md
+    local-model            docs/history/GATE-43-READINESS-2026-08-06.md
+    local-model            docs/history/PHASE-A-ANSWER-SHEET.md
+index -> /home/kalib/review-rc1/index/scope-index.json  (1,775,232 B)
+  154 files, 2,185,638 tree bytes, 604,102 MEASURED tokens

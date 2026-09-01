@@ -1,0 +1,110 @@
+# GATE-BUILD-01 raw/14 — bin/wrought-scope IN USE (the tool doing its job)
+# captured: 2026-09-01T01:57:33Z
+
+## command: ./bin/wrought-scope stat
+index      : /home/kalib/review-rc1/index/scope-index.json
+index bytes: 1,775,232
+roots      : bin src docs
+files      : 154
+tree bytes : 2,185,638
+TREE TOKENS: 604,102   <- the comparand every ratio is against
+purpose provenance:
+    113  repo-map:RELIABLE
+     22  claude-md-document-map
+     14  repo-map:UNCHECKABLE
+      5  local-model
+kinds: c=1, markdown=26, python=95, shell=32
+largest indexed files:
+    24,030 tok  docs/PHASE-J-STATE.md
+    22,944 tok  bin/wrought-runner
+    18,680 tok  docs/08-decisions.md
+    15,618 tok  docs/03-verification.md
+    12,460 tok  bin/baseline-run
+
+## command: ./bin/wrought-scope query 'runner containment' --max-files 5
+SCOPE for: "runner containment"
+  5 file(s) of 154 indexed   38,323 tokens of 604,102   (6.3% of the tree)
+
+    1,260 tok  bin/wrought-runner-hook
+                Defense-in-depth `PreToolUse` hook that audits tool invocations and blocks catastrophic actions via a regex deny-list, deferring all other decisions t
+                [score 62.96, purpose from repo-map:RELIABLE]
+   11,073 tok  docs/PHASE-J-HISTORY.md
+                The archive behind `PHASE-J-STATE.md`: closed/struck-through detail split out byte-for-byte by `GATE-TRIM`. The live position stays in the state doc; 
+                [score 41.56, purpose from claude-md-document-map]
+                  §From ESTABLISHED FACTS → containment → the `--add-dir` workspace bound  (line 19, 552 tok)
+                  §From OPEN — the two `wrought-runner` start blockers, both CLOSED 2026-  (line 46, 483 tok)
+                  §From the RUNNER-side verdict section — the reaper's `pgrep -f` false-p  (line 140, 602 tok)
+   22,944 tok  bin/wrought-runner
+                Operator-started daily batch runner that walks a courier QUEUE to execute approved gate prompts in isolated `claude -p` sessions under systemd scopes,
+                [score 39.71, purpose from repo-map:RELIABLE]
+    2,008 tok  bin/gate25-hardening
+                Validates sandbox hardening and containment (GATE-25) by executing hostile and clean tasks via the production launcher, verifying systemd slice limits
+                [score 33.43, purpose from repo-map:RELIABLE]
+    1,038 tok  bin/test-f3-runner-scan
+                Validates that `wrought-runner` halts publishing on non-zero `SECRET_SCAN` exit codes and confirms `wrought-precommit-secret-scan` detects fake tokens
+                [score 22.05, purpose from repo-map:RELIABLE]
+
+  TOTAL 38,323 tokens.  Whole tree is 604,102 tokens across 154 files.
+  Reading only the named sections instead of the whole files: 28,887 tokens.
+
+## command: ./bin/wrought-scope query 'courier transport rules' --max-files 4
+##   -- note the SECTION pointers: the whole of docs/EXECUTOR-RAILS.md is 12,293 tokens;
+##      the three sections that actually answer this are a fraction of it.
+SCOPE for: "courier transport rules"
+  4 file(s) of 154 indexed   58,343 tokens of 604,102   (9.7% of the tree)
+
+   12,033 tok  docs/GATE-JOURNAL.md
+                Append-only, one section per gate. **Deliberately on no read path** — listed here for discoverability only (`GATE-NARRATIVE`, rails §11.1, PROVISIONAL
+                [score 46.59, purpose from claude-md-document-map]
+                  §Two rules for anyone appending  (line 26, 85 tok)
+                  §Transport, and the first STOP this rail has actually taken  (line 407, 188 tok)
+                  §The transport failed, and this time the rail's own prescription is wha  (line 503, 409 tok)
+   12,293 tok  docs/EXECUTOR-RAILS.md
+                The invariant session rails — **read before running any advisor-prompted session**
+                [score 44.35, purpose from claude-md-document-map]
+                  §7. Prompt transport  (line 141, 195 tok)
+                  §8. Courier  (line 154, 159 tok)
+                  §9. Heartbeat — `STATUS.md` is kept current, and pushed  (line 166, 442 tok)
+   11,073 tok  docs/PHASE-J-HISTORY.md
+                The archive behind `PHASE-J-STATE.md`: closed/struck-through detail split out byte-for-byte by `GATE-TRIM`. The live position stays in the state doc; 
+                [score 40.23, purpose from claude-md-document-map]
+                  §From ESTABLISHED FACTS → containment → the `--add-dir` workspace bound  (line 19, 552 tok)
+                  §From OPEN — the two `wrought-runner` start blockers, both CLOSED 2026-  (line 46, 483 tok)
+                  §From OPEN — `GATE-HJ2-HEARTBEAT`, debt PAID  (line 69, 144 tok)
+   22,944 tok  bin/wrought-runner
+                Operator-started daily batch runner that walks a courier QUEUE to execute approved gate prompts in isolated `claude -p` sessions under systemd scopes,
+                [score 38.23, purpose from repo-map:RELIABLE]
+
+  TOTAL 58,343 tokens.  Whole tree is 604,102 tokens across 154 files.
+  Reading only the named sections instead of the whole files: 25,601 tokens.
+
+## command: ./bin/wrought-scope query 'oracle verdict logic' --budget 20000
+##   -- a hard token budget, so a caller can ask for a slice that FITS a window it names.
+SCOPE for: "oracle verdict logic"
+  3 file(s) of 154 indexed   16,023 tokens of 604,102   (2.7% of the tree)
+
+    6,110 tok  bin/gate26-routing
+                Validates routing-classifier policy and FSM transition rules for task failure handling, escalation, and human-review routing.
+                [score 75.67, purpose from repo-map:RELIABLE]
+    6,447 tok  src/wrought_supervisor/oracle.py
+                Centralizes verification execution and classification-to-FSM-verdict mapping for the wrought supervisor, enforcing artifact provenance via staging rec
+                [score 75.34, purpose from repo-map:RELIABLE]
+    3,466 tok  src/wrought_escalation/driver.py
+                Orchestrates end-to-end escalation for cap-exhausted tasks by staging candidates, executing the real oracle for verification, computing failure signat
+                [score 65.96, purpose from repo-map:RELIABLE]
+
+  TOTAL 16,023 tokens.  Whole tree is 604,102 tokens across 154 files.
+  Reading only the named sections instead of the whole files: 16,023 tokens.
+
+## command: ./bin/wrought-scope symbol job_dir
+symbol: job_dir
+  DEFINED IN:
+      6,447 tok  src/wrought_supervisor/oracle.py
+  MENTIONED IN (1) — term-level, NOT a call graph:
+        749 tok  bin/test-l1-path-derivation
+
+## command: ./bin/wrought-scope rebuild   (NO key -- the refusal, P4 fail-loudly)
+REFUSING to build an index without the served tokenizer (http://127.0.0.1:8080/tokenize): HTTP Error 401: Unauthorized
+This tool's whole output is a TOKEN cost. A chars/token guess is not one — pins.lock's 3.0 is a cost estimator, not a tokenizer. Supply the key on stdin:
+  sudo -n cat /run/credentials/wrought-inference.service/inference-api-key | bin/wrought-scope rebuild --key-stdin
+   exit=1

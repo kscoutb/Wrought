@@ -1,0 +1,33 @@
+# GATE-BUILD-01 raw/12 — THE PHASE 3 ORACLE IS BOTH SATISFIABLE AND FALSIFIABLE
+# captured: 2026-09-01T01:54:53Z
+# WHY THIS EXISTS: GATE-HORIZON shipped a negative control that could not fail and a
+# groundedness checker that penalized correct answers. An oracle nobody has satisfied, and
+# an oracle nobody has made fail, are the same defect seen from two sides. Both are checked
+# here BEFORE the pipeline is asked to satisfy it.
+# The reference implementation below lives ONLY in the scratchpad and is DELETED after this
+# capture. It is never given to the pipeline, which sees TASK.md and nothing else.
+
+## ARM 1 — satisfiable. command: /opt/wrought/venv/bin/pytest -q test_scope_lint.py
+.............................                                            [100%]
+29 passed in 0.06s
+
+## ARM 2 — falsifiable. Four independent mutations of the reference implementation,
+##          each one a plausible thing a candidate would get wrong.
+   mutation 'collapse' -> 1 failed, 28 passed in 0.06s
+   mutation 'boolok' -> 2 failed, 27 passed in 0.06s
+   mutation 'nostale' -> 3 failed, 26 passed in 0.06s
+   mutation 'nohex' -> 2 failed, 27 passed in 0.06s
+
+## ARM 3 — the reference implementation is DELETED (enumerated, with its reason)
+   rm /tmp/claude-1000/-home-kalib-review-rc1/a82b5145-3976-4f59-a4b2-bb53d2ae2e98/scratchpad/oraclecheck/scope_lint.py   — reason: a reference implementation of the very module the pipeline is
+      about to be asked to write. Keeping it anywhere the run can reach would make the
+      measurement meaningless.
+   rm /tmp/claude-1000/-home-kalib-review-rc1/a82b5145-3976-4f59-a4b2-bb53d2ae2e98/scratchpad/oraclecheck/scope_lint_mut.py   — reason: a reference implementation of the very module the pipeline is
+      about to be asked to write. Keeping it anywhere the run can reach would make the
+      measurement meaningless.
+   rm /tmp/claude-1000/-home-kalib-review-rc1/a82b5145-3976-4f59-a4b2-bb53d2ae2e98/scratchpad/oraclecheck/scope_lint.bak   — reason: a reference implementation of the very module the pipeline is
+      about to be asked to write. Keeping it anywhere the run can reach would make the
+      measurement meaningless.
+
+   remaining in the check dir (the oracle copy only, which is already committed):
+test_scope_lint.py

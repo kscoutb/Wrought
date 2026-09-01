@@ -1,0 +1,67 @@
+# GATE-BUILD-01 raw/13 — bin/test-wrought-scope, ALL FIVE ARMS
+# captured: 2026-09-01T01:57:18Z
+# command:
+#   sudo -n cat /run/credentials/wrought-inference.service/inference-api-key \
+#     | ./bin/test-wrought-scope --key-stdin --require-all
+
+A. RETRIEVAL — 23 queries, uniform cap 25 of 154 files
+  ok    'oracle verdict logic'                               25 files, 149,838 tok (24.8% of tree), worst must-include rank 22
+  ok    'courier transport rules'                            25 files, 142,447 tok (23.6% of tree), worst must-include rank 2
+  ok    'runner containment'                                 24 files, 155,691 tok (25.8% of tree), worst must-include rank 3
+  ok    'escalation budget ledger'                           25 files, 150,663 tok (24.9% of tree), worst must-include rank 3
+  ok    'secret scan before commit'                          21 files, 143,778 tok (23.8% of tree), worst must-include rank 1
+  ok    'repair loop cap and state transitions'              25 files, 124,833 tok (20.7% of tree), worst must-include rank 3
+  ok    'verification pack generation'                       25 files, 141,786 tok (23.5% of tree), worst must-include rank 9
+  ok    'event store transaction'                            25 files, 111,257 tok (18.4% of tree), worst must-include rank 1
+  ok    'redact prompts before persistence'                  13 files,  72,015 tok (11.9% of tree), worst must-include rank 1
+  ok    'sandbox seccomp filter'                             25 files, 124,457 tok (20.6% of tree), worst must-include rank 2
+  ok    'byte freeze the orchestrator store'                 25 files, 183,609 tok (30.4% of tree), worst must-include rank 4
+  ok    'device selection by name not index'                 25 files,  95,265 tok (15.8% of tree), worst must-include rank 3
+  ok    'held out split for gate 44'                         25 files, 123,314 tok (20.4% of tree), worst must-include rank 2
+  ok    'vram measurement on the dgpu'                       25 files,  89,919 tok (14.9% of tree), worst must-include rank 1
+  ok    'chaos injection and recovery'                       15 files,  58,523 tok ( 9.7% of tree), worst must-include rank 3
+  ok    'replay corpus build'                                25 files, 103,463 tok (17.1% of tree), worst must-include rank 3
+  ok    'power profile assertion'                            18 files,  53,947 tok ( 8.9% of tree), worst must-include rank 2
+  ok    'offline wheel install and supply chain'             25 files, 114,718 tok (19.0% of tree), worst must-include rank 5
+  ok    'task spec canonical hash'                           25 files, 123,419 tok (20.4% of tree), worst must-include rank 9
+  ok    'routing to human review'                            25 files, 125,584 tok (20.8% of tree), worst must-include rank 2
+  ok    'long context correctness probe'                     25 files, 125,975 tok (20.9% of tree), worst must-include rank 1
+  ok    'prometheus node metrics exporter'                   14 files,  55,594 tok ( 9.2% of tree), worst must-include rank 1
+  ok    'input validation of task frontmatter'               18 files,  88,578 tok (14.7% of tree), worst must-include rank 1
+  AT THE TEST CAP (25):     22.7 files avg (14.8% of 154), 115,594 tok avg (19.1% of 604,102)
+  AT THE DEFAULT (12):      12.0 files avg (7.8% of 154), 64,779 tok avg (10.7% of 604,102)
+  LOAD REDUCTION at the default, over 23 queries: 12.8x fewer files, 9.3x fewer tokens
+  must-include files inside the DEFAULT cap of 12: 33/34
+  ok    average scope is far below the whole tree (19.1% of tokens, threshold 25%)
+
+B. SYMBOL — 12 lookups
+  ok    next_state             -> src/wrought_orchestrator/fsm.py
+  ok    guard_ok               -> src/wrought_orchestrator/fsm.py
+  ok    reachable_states       -> src/wrought_orchestrator/fsm.py
+  ok    append_and_project     -> src/wrought_orchestrator/store.py
+  ok    process_one            -> src/wrought_orchestrator/worker.py
+  ok    job_dir                -> src/wrought_supervisor/oracle.py
+  ok    oracle_verdict         -> src/wrought_supervisor/oracle.py
+  ok    verdict_for            -> src/wrought_supervisor/oracle.py  (also 1 other definer(s))
+  ok    classify               -> src/wrought_supervisor/classify.py  (also 1 other definer(s))
+  ok    authority              -> src/wrought_escalation/ledger.py
+  ok    make_ephemeral_home    -> bin/wrought-runner
+  ok    decide                 -> bin/wrought-runner-hook
+
+C. STABILITY — two rebuilds must produce a byte-identical index
+  ok    two rebuilds byte-identical  sha256 56784737c681b7f5…
+  ok    the committed index matches a fresh rebuild
+  ok    same file set for 'oracle verdict logic' across the rebuild (25 files)
+
+D. SYNC — the index describes the tree it claims to
+  ok    0 tracked but not indexed
+  ok    0 indexed but absent from the tree
+  ok    0 indexed with a stale hash
+
+E. SEED — identical answers under different PYTHONHASHSEED values
+  ok    'oracle verdict logic'                               identical across 4 seeds  469a1edbf5a970a6…
+  ok    'courier transport rules'                            identical across 4 seeds  bf07c567bc75dbe0…
+  ok    'runner containment'                                 identical across 4 seeds  b0e8d5b9dca9ce6f…
+  ok    'escalation budget ledger'                           identical across 4 seeds  26ac23638e1c0102…
+
+wrought-scope: PASS

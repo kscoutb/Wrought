@@ -1,0 +1,930 @@
+#!/usr/bin/env python3
+"""CONTEXT SCOPING — return the MINIMAL ranked set of files a task needs, so the rest stays unloaded.
+
+WHY THIS FILE EXISTS.
+
+`GATE-HORIZON` measured the project's live state documents at **70,810 real tokens** against a
+served `n_ctx` of **65,536** (`POST /tokenize`, not an estimate). The system's own documentation
+does not fit the system's own model, before leaving one token of room to answer. The reflex fix is
+a bigger window; **D5 already declined that**, and `KNOWN-OPEN` item 22 records why. The operator's
+ruling 3 takes the other branch and is what this file implements:
+
+    the cloud orchestrator holds the big picture; the local model gets SCOPED SLICES.
+    The project need not fit the local model -- only the current task's slice must.
+
+So this is not a search tool that happens to be cheap. It is the component that decides what a
+session loads, and its output is measured in TOKENS because tokens are the resource being spent.
+
+THREE PROPERTIES IT HOLDS, EACH BECAUSE A PRIOR GATE PAID FOR THE LESSON.
+
+  1. **Token costs are MEASURED, never estimated.** Every count here comes from the served
+     `/tokenize` endpoint. `pins.lock`'s `input_token_estimator_chars_per_token: 3.0` is a COST
+     ESTIMATOR, NOT A TOKENIZER -- `GATE-HORIZON` measured 3.16 and 3.29 on its payloads, this gate
+     measures 3.6-3.8 on source, and a tool that reported a chars/3 guess as a token count would be
+     lying in the one number it exists to produce. `rebuild` REFUSES to run without the tokenizer
+     rather than falling back to a guess (P4: fail loudly).
+
+  2. **`query` and `symbol` are OFFLINE, KEYLESS AND DETERMINISTIC.** All model and tokenizer
+     contact happens at `rebuild`; the index carries the result. A scoping tool that needed the
+     network to answer would be unusable in air-gap mode -- ruling 7 -- which is the mode this
+     project treats as the default for real work.
+
+  3. **The repo-map is read FORWARD, never decoded backward.** A summary file is found by computing
+     `path.replace('/','__') + '.md'` from the tracked path. `GATE-HORIZON` shipped the inverse and
+     measured it LOSSY: `'__'` collides with every dunder filename, so `src/wrought_verifier/
+     __init__.py` decoded to a path that does not exist and three real modules were silently marked
+     NO-SOURCE. The forward map cannot collide.
+
+USAGE
+
+    bin/wrought-scope query "oracle verdict logic"          # ranked minimal set + token cost
+    bin/wrought-scope query "runner containment" --max-files 6 --budget 20000
+    bin/wrought-scope symbol classify                       # who defines it, who mentions it
+    bin/wrought-scope stat                                  # index summary + the whole-tree cost
+    sudo -n cat /run/credentials/wrought-inference.service/inference-api-key \\
+        | bin/wrought-scope rebuild --key-stdin
+
+CREDENTIAL HANDLING is rails §5 and is not negotiable: the key arrives on **stdin only**. Never an
+argv (world-readable in /proc), never an environment variable, never a file this tool writes. The
+only credential-shaped thing that may appear in a command line is a PATH, which is public.
+`--key-file` exists for a path; the bytes are read in-process and never re-emitted.
+"""
+
+from __future__ import annotations
+
+import argparse
+import ast
+import hashlib
+import json
+import math
+import os
+import pathlib
+import re
+import subprocess
+import sys
+import urllib.request
+
+ROOT = pathlib.Path(__file__).resolve().parent.parent
+INDEX_PATH = ROOT / "index" / "scope-index.json"
+DEFAULT_ROOTS = ("bin", "src", "docs")
+
+# The GATE-HORIZON repo-map: 127 grounded one-line summaries, with a per-entry groundedness
+# verdict. Read from the courier, where the bundle lives; absent is not fatal.
+REPO_MAP_DIR = pathlib.Path("/home/kalib/courier/Wrought/bundles/GATE-HORIZON/repo-map")
+GROUNDEDNESS = pathlib.Path("/home/kalib/courier/Wrought/bundles/GATE-HORIZON/groundedness.json")
+
+TOKENIZE_URL = os.environ.get("WROUGHT_TOKENIZE_URL", "http://127.0.0.1:8080/tokenize")
+CHAT_URL = os.environ.get("WROUGHT_CHAT_URL", "http://127.0.0.1:8080/v1/chat/completions")
+CHAT_MODEL = os.environ.get("WROUGHT_CHAT_MODEL", "primary-qwen27b")
+
+# THE RAIL, and it is this gate's own: the resident profile is served
+# `--reasoning on --reasoning-budget 24000`. A `max_tokens` at or below that budget makes the model
+# spend the WHOLE completion on reasoning and return EMPTY content while exiting 0 -- measured by
+# GATE-HORIZON at 512 and at 2048, both empty, both "successful". 28000 is the floor this gate is
+# given; the tool refuses anything lower rather than trusting the caller to remember.
+REASONING_BUDGET = 24000
+MODEL_MAX_TOKENS_FLOOR = 28000
+
+# ---------------------------------------------------------------------------------------------
+# term extraction
+# ---------------------------------------------------------------------------------------------
+
+WORD_RE = re.compile(r"[A-Za-z][A-Za-z0-9_]*")
+CAMEL_RE = re.compile(r"[A-Z]+(?![a-z])|[A-Z][a-z0-9]*|[a-z0-9]+")
+
+# Deliberately short. An over-eager stoplist silently deletes the one term that would have found
+# the file, and this tool's failure mode is a MISSING file, not a noisy one.
+STOP = frozenset("""
+a an the and or but if then else for while of to in on at by is are was were be been being
+this that these those it its as with from into out over under not no nor so than too very can
+will would should could may might must do does did done have has had we you they he she i
+""".split())
+
+MAX_CONTENT_TERMS = 400          # per file, by frequency; symbols and path terms are never capped
+BM25_K1 = 1.5
+BM25_B = 0.75                    # length normalization, against the MEASURED token count
+
+
+def split_identifier(word: str) -> list[str]:
+    """`stage_candidate` -> [stage, candidate]; `wroughtRunner` -> [wrought, runner]."""
+    parts: list[str] = []
+    for chunk in word.split("_"):
+        if chunk:
+            parts.extend(CAMEL_RE.findall(chunk))
+    return [p.lower() for p in parts if len(p) > 1]
+
+
+def terms_of(text: str) -> list[str]:
+    """Every term a document contributes: whole words plus their identifier parts."""
+    out: list[str] = []
+    for w in WORD_RE.findall(text):
+        lw = w.lower()
+        if len(lw) > 1 and lw not in STOP:
+            out.append(lw)
+        for p in split_identifier(w):
+            if p != lw and p not in STOP:
+                out.append(p)
+    return out
+
+
+def path_terms(path: str) -> list[str]:
+    return sorted(set(terms_of(path.replace("/", " ").replace("-", " ").replace(".", " "))))
+
+
+# ---------------------------------------------------------------------------------------------
+# per-file structural analysis
+# ---------------------------------------------------------------------------------------------
+
+SH_FUNC_RE = re.compile(r"^\s*(?:function\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*\(\)\s*\{", re.M)
+SH_SRC_RE = re.compile(r"^\s*(?:\.|source)\s+(\S+)", re.M)
+C_FUNC_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_ \*]*?\b([A-Za-z_][A-Za-z0-9_]*)\s*\([^;]*?\)\s*\{", re.M)
+C_INC_RE = re.compile(r"^\s*#\s*include\s*[<\"]([^>\"]+)[>\"]", re.M)
+MD_HEAD_RE = re.compile(r"^(#{1,6})\s+(.*?)\s*$", re.M)
+
+
+def file_kind(path: str, text: str) -> str:
+    if path.endswith(".md"):
+        return "markdown"
+    if path.endswith(".c") or path.endswith(".h"):
+        return "c"
+    if path.endswith(".py"):
+        return "python"
+    if path.endswith(".json"):
+        return "json"
+    head = text[:120]
+    if head.startswith("#!"):
+        first = head.split("\n", 1)[0]
+        if "python" in first:
+            return "python"
+        if "sh" in first:
+            return "shell"
+    return "text"
+
+
+def python_symbols_imports(text: str) -> tuple[list[str], list[str]]:
+    """AST where the file parses; a regex fallback where it does not, so a syntax error in one
+    candidate file cannot blank out its row in the index."""
+    syms: list[str] = []
+    imps: list[str] = []
+    try:
+        tree = ast.parse(text)
+    except SyntaxError:
+        syms = re.findall(r"^\s*(?:async\s+)?(?:def|class)\s+([A-Za-z_][A-Za-z0-9_]*)", text, re.M)
+        imps = re.findall(r"^\s*(?:import|from)\s+([A-Za-z_][A-Za-z0-9_.]*)", text, re.M)
+        return sorted(set(syms)), sorted(set(imps))
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            syms.append(node.name)
+        elif isinstance(node, ast.Import):
+            imps.extend(a.name for a in node.names)
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            imps.append(node.module)
+        elif isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name) and t.id.isupper() and len(t.id) > 2:
+                    syms.append(t.id)          # module constants are how this repo names its pins
+    return sorted(set(syms)), sorted(set(imps))
+
+
+def analyze(path: str, text: str) -> dict:
+    kind = file_kind(path, text)
+    syms: list[str] = []
+    imps: list[str] = []
+    if kind == "python":
+        syms, imps = python_symbols_imports(text)
+    elif kind == "shell":
+        syms = sorted(set(SH_FUNC_RE.findall(text)))
+        imps = sorted(set(SH_SRC_RE.findall(text)))
+    elif kind == "c":
+        syms = sorted(set(C_FUNC_RE.findall(text)))
+        imps = sorted(set(C_INC_RE.findall(text)))
+    heads: list[str] = []
+    if kind == "markdown":
+        # HEADINGS ARE NOT SYMBOLS, and conflating them was a measured defect in this file's own
+        # first build. Scored at W_SYMBOL, a 40-heading journal that says "oracle" in a heading
+        # outranked the module that IMPLEMENTS the oracle -- docs/GATE-JOURNAL.md beat
+        # src/wrought_verifier/__main__.py on the query "oracle verdict logic" for exactly this
+        # reason. They are a real signal, so they keep a field of their own at a lower weight; and
+        # `wrought-scope symbol` now searches code symbols only, which is what it claims to do.
+        heads = sorted({m.group(2) for m in MD_HEAD_RE.finditer(text)})[:200]
+    return {"kind": kind, "symbols": syms, "imports": imps, "headings": heads}
+
+
+def markdown_sections(text: str) -> list[dict]:
+    """Heading spans, so a 12,000-token document can be quoted at the section that matters.
+
+    'Where cheap, sections' is the instruction, and for markdown it is very cheap: one regex and
+    one extra /tokenize call each."""
+    heads = list(MD_HEAD_RE.finditer(text))
+    if not heads:
+        return []
+    lines_before = [text.count("\n", 0, m.start()) for m in heads]
+    out = []
+    for i, m in enumerate(heads):
+        start = m.start()
+        end = heads[i + 1].start() if i + 1 < len(heads) else len(text)
+        body = text[start:end]
+        if len(body) < 40:                     # a heading with nothing under it is not a section
+            continue
+        out.append({
+            "title": m.group(2)[:120],
+            "level": len(m.group(1)),
+            "line": lines_before[i] + 1,
+            "chars": len(body),
+            "_body": body,
+        })
+    return out
+
+
+# ---------------------------------------------------------------------------------------------
+# the served tokenizer -- measured, never estimated
+# ---------------------------------------------------------------------------------------------
+
+class Tokenizer:
+    def __init__(self, key: str | None):
+        self.key = key
+        self.calls = 0
+
+    def _headers(self) -> dict:
+        h = {"Content-Type": "application/json"}
+        if self.key:
+            h["Authorization"] = "Bearer " + self.key
+        return h
+
+    def count(self, text: str) -> int:
+        body = json.dumps({"content": text}).encode()
+        req = urllib.request.Request(TOKENIZE_URL, data=body, headers=self._headers())
+        with urllib.request.urlopen(req, timeout=300) as resp:
+            data = json.load(resp)
+        self.calls += 1
+        toks = data.get("tokens")
+        if not isinstance(toks, list):
+            raise RuntimeError(f"/tokenize returned no token list: {list(data)[:5]}")
+        return len(toks)
+
+
+def read_key(args) -> str | None:
+    """Rails §5: stdin only, or a PATH (a path is public; a value is not)."""
+    if getattr(args, "key_stdin", False):
+        return sys.stdin.read().strip()
+    if getattr(args, "key_file", None):
+        return pathlib.Path(args.key_file).read_text().strip()
+    return None
+
+
+# ---------------------------------------------------------------------------------------------
+# purpose lines: three sources, in precedence order, each recorded by name
+# ---------------------------------------------------------------------------------------------
+
+PURPOSE_RE = re.compile(r"^\s*(?:Purpose|PURPOSE)\s*:\s*(.+?)\s*$", re.M)
+# The repo-map is not uniformly formatted -- the model was asked for "3-6 lines: purpose; key
+# functions; imports; risk" and produced a labelled `Purpose:` line for most files and an
+# unlabelled opening sentence for others (`src/wrought_orchestrator/fsm.py` and `worker.py` are
+# both the second shape). Requiring the label silently dropped two real modules to `absent` on the
+# first build. These are the labels to SKIP when falling back to "the first real sentence".
+NOT_PURPOSE_RE = re.compile(r"^\s*(?:#|Key\b|Direct\b|Obvious\b|Risk\b|Dependencies\b|_)", re.I)
+
+
+def repo_map_purpose(path: str) -> tuple[str, str] | None:
+    """FORWARD mapping only -- see the module docstring on why the inverse is a defect."""
+    f = REPO_MAP_DIR / (path.replace("/", "__") + ".md")
+    if not f.exists():
+        return None
+    body = f.read_text(encoding="utf-8", errors="replace")
+    m = PURPOSE_RE.search(body)
+    if m:
+        return m.group(1).strip(), "repo-map"
+    for line in body.split("\n"):
+        if line.strip() and not NOT_PURPOSE_RE.match(line):
+            return re.sub(r"\s+", " ", line).strip()[:400], "repo-map-unlabelled"
+    return None
+
+
+def claude_md_purposes() -> dict[str, str]:
+    """CLAUDE.md's own document map is a committed, operator-authored one-liner for every `docs/`
+    file. Using it is strictly better than asking a model to re-derive one: it is the project's
+    own description of what the file is FOR, which is the question `query` actually asks."""
+    out: dict[str, str] = {}
+    md = ROOT / "CLAUDE.md"
+    if not md.exists():
+        return out
+    row = re.compile(r"^\|\s*`([^`]+)`\s*\|\s*(.+?)\s*\|\s*$", re.M)
+    for m in row.finditer(md.read_text(encoding="utf-8", errors="replace")):
+        p, desc = m.group(1), m.group(2)
+        if p.endswith(".md") and (ROOT / p).exists():
+            out[p] = re.sub(r"\s+", " ", desc)[:400]
+    return out
+
+
+def local_model_purpose(path: str, text: str, key: str | None, max_tokens: int) -> tuple[str, str]:
+    """A fresh one-line purpose from the resident model.
+
+    THE ONE THING THAT MATTERS HERE IS THE `max_tokens` FLOOR. Under `--reasoning on
+    --reasoning-budget 24000` a smaller budget is spent entirely on reasoning and the call returns
+    EMPTY content while exiting 0. This function refuses below the floor, and then checks the work
+    product rather than the status -- rails §18."""
+    if max_tokens < MODEL_MAX_TOKENS_FLOOR:
+        raise SystemExit(
+            f"REFUSING: --model-max-tokens {max_tokens} is below the {MODEL_MAX_TOKENS_FLOOR} floor. "
+            f"The served profile reasons with a {REASONING_BUDGET}-token budget; a smaller cap "
+            f"returns EMPTY content and exits 0.")
+    src = text if len(text) <= 48000 else text[:48000] + "\n...[truncated]"
+    sysmsg = ("You summarize one project file in ONE sentence: what it is FOR. "
+              "No preamble, no list, no markdown, no more than 40 words. "
+              "Mention only names that literally appear in the file.")
+    body = {"model": CHAT_MODEL, "stream": False, "max_tokens": max_tokens,
+            "messages": [{"role": "system", "content": sysmsg},
+                         {"role": "user", "content": f"FILE: {path}\n\n{src}"}]}
+    hdr = {"Content-Type": "application/json"}
+    if key:
+        hdr["Authorization"] = "Bearer " + key
+    req = urllib.request.Request(CHAT_URL, data=json.dumps(body).encode(), headers=hdr)
+    with urllib.request.urlopen(req, timeout=1800) as resp:
+        r = json.load(resp)
+    choice = r["choices"][0]
+    msg = choice["message"]
+    finish = choice.get("finish_reason")
+    content = (msg.get("content") or "").strip()
+    if not content:
+        # Do NOT store an empty purpose as if it were one. Say so, in the index, by name.
+        sys.stderr.write(f"  WARN  empty content for {path} (finish_reason={finish}) — "
+                         f"recorded as local-model-EMPTY, not as a summary\n")
+        return "", "local-model-EMPTY"
+    if finish != "stop":
+        sys.stderr.write(f"  WARN  {path}: finish_reason={finish}, summary may be truncated\n")
+    one = re.sub(r"\s+", " ", content).strip()
+    return one[:400], "local-model"
+
+
+# ---------------------------------------------------------------------------------------------
+# index build
+# ---------------------------------------------------------------------------------------------
+
+def git_ls(roots: tuple[str, ...]) -> list[str]:
+    out = subprocess.run(["git", "-C", str(ROOT), "ls-files", *roots],
+                         capture_output=True, text=True, check=True).stdout.split("\n")
+    return sorted(p for p in out if p.strip())
+
+
+def load_groundedness() -> dict[str, str]:
+    if not GROUNDEDNESS.exists():
+        return {}
+    g = json.loads(GROUNDEDNESS.read_text())
+    return {r["source"]: r["verdict"] for r in g.get("results", [])}
+
+
+def build_index(args) -> dict:
+    key = read_key(args)
+    tk = Tokenizer(key)
+    try:
+        tk.count("probe")
+    except Exception as e:                                        # noqa: BLE001 -- reported, not swallowed
+        raise SystemExit(
+            f"REFUSING to build an index without the served tokenizer ({TOKENIZE_URL}): {e}\n"
+            f"This tool's whole output is a TOKEN cost. A chars/token guess is not one — "
+            f"pins.lock's 3.0 is a cost estimator, not a tokenizer. Supply the key on stdin:\n"
+            f"  sudo -n cat /run/credentials/wrought-inference.service/inference-api-key "
+            f"| bin/wrought-scope rebuild --key-stdin")
+
+    roots = tuple(args.roots)
+    paths = git_ls(roots)
+    prev = {}
+    if INDEX_PATH.exists() and not args.no_reuse:
+        prev = json.loads(INDEX_PATH.read_text()).get("files", {})
+    ground = load_groundedness()
+    cmd_purposes = claude_md_purposes()
+
+    files: dict[str, dict] = {}
+    fresh_needed: list[str] = []
+    for p in paths:
+        fp = ROOT / p
+        raw = fp.read_bytes()
+        sha = hashlib.sha256(raw).hexdigest()
+        text = raw.decode("utf-8", errors="replace")
+        old = prev.get(p)
+        rec = analyze(p, text)
+        rec["sha256"] = sha
+        rec["bytes"] = len(raw)
+
+        # tokens are a pure function of content: reuse only when the content hash is identical
+        if old and old.get("sha256") == sha and isinstance(old.get("tokens"), int):
+            rec["tokens"] = old["tokens"]
+        else:
+            rec["tokens"] = tk.count(text)
+
+        # ---- purpose, three sources in precedence order, each named in the record ----
+        purpose, source = "", "absent"
+        rm = repo_map_purpose(p)
+        if rm:
+            purpose, source = rm
+            v = ground.get(p)
+            if v:
+                source = f"repo-map:{v}"
+        elif p in cmd_purposes:
+            purpose, source = cmd_purposes[p], "claude-md-document-map"
+        elif old and old.get("sha256") == sha and old.get("purpose"):
+            purpose, source = old["purpose"], old.get("purpose_source", "carried")
+        else:
+            fresh_needed.append(p)
+        rec["purpose"] = purpose
+        rec["purpose_source"] = source
+
+        # ---- sections, markdown only ----
+        secs = []
+        if rec["kind"] == "markdown":
+            old_secs = {s["title"]: s for s in (old or {}).get("sections", [])} \
+                if old and old.get("sha256") == sha else {}
+            for s in markdown_sections(text):
+                body = s.pop("_body")
+                cached = old_secs.get(s["title"])
+                s["tokens"] = cached["tokens"] if cached and cached.get("chars") == s["chars"] \
+                    else tk.count(body)
+                s["terms"] = sorted(set(terms_of(s["title"]) + terms_of(body)))[:120]
+                secs.append(s)
+        rec["sections"] = secs
+        files[p] = rec
+        rec["_text"] = text
+
+    # ---- the fresh local-model pass, after the cheap sources, so it only runs on what is left ----
+    if fresh_needed and not args.no_model:
+        sys.stderr.write(f"  {len(fresh_needed)} file(s) have no committed purpose; asking the "
+                         f"resident model (max_tokens={args.model_max_tokens}, floor "
+                         f"{MODEL_MAX_TOKENS_FLOOR})\n")
+        for p in fresh_needed:
+            try:
+                purpose, source = local_model_purpose(
+                    p, files[p]["_text"], key, args.model_max_tokens)
+            except SystemExit:
+                raise
+            except Exception as e:                                # noqa: BLE001
+                sys.stderr.write(f"  WARN  {p}: {e}\n")
+                purpose, source = "", "local-model-ERROR"
+            files[p]["purpose"] = purpose
+            files[p]["purpose_source"] = source
+            sys.stderr.write(f"    {source:22} {p}\n")
+    elif fresh_needed:
+        sys.stderr.write(f"  {len(fresh_needed)} file(s) left without a purpose (--no-model)\n")
+
+    # ---- textual references to OTHER indexed files: the edge `imports` cannot see ----
+    # `bin/verify-job` names `wrought_verifier` nine times and imports it zero times, because the
+    # sandbox runs it as `python -m wrought_verifier` in another process. `src/wrought_supervisor/
+    # oracle.py` names `verify-job` seventeen times, likewise never importing it. Those are real
+    # dependencies and an import graph is blind to all of them. A name is only counted when it is
+    # distinctive -- at least 6 characters AND carrying a `-`, `_` or `.` -- so a file mentioning
+    # the word "store" does not acquire an edge to `store.py`.
+    names: dict[str, list[str]] = {}
+    for p in files:
+        cand = {p}
+        m = module_of(p)
+        if m:
+            cand.add(m)
+        base = p.rsplit("/", 1)[-1]
+        if len(base) >= 6 and re.search(r"[-_.]", base) and not base.startswith("__"):
+            cand.add(base)
+        for c in cand:
+            if len(c) >= 6:
+                names.setdefault(c, []).append(p)
+    for p, rec in files.items():
+        text = rec["_text"]
+        refs = sorted({tgt for nm, tgts in names.items() if nm in text
+                       for tgt in tgts if tgt != p})
+        rec["refs"] = refs
+
+    # ---- search terms, and the corpus document frequencies ----
+    df: dict[str, int] = {}
+    for p, rec in files.items():
+        text = rec.pop("_text")
+        counts: dict[str, int] = {}
+        for t in terms_of(text):
+            counts[t] = counts.get(t, 0) + 1
+        top = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))[:MAX_CONTENT_TERMS]
+        rec["content_tf"] = dict(sorted(top))
+        rec["path_terms"] = path_terms(p)
+        rec["symbol_terms"] = sorted({t for s in rec["symbols"] for t in terms_of(s)})
+        rec["heading_terms"] = sorted({t for h in rec["headings"] for t in terms_of(h)})
+        rec["purpose_terms"] = sorted(set(terms_of(rec["purpose"])))
+        rec["import_terms"] = sorted({t for i in rec["imports"] for t in terms_of(i)})
+        seen = set(rec["content_tf"]) | set(rec["path_terms"]) | set(rec["symbol_terms"]) \
+            | set(rec["purpose_terms"]) | set(rec["import_terms"]) | set(rec["heading_terms"])
+        for t in seen:
+            df[t] = df.get(t, 0) + 1
+
+    total_tokens = sum(r["tokens"] for r in files.values())
+    index = {
+        "_what_this_is": [
+            "The compact artifact bin/wrought-scope reads INSTEAD of the tree. Generated by",
+            "`bin/wrought-scope rebuild`; hand-editing it is a defect for the same reason",
+            "hand-editing a verification pack is (CLAUDE.md hard rules) -- it is derived.",
+            "Every `tokens` value is a MEASURED count from the served /tokenize endpoint, never a",
+            "chars/token estimate. No timestamps and every key sorted, so two rebuilds of the same",
+            "tree are byte-identical and `rebuild` stability is a property, not a hope.",
+        ],
+        "schema_version": 1,
+        "generator": "bin/wrought-scope rebuild",
+        "roots": list(roots),
+        "tokenizer": {"endpoint": TOKENIZE_URL, "model": CHAT_MODEL,
+                      "measured_by": "POST /tokenize, len(tokens)"},
+        "corpus": {
+            "files": len(files),
+            "bytes": sum(r["bytes"] for r in files.values()),
+            "tokens": total_tokens,
+            "_tokens_is_the_comparand": (
+                "The whole-tree load cost: what a session pays to read every indexed file. Every "
+                "ratio this tool reports is against THIS number and nothing else."),
+        },
+        "df": dict(sorted(df.items())),
+        "files": {p: {k: rec[k] for k in sorted(rec)} for p, rec in sorted(files.items())},
+    }
+    return index
+
+
+# ---------------------------------------------------------------------------------------------
+# ranking
+# ---------------------------------------------------------------------------------------------
+
+W_PATH, W_SYMBOL, W_PURPOSE, W_IMPORT, W_CONTENT = 12.0, 7.0, 5.0, 3.0, 4.0
+W_HEADING = 4.0                 # a markdown heading is evidence, but weaker than a defined symbol
+W_PHRASE = 14.0                 # the whole query as a substring of the path or the purpose
+PREFIX_DISCOUNT = 0.45          # an inexact (prefix) term match is worth less than an exact one
+SCORE_FLOOR_FRACTION = 0.10     # keep the set SMALL: drop anything under 10% of the best score
+
+# A file that matches THREE query terms is a better answer than one that matches ONE of them very
+# loudly. Without this, a document that merely says "oracle" ninety times outranks the module that
+# implements the oracle's verdict. Lucene calls it the coordination factor; the floor of 0.5 keeps
+# a single strong hit from being erased, because a one-word query must still work.
+COORD_FLOOR = 0.5
+
+# TEST FILES ARE DEMOTED, DELIBERATELY, AND ONLY WHEN THE QUERY DID NOT ASK FOR TESTS.
+# `bin/test-fc02-broken-oracle` genuinely IS about oracle verdict logic -- it is not a false
+# positive and it is not excluded. But a session asking "oracle verdict logic" wants the code that
+# DECIDES first and the code that CHECKS the decision second, and a repo with 15 `bin/test-*`
+# harnesses will otherwise fill a small result set with them. The demotion is switched off the
+# moment the query mentions tests, so it can never hide what was asked for.
+TEST_DEMOTION = 0.55
+TEST_PATH_RE = re.compile(r"(^|/)(test[-_]|.*_test\.py$)|/tests?/")
+TEST_QUERY_TERMS = frozenset({"test", "tests", "testing", "regression", "fixture", "fixtures",
+                              "harness", "pytest", "assert", "assertion"})
+
+# ONE-HOP DEPENDENCY EXPANSION. "The minimal set a session must load" is not the same question as
+# "which files mention these words". You cannot read `bin/verify-job`'s verdict path without
+# `wrought_supervisor.classify`, and the import edge says so where no amount of word-matching
+# does. Seeds pull in what they import and what imports them, at a discount, and the result is
+# LABELLED so a reader can tell a graph hit from a text hit.
+GRAPH_SEEDS = 5
+GRAPH_ROUNDS = 2
+GRAPH_DISCOUNT = 0.25
+# PACKAGE SIBLINGS WERE TRIED AND REMOVED, and the measurement is the reason. At a 0.20 discount
+# the whole of `src/wrought_escalation/` rode in on one strong hit and pushed `bin/escalate-once`
+# from rank 2 to rank 7 on "escalation budget ledger", and `bin/gen-pack` from 3 to 7 on
+# "verification pack generation" -- it displaced real answers to make room for adjacency. The
+# `refs` edge below buys what siblings were reaching for, and names an actual dependency.
+
+
+def idf(df: dict[str, int], n: int, term: str) -> float:
+    d = df.get(term, 0)
+    if d == 0:
+        return 0.0
+    # +1 inside the log keeps a term present in every file at a small positive weight rather than
+    # exactly zero -- "runner" is in many files and is still the point of the query "runner rules".
+    return math.log(1.0 + (n - d + 0.5) / (d + 0.5))
+
+
+def module_of(path: str) -> str | None:
+    """`src/wrought_supervisor/oracle.py` -> `wrought_supervisor.oracle`, so an import string can
+    be resolved back to the indexed file it names."""
+    if not path.startswith("src/") or not path.endswith(".py"):
+        return None
+    mod = path[len("src/"):-len(".py")].replace("/", ".")
+    return mod[: -len(".__init__")] if mod.endswith(".__init__") else mod
+
+
+def expand(term: str, vocab: set[str]) -> list[tuple[str, float]]:
+    """Exact match, then conservative prefix matches. No stemmer: a stemmer that is wrong deletes
+    the file you were looking for, and this tool's failure mode must be noise, never absence."""
+    # THE `sorted()` CALLS ARE LOAD-BEARING. `vocab` is a set, and iterating it directly made the
+    # expansion list -- which is then TRUNCATED at 12 -- depend on the process's string hash seed.
+    # Measured before the fix: the same query, same index, returned between 61,431 and 82,262
+    # tokens across eight PYTHONHASHSEED values. `bin/test-wrought-scope` arm E now asserts the
+    # property across seeds instead of trusting this comment.
+    out = [(term, 1.0)] if term in vocab else []
+    if len(term) >= 4:
+        longer = sorted(v for v in vocab
+                        if v != term and len(v) > len(term) and v.startswith(term)
+                        and len(v) - len(term) <= 4)
+        out.extend((v, PREFIX_DISCOUNT) for v in longer)
+        if not out:
+            shorter = sorted(v for v in vocab if len(v) >= 4 and term.startswith(v))
+            out.extend((v, PREFIX_DISCOUNT) for v in shorter)
+    return out[:12]
+
+
+def rank(index: dict, query: str, explain: bool = False):
+    """Returns [(score, path)] descending. With explain=True, [(score, path, why)] where `why` is
+    'text' or 'graph:<seed>' — a caller can then tell the two apart, and the CLI does."""
+    files = index["files"]
+    df = index["df"]
+    n = len(files)
+    avgdl = max(1.0, index["corpus"]["tokens"] / max(1, n))
+    vocab = set(df)
+    qterms = list(dict.fromkeys(terms_of(query)))
+    expanded: list[tuple[str, float, float, str]] = []
+    for qt in qterms:
+        for v, disc in expand(qt, vocab):
+            expanded.append((v, disc, idf(df, n, v), qt))
+    qnorm = re.sub(r"[^a-z0-9]+", " ", query.lower()).strip()
+    demote_tests = not (set(qterms) & TEST_QUERY_TERMS)
+
+    text_scores: dict[str, float] = {}
+    for p, rec in files.items():
+        score = 0.0
+        matched: set[str] = set()
+        ctf = rec["content_tf"]
+        pset, sset = set(rec["path_terms"]), set(rec["symbol_terms"])
+        uset, iset = set(rec["purpose_terms"]), set(rec["import_terms"])
+        hset = set(rec["heading_terms"])
+        norm = 1.0 - BM25_B + BM25_B * (rec["tokens"] / avgdl)
+        for term, disc, w, origin in expanded:
+            if w == 0.0:
+                continue
+            field = 0.0
+            if term in pset:
+                field += W_PATH
+            if term in sset:
+                field += W_SYMBOL
+            if term in uset:
+                field += W_PURPOSE
+            if term in iset:
+                field += W_IMPORT
+            if term in hset:
+                field += W_HEADING
+            tf = ctf.get(term, 0)
+            if tf:
+                # Textbook BM25 term saturation with length normalization against the MEASURED
+                # token count. A 12,000-token journal that mentions a term 18 times is weaker
+                # evidence than a 5,900-token module that uses it 45 times, and this is what says so.
+                field += W_CONTENT * (tf * (BM25_K1 + 1.0)) / (tf + BM25_K1 * norm)
+            if field:
+                score += w * disc * field
+                matched.add(origin)
+        if score <= 0:
+            continue
+        if qterms:
+            score *= COORD_FLOOR + (1.0 - COORD_FLOOR) * (len(matched) / len(qterms))
+        if qnorm:
+            hay = (p.lower().replace("/", " ").replace("-", " ") + " "
+                   + re.sub(r"[^a-z0-9]+", " ", rec["purpose"].lower()))
+            if qnorm in hay:
+                score += W_PHRASE * len(qterms)
+        if demote_tests and TEST_PATH_RE.search(p):
+            score *= TEST_DEMOTION
+        text_scores[p] = score
+
+    # ---- one-hop dependency expansion off the strongest text hits ----
+    # ADDITIVE, not a floor. A file that both matches the words AND is a direct dependency of the
+    # best match is a strictly better answer than one that does only one of those, and a `max()`
+    # threw that away -- measured on "oracle verdict logic", where bin/verify-job's graph boost
+    # (18.7) landed a hair under its own text score (18.6) and moved it not at all.
+    by_module = {m: p for p in files if (m := module_of(p))}
+    origin: dict[str, list[str]] = {p: ["text"] for p in text_scores}
+    # INBOUND EDGES ARE IMPORTS ONLY. Inbound *refs* were tried and are far too promiscuous:
+    # `docs/EXECUTOR-RAILS.md` is NAMED by most of the tree, so treating "mentions me" as an
+    # inbound edge made one strong doc hit boost forty files at once and scrambled every ranking
+    # it touched. Outbound refs -- what a file itself names -- stay, because those are its own
+    # dependencies and are bounded by what it actually says.
+    inbound: dict[str, set[str]] = {}
+    for p, rec in files.items():
+        for imp in rec["imports"]:
+            tgt = by_module.get(imp) or by_module.get(imp.rsplit(".", 1)[0])
+            if tgt and tgt != p:
+                inbound.setdefault(tgt, set()).add(p)
+
+    def neighbours_of(seed: str, with_refs: bool) -> set[str]:
+        out: set[str] = set(inbound.get(seed, ()))              # what IMPORTS the seed
+        for imp in files[seed]["imports"]:                      # what the seed imports
+            tgt = by_module.get(imp) or by_module.get(imp.rsplit(".", 1)[0])
+            if tgt:
+                out.add(tgt)
+        if with_refs:
+            out.update(r for r in files[seed].get("refs", ()) if r.startswith("src/"))
+        out.discard(seed)
+        return out
+
+    # ROUND 1 uses IMPORTS ONLY; ROUND 2 adds the `refs` edge, restricted to `src/` targets, and
+    # re-seeds from the round-1 scores. Both halves of that are measured choices, not taste:
+    #   * unrestricted refs made every measure WORSE (worst 34->40, mean 4.35->5.75, top-10
+    #     19/20->17/20) because a doc most of the tree names becomes everything's "dependency";
+    #   * one round cannot reach the end of a real chain. `bin/verify-job` runs the sandbox as
+    #     `python -m wrought_verifier` -- an edge no import graph has -- and verify-job is itself
+    #     only reachable in round 1, via `src/wrought_supervisor/oracle.py` importing it.
+    # EVERY ITERATION BELOW IS SORTED, AND THAT IS A BUG FIX, NOT TIDINESS. The first version
+    # iterated `neighbours_of()`'s SET directly, so new keys entered `text_scores` in an order that
+    # depended on Python's per-process string hash seed. The final ranking sort is total and was
+    # never affected -- but ROUND 2 PICKS ITS SEEDS FROM `text_scores`, and among tied scores that
+    # selection moved between runs. Measured: the fixture query "held out split for gate 44"
+    # returned 141,157 tokens on one run and 156,433 on the next, same index, same tree. A scoping
+    # tool whose answer moves between invocations cannot be reasoned about, and the committed
+    # `bin/test-wrought-scope` now runs arm E under two different PYTHONHASHSEEDs so the property
+    # is asserted rather than assumed.
+    used: set[str] = set()
+    for rnd in range(1, GRAPH_ROUNDS + 1):
+        ordered = sorted(text_scores.items(), key=lambda kv: (-kv[1], kv[0]))
+        seeds = [(p, s) for p, s in ordered if p not in used][:GRAPH_SEEDS]
+        adds: dict[str, float] = {}
+        for seed, sscore in seeds:
+            used.add(seed)
+            for nb in sorted(neighbours_of(seed, with_refs=(rnd >= 2))):
+                adds[nb] = adds.get(nb, 0.0) + sscore * GRAPH_DISCOUNT
+                origin.setdefault(nb, []).append(f"graph{rnd}:{seed}")
+        for nb in sorted(adds):
+            text_scores[nb] = text_scores.get(nb, 0.0) + adds[nb]
+
+    scored = [(s, p) for p, s in text_scores.items()]
+    scored.sort(key=lambda sp: (-sp[0], files[sp[1]]["tokens"], sp[1]))
+    if explain:
+        return [(s, p, "+".join(dict.fromkeys(origin.get(p, ["text"])))) for s, p in scored]
+    return scored
+
+
+def best_sections(rec: dict, query: str, limit: int = 3) -> list[dict]:
+    qt = set(terms_of(query))
+    hits = []
+    for s in rec.get("sections", []):
+        overlap = len(qt & set(s["terms"])) + 2 * len(qt & set(terms_of(s["title"])))
+        if overlap:
+            hits.append((overlap, s))
+    hits.sort(key=lambda os_: (-os_[0], os_[1]["line"]))
+    return [s for _, s in hits[:limit]]
+
+
+# ---------------------------------------------------------------------------------------------
+# commands
+# ---------------------------------------------------------------------------------------------
+
+def load_index() -> dict:
+    if not INDEX_PATH.exists():
+        raise SystemExit(f"no index at {INDEX_PATH} — run: bin/wrought-scope rebuild --key-stdin")
+    return json.loads(INDEX_PATH.read_text())
+
+
+def cmd_query(args) -> int:
+    index = load_index()
+    files = index["files"]
+    scored = rank(index, args.query)
+    if not scored:
+        print(f'no file scored above zero for "{args.query}"')
+        return 1
+    floor = scored[0][0] * SCORE_FLOOR_FRACTION
+    picked: list[tuple[float, str]] = []
+    running = 0
+    for sc, p in scored:
+        if sc < floor or len(picked) >= args.max_files:
+            break
+        if args.budget and running + files[p]["tokens"] > args.budget and picked:
+            break
+        picked.append((sc, p))
+        running += files[p]["tokens"]
+
+    whole = index["corpus"]["tokens"]
+    total = sum(files[p]["tokens"] for _, p in picked)
+    section_total = 0
+    out = {"query": args.query, "files": [], "total_tokens": total,
+           "whole_tree_tokens": whole, "whole_tree_files": index["corpus"]["files"]}
+    for sc, p in picked:
+        rec = files[p]
+        secs = best_sections(rec, args.query) if not args.no_sections else []
+        section_total += sum(s["tokens"] for s in secs) or rec["tokens"]
+        out["files"].append({
+            "path": p, "score": round(sc, 2), "tokens": rec["tokens"],
+            "why": rec["purpose"] or "(no committed purpose line)",
+            "why_source": rec["purpose_source"],
+            "sections": [{"title": s["title"], "line": s["line"], "tokens": s["tokens"]}
+                         for s in secs],
+        })
+    out["section_scoped_tokens"] = section_total
+    if args.json:
+        print(json.dumps(out, indent=2, sort_keys=True))
+        return 0
+
+    print(f'SCOPE for: "{args.query}"')
+    print(f'  {len(picked)} file(s) of {index["corpus"]["files"]} indexed'
+          f'   {total:,} tokens of {whole:,}   ({100.0*total/whole:.1f}% of the tree)')
+    print()
+    for f in out["files"]:
+        print(f'  {f["tokens"]:>7,} tok  {f["path"]}')
+        print(f'                {f["why"][:150]}')
+        print(f'                [score {f["score"]}, purpose from {f["why_source"]}]')
+        for s in f["sections"]:
+            print(f'                  §{s["title"][:70]}  (line {s["line"]}, {s["tokens"]:,} tok)')
+    print()
+    print(f'  TOTAL {total:,} tokens.  Whole tree is {whole:,} tokens across '
+          f'{index["corpus"]["files"]} files.')
+    print(f'  Reading only the named sections instead of the whole files: '
+          f'{section_total:,} tokens.')
+    return 0
+
+
+def cmd_symbol(args) -> int:
+    index = load_index()
+    files = index["files"]
+    name = args.name
+    lname = name.lower()
+    defines = [p for p, r in files.items() if name in r["symbols"]]
+    if not defines:
+        defines = [p for p, r in files.items() if any(s.lower() == lname for s in r["symbols"])]
+    mentions = [p for p, r in files.items()
+                if p not in defines and (lname in r["content_tf"] or lname in r["import_terms"])]
+    if args.json:
+        print(json.dumps({"symbol": name, "defines": sorted(defines),
+                          "mentions": sorted(mentions),
+                          "_mentions_is_term_level": "a term match, NOT a call graph"},
+                         indent=2, sort_keys=True))
+        return 0
+    if not defines and not mentions:
+        print(f"no indexed file defines or mentions `{name}`")
+        return 1
+    print(f"symbol: {name}")
+    print("  DEFINED IN:")
+    for p in sorted(defines) or ["    (nothing in the index defines it)"]:
+        print(f"    {files[p]['tokens']:>7,} tok  {p}" if p in files else p)
+    if mentions:
+        print(f"  MENTIONED IN ({len(mentions)}) — term-level, NOT a call graph:")
+        for p in sorted(mentions)[:args.max_files]:
+            print(f"    {files[p]['tokens']:>7,} tok  {p}")
+        if len(mentions) > args.max_files:
+            print(f"    … {len(mentions)-args.max_files} more (raise --max-files)")
+    return 0
+
+
+def cmd_stat(args) -> int:
+    index = load_index()
+    c = index["corpus"]
+    files = index["files"]
+    print(f"index      : {INDEX_PATH}")
+    print(f"index bytes: {INDEX_PATH.stat().st_size:,}")
+    print(f"roots      : {' '.join(index['roots'])}")
+    print(f"files      : {c['files']}")
+    print(f"tree bytes : {c['bytes']:,}")
+    print(f"TREE TOKENS: {c['tokens']:,}   <- the comparand every ratio is against")
+    by = {}
+    for r in files.values():
+        by[r["purpose_source"]] = by.get(r["purpose_source"], 0) + 1
+    print("purpose provenance:")
+    for k, v in sorted(by.items(), key=lambda kv: (-kv[1], kv[0])):
+        print(f"   {v:>4}  {k}")
+    kinds = {}
+    for r in files.values():
+        kinds[r["kind"]] = kinds.get(r["kind"], 0) + 1
+    print("kinds: " + ", ".join(f"{k}={v}" for k, v in sorted(kinds.items())))
+    biggest = sorted(files.items(), key=lambda kv: -kv[1]["tokens"])[:5]
+    print("largest indexed files:")
+    for p, r in biggest:
+        print(f"   {r['tokens']:>7,} tok  {p}")
+    return 0
+
+
+def cmd_rebuild(args) -> int:
+    index = build_index(args)
+    INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
+    INDEX_PATH.write_text(json.dumps(index, indent=1, sort_keys=True) + "\n")
+    c = index["corpus"]
+    print(f"index -> {INDEX_PATH}  ({INDEX_PATH.stat().st_size:,} B)")
+    print(f"  {c['files']} files, {c['bytes']:,} tree bytes, {c['tokens']:,} MEASURED tokens")
+    return 0
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="wrought-scope", description=__doc__.split("\n")[0])
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    q = sub.add_parser("query", help="ranked minimal file set for a task description")
+    q.add_argument("query")
+    q.add_argument("--max-files", type=int, default=12)
+    q.add_argument("--budget", type=int, default=0, help="stop adding files past this token budget")
+    q.add_argument("--no-sections", action="store_true")
+    q.add_argument("--json", action="store_true")
+    q.set_defaults(fn=cmd_query)
+
+    s = sub.add_parser("symbol", help="which file defines a symbol, and which mention it")
+    s.add_argument("name")
+    s.add_argument("--max-files", type=int, default=15)
+    s.add_argument("--json", action="store_true")
+    s.set_defaults(fn=cmd_symbol)
+
+    t = sub.add_parser("stat", help="index summary and the whole-tree token comparand")
+    t.set_defaults(fn=cmd_stat)
+
+    r = sub.add_parser("rebuild", help="regenerate the index (needs the served tokenizer)")
+    r.add_argument("--key-stdin", action="store_true", help="read the API key from stdin (rails §5)")
+    r.add_argument("--key-file", help="path to the key; the PATH is public, the value never leaves memory")
+    r.add_argument("--roots", nargs="+", default=list(DEFAULT_ROOTS))
+    r.add_argument("--no-model", action="store_true", help="skip fresh summaries; leave them absent")
+    r.add_argument("--no-reuse", action="store_true", help="ignore the existing index entirely")
+    r.add_argument("--model-max-tokens", type=int, default=MODEL_MAX_TOKENS_FLOOR)
+    r.set_defaults(fn=cmd_rebuild)
+
+    args = ap.parse_args()
+    return args.fn(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

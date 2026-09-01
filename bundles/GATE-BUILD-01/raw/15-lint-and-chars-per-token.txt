@@ -1,0 +1,1690 @@
+# GATE-BUILD-01 raw/15 — LINT of the new code, and the chars/token measurement
+# captured: 2026-09-01T01:57:43Z
+
+## command: ./bin/resolve-ruff-ruleset   (the committed resolver -- the ruleset is not invented here)
+# The ENABLED ruff rule set, pinned explicitly -- not just the version (docs/03 §10.1, S13).
+# ruff 0.16.0 selection: (ruff default selection, no config present)
+# Resolved on forge-mini 2026-08-31T21:57:43-04:00 by bin/resolve-ruff-ruleset.
+#
+# RULING 1 (session 13): the shipping selection is F + S. The deterministic gauntlet fails on
+# TESTS, TYPE ERRORS and SECURITY findings; style families are NOT failing criteria at v1.
+# F = pyflakes (undefined names, unused imports -- correctness).
+# S = flake8-bandit (the SAST fast gate §10.6 already depends on).
+# REVISIT TRIGGER: if a measured escalation is ever traced to a defect a style family would have
+# caught, that family is a candidate for re-selection -- a pins.lock edit + gen-pack, never a
+# pack edit.
+#
+
+## command: /opt/wrought/venv/bin/ruff check --select F,S --no-cache <the new files>
+S603 `subprocess` call: check for execution of untrusted input
+   --> bin/test-wrought-scope:158:17
+    |
+156 |         digests = []
+157 |         for i in (1, 2):
+158 |             r = subprocess.run([sys.executable, str(ROOT / "bin" / "wrought-scope"),
+    |                 ^^^^^^^^^^^^^^
+159 |                                 "rebuild", "--key-stdin", "--no-model"],
+160 |                                input=key, capture_output=True, text=True)
+    |
+
+S603 `subprocess` call: check for execution of untrusted input
+   --> bin/test-wrought-scope:191:19
+    |
+189 |     # ---------------------------------------------------------------- D. sync
+190 |     print("\nD. SYNC — the index describes the tree it claims to")
+191 |     tracked = set(subprocess.run(["git", "-C", str(ROOT), "ls-files", *index["roots"]],
+    |                   ^^^^^^^^^^^^^^
+192 |                                  capture_output=True, text=True, check=True).stdout.split())
+193 |     tracked = {p for p in tracked if p.strip()}
+    |
+
+S607 Starting a process with a partial executable path
+   --> bin/test-wrought-scope:191:34
+    |
+189 |     # ---------------------------------------------------------------- D. sync
+190 |     print("\nD. SYNC — the index describes the tree it claims to")
+191 |     tracked = set(subprocess.run(["git", "-C", str(ROOT), "ls-files", *index["roots"]],
+    |                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+192 |                                  capture_output=True, text=True, check=True).stdout.split())
+193 |     tracked = {p for p in tracked if p.strip()}
+    |
+
+S603 `subprocess` call: check for execution of untrusted input
+   --> bin/test-wrought-scope:218:17
+    |
+216 |         for seed in ("0", "1", "12345", "99991"):
+217 |             env = dict(os.environ, PYTHONHASHSEED=seed)
+218 |             r = subprocess.run([sys.executable, str(ROOT / "bin" / "wrought-scope"),
+    |                 ^^^^^^^^^^^^^^
+219 |                                 "query", q, "--json"],
+220 |                                capture_output=True, text=True, env=env)
+    |
+
+S310 Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+   --> bin/wrought-scope:257:15
+    |
+255 |     def count(self, text: str) -> int:
+256 |         body = json.dumps({"content": text}).encode()
+257 |         req = urllib.request.Request(TOKENIZE_URL, data=body, headers=self._headers())
+    |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+258 |         with urllib.request.urlopen(req, timeout=300) as resp:
+259 |             data = json.load(resp)
+    |
+
+S310 Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+   --> bin/wrought-scope:258:14
+    |
+256 |         body = json.dumps({"content": text}).encode()
+257 |         req = urllib.request.Request(TOKENIZE_URL, data=body, headers=self._headers())
+258 |         with urllib.request.urlopen(req, timeout=300) as resp:
+    |              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+259 |             data = json.load(resp)
+260 |         self.calls += 1
+    |
+
+S310 Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+   --> bin/wrought-scope:342:11
+    |
+340 |     if key:
+341 |         hdr["Authorization"] = "Bearer " + key
+342 |     req = urllib.request.Request(CHAT_URL, data=json.dumps(body).encode(), headers=hdr)
+    |           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+343 |     with urllib.request.urlopen(req, timeout=1800) as resp:
+344 |         r = json.load(resp)
+    |
+
+S310 Audit URL open for permitted schemes. Allowing use of `file:` or custom schemes is often unexpected.
+   --> bin/wrought-scope:343:10
+    |
+341 |         hdr["Authorization"] = "Bearer " + key
+342 |     req = urllib.request.Request(CHAT_URL, data=json.dumps(body).encode(), headers=hdr)
+343 |     with urllib.request.urlopen(req, timeout=1800) as resp:
+    |          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+344 |         r = json.load(resp)
+345 |     choice = r["choices"][0]
+    |
+
+S603 `subprocess` call: check for execution of untrusted input
+   --> bin/wrought-scope:365:11
+    |
+364 | def git_ls(roots: tuple[str, ...]) -> list[str]:
+365 |     out = subprocess.run(["git", "-C", str(ROOT), "ls-files", *roots],
+    |           ^^^^^^^^^^^^^^
+366 |                          capture_output=True, text=True, check=True).stdout.split("\n")
+367 |     return sorted(p for p in out if p.strip())
+    |
+
+S607 Starting a process with a partial executable path
+   --> bin/wrought-scope:365:26
+    |
+364 | def git_ls(roots: tuple[str, ...]) -> list[str]:
+365 |     out = subprocess.run(["git", "-C", str(ROOT), "ls-files", *roots],
+    |                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+366 |                          capture_output=True, text=True, check=True).stdout.split("\n")
+367 |     return sorted(p for p in out if p.strip())
+    |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:34:5
+   |
+33 | def test_module_surface():
+34 |     assert callable(lint_index)
+   |     ^^^^^^
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:40:5
+   |
+38 |     idx = _index(**{"bin/a": _rec(A), "src/b.py": _rec(B, 7)})
+39 |     r = lint_index(idx, {"bin/a": A, "src/b.py": B})
+40 |     assert r["findings"] == []
+   |     ^^^^^^
+41 |     assert r["worst_severity"] == "none"
+42 |     assert r["counts"] == {}
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:41:5
+   |
+39 |     r = lint_index(idx, {"bin/a": A, "src/b.py": B})
+40 |     assert r["findings"] == []
+41 |     assert r["worst_severity"] == "none"
+   |     ^^^^^^
+42 |     assert r["counts"] == {}
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:42:5
+   |
+40 |     assert r["findings"] == []
+41 |     assert r["worst_severity"] == "none"
+42 |     assert r["counts"] == {}
+   |     ^^^^^^
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:47:5
+   |
+45 | def test_missing_from_index():
+46 |     r = lint_index(_index(**{"bin/a": _rec(A)}), {"bin/a": A, "bin/new": C})
+47 |     assert [f["kind"] for f in r["findings"]] == ["MISSING_FROM_INDEX"]
+   |     ^^^^^^
+48 |     f = r["findings"][0]
+49 |     assert f["severity"] == "high" and f["path"] == "bin/new"
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:49:5
+   |
+47 |     assert [f["kind"] for f in r["findings"]] == ["MISSING_FROM_INDEX"]
+48 |     f = r["findings"][0]
+49 |     assert f["severity"] == "high" and f["path"] == "bin/new"
+   |     ^^^^^^
+50 |     assert r["worst_severity"] == "high"
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:50:5
+   |
+48 |     f = r["findings"][0]
+49 |     assert f["severity"] == "high" and f["path"] == "bin/new"
+50 |     assert r["worst_severity"] == "high"
+   |     ^^^^^^
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:55:5
+   |
+53 | def test_absent_from_tree():
+54 |     r = lint_index(_index(**{"bin/a": _rec(A), "bin/gone": _rec(B)}), {"bin/a": A})
+55 |     assert [f["kind"] for f in r["findings"]] == ["ABSENT_FROM_TREE"]
+   |     ^^^^^^
+56 |     assert r["findings"][0]["path"] == "bin/gone"
+57 |     assert r["findings"][0]["severity"] == "high"
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:56:5
+   |
+54 |     r = lint_index(_index(**{"bin/a": _rec(A), "bin/gone": _rec(B)}), {"bin/a": A})
+55 |     assert [f["kind"] for f in r["findings"]] == ["ABSENT_FROM_TREE"]
+56 |     assert r["findings"][0]["path"] == "bin/gone"
+   |     ^^^^^^
+57 |     assert r["findings"][0]["severity"] == "high"
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:57:5
+   |
+55 |     assert [f["kind"] for f in r["findings"]] == ["ABSENT_FROM_TREE"]
+56 |     assert r["findings"][0]["path"] == "bin/gone"
+57 |     assert r["findings"][0]["severity"] == "high"
+   |     ^^^^^^
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:62:5
+   |
+60 | def test_stale_hash():
+61 |     r = lint_index(_index(**{"bin/a": _rec(A)}), {"bin/a": B})
+62 |     assert [f["kind"] for f in r["findings"]] == ["STALE_HASH"]
+   |     ^^^^^^
+63 |     assert r["findings"][0]["severity"] == "high"
+64 |     # identical digests are NOT stale -- the negative half of the same boundary
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:63:5
+   |
+61 |     r = lint_index(_index(**{"bin/a": _rec(A)}), {"bin/a": B})
+62 |     assert [f["kind"] for f in r["findings"]] == ["STALE_HASH"]
+63 |     assert r["findings"][0]["severity"] == "high"
+   |     ^^^^^^
+64 |     # identical digests are NOT stale -- the negative half of the same boundary
+65 |     assert lint_index(_index(**{"bin/a": _rec(A)}), {"bin/a": A})["findings"] == []
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:65:5
+   |
+63 |     assert r["findings"][0]["severity"] == "high"
+64 |     # identical digests are NOT stale -- the negative half of the same boundary
+65 |     assert lint_index(_index(**{"bin/a": _rec(A)}), {"bin/a": A})["findings"] == []
+   |     ^^^^^^
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:76:5
+   |
+74 |         rec["tokens"] = tokens
+75 |     r = lint_index({"files": {"bin/a": rec}}, {"bin/a": A})
+76 |     assert [f["kind"] for f in r["findings"]] == ["BAD_TOKEN_COUNT"], tokens
+   |     ^^^^^^
+77 |     assert r["findings"][0]["severity"] == "medium"
+78 |     assert r["worst_severity"] == "medium"
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:77:5
+   |
+75 |     r = lint_index({"files": {"bin/a": rec}}, {"bin/a": A})
+76 |     assert [f["kind"] for f in r["findings"]] == ["BAD_TOKEN_COUNT"], tokens
+77 |     assert r["findings"][0]["severity"] == "medium"
+   |     ^^^^^^
+78 |     assert r["worst_severity"] == "medium"
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:78:5
+   |
+76 |     assert [f["kind"] for f in r["findings"]] == ["BAD_TOKEN_COUNT"], tokens
+77 |     assert r["findings"][0]["severity"] == "medium"
+78 |     assert r["worst_severity"] == "medium"
+   |     ^^^^^^
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:84:5
+   |
+82 |     # an empty file measures zero tokens; zero is a real answer, not a missing one
+83 |     r = lint_index(_index(**{"bin/empty": _rec(A, 0)}), {"bin/empty": A})
+84 |     assert r["findings"] == []
+   |     ^^^^^^
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:91:5
+   |
+89 |     rec = {"sha256": A, "tokens": -3}
+90 |     r = lint_index({"files": {"bin/a": rec}}, {"bin/a": B})
+91 |     assert {f["kind"] for f in r["findings"]} == {"STALE_HASH", "BAD_TOKEN_COUNT"}
+   |     ^^^^^^
+92 |     assert r["worst_severity"] == "high"
+93 |     assert r["counts"] == {"STALE_HASH": 1, "BAD_TOKEN_COUNT": 1}
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:92:5
+   |
+90 |     r = lint_index({"files": {"bin/a": rec}}, {"bin/a": B})
+91 |     assert {f["kind"] for f in r["findings"]} == {"STALE_HASH", "BAD_TOKEN_COUNT"}
+92 |     assert r["worst_severity"] == "high"
+   |     ^^^^^^
+93 |     assert r["counts"] == {"STALE_HASH": 1, "BAD_TOKEN_COUNT": 1}
+   |
+
+S101 Use of `assert` detected
+  --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:93:5
+   |
+91 |     assert {f["kind"] for f in r["findings"]} == {"STALE_HASH", "BAD_TOKEN_COUNT"}
+92 |     assert r["worst_severity"] == "high"
+93 |     assert r["counts"] == {"STALE_HASH": 1, "BAD_TOKEN_COUNT": 1}
+   |     ^^^^^^
+   |
+
+S101 Use of `assert` detected
+   --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:105:5
+    |
+103 |     r = lint_index(idx, tree)
+104 |     order = [(f["severity"], f["path"], f["kind"]) for f in r["findings"]]
+105 |     assert order == [
+    |     ^^^^^^
+106 |         ("high", "bin/absent-here", "MISSING_FROM_INDEX"),
+107 |         ("high", "bin/zz", "STALE_HASH"),
+    |
+
+S101 Use of `assert` detected
+   --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:111:5
+    |
+109 |         ("medium", "bin/aa", "BAD_TOKEN_COUNT"),
+110 |     ]
+111 |     assert r["counts"] == {"MISSING_FROM_INDEX": 1, "STALE_HASH": 1,
+    |     ^^^^^^
+112 |                            "ABSENT_FROM_TREE": 1, "BAD_TOKEN_COUNT": 1}
+113 |     assert r["worst_severity"] == "high"
+    |
+
+S101 Use of `assert` detected
+   --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:113:5
+    |
+111 |     assert r["counts"] == {"MISSING_FROM_INDEX": 1, "STALE_HASH": 1,
+112 |                            "ABSENT_FROM_TREE": 1, "BAD_TOKEN_COUNT": 1}
+113 |     assert r["worst_severity"] == "high"
+    |     ^^^^^^
+114 |     # byte-identical for identical input
+115 |     assert lint_index(idx, tree) == r
+    |
+
+S101 Use of `assert` detected
+   --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:115:5
+    |
+113 |     assert r["worst_severity"] == "high"
+114 |     # byte-identical for identical input
+115 |     assert lint_index(idx, tree) == r
+    |     ^^^^^^
+    |
+
+S101 Use of `assert` detected
+   --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:140:5
+    |
+138 |     with pytest.raises(ValueError) as e:
+139 |         lint_index({"files": {"bin/offender": rec}}, {"bin/offender": A})
+140 |     assert "bin/offender" in str(e.value)
+    |     ^^^^^^
+    |
+
+S101 Use of `assert` detected
+   --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:146:5
+    |
+144 |     with pytest.raises(ValueError) as e:
+145 |         lint_index(_index(**{"bin/a": _rec(A)}), {"bin/a": "nope"})
+146 |     assert "bin/a" in str(e.value)
+    |     ^^^^^^
+    |
+
+S101 Use of `assert` detected
+   --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:152:5
+    |
+150 |     with pytest.raises(ValueError) as e:
+151 |         lint_index({"files": {"bin/a": "not a record"}}, {"bin/a": A})
+152 |     assert "bin/a" in str(e.value)
+    |     ^^^^^^
+    |
+
+S101 Use of `assert` detected
+   --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:169:5
+    |
+167 |     si, st = copy.deepcopy(idx), copy.deepcopy(tree)
+168 |     lint_index(idx, tree)
+169 |     assert idx == si
+    |     ^^^^^^
+170 |     assert tree == st
+    |
+
+S101 Use of `assert` detected
+   --> tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py:170:5
+    |
+168 |     lint_index(idx, tree)
+169 |     assert idx == si
+170 |     assert tree == st
+    |     ^^^^^^
+    |
+
+Found 39 errors.
+   exit=1
+
+## chars/token, MEASURED on this corpus with the served tokenizer, against pins.lock's estimator
+## command: python3 (below), reading index/scope-index.json which carries the measured counts
+   whole corpus       : 2,185,638 B / 604,102 measured tok = 3.618 chars/token
+   python             : 1,350,313 B / 366,098 tok = 3.688 chars/token   (n=95)
+   shell              :   173,930 B /  55,641 tok = 3.126 chars/token   (n=32)
+   markdown           :   657,134 B / 180,954 tok = 3.631 chars/token   (n=26)
+   c                  :     4,261 B /   1,409 tok = 3.024 chars/token   (n=1)
+
+   pins.lock input_token_estimator_chars_per_token = 3.0
+   estimator would say 728,546 tokens; the tokenizer says 604,102.
+   The estimator OVER-READS this corpus by 20.6% -- it is a COST
+   estimator (deliberately conservative for money) and NOT a tokenizer. GATE-HORIZON
+   measured 3.16 and 3.29 on its packet payloads; this gate measures 3.62 on 154 code
+   and doc files. Both are ABOVE 3.0, i.e. both find the pin conservative in the same
+   direction; the magnitude differs because the payloads differ.
+
+## WHAT THE LINT FINDINGS ACTUALLY MEAN — read before treating 39 as a defect count
+
+### command: ruff check --select F,S --statistics bin/verify-job bin/wrought-runner bin/manufacture src/wrought_supervisor/oracle.py
+13	S603	[ ] subprocess-without-shell-equals-true
+12	S607	[ ] start-process-with-partial-path
+ 3	S110	[ ] try-except-pass
+ 2	S108	[ ] hardcoded-temp-file
+ 1	F401	[*] unused-import
+ 1	S105	[ ] hardcoded-password-string
+Found 32 errors.
+[*] 1 fixable with the `--fix` option.
+
+### command: grep -n invocation packs/py.toml
+19:invocation    = ["/opt/wrought/venv/bin/ruff", "check", "--select=F,S", "--output-format=json", "/work/src"]
+28:invocation    = ["/opt/wrought/venv/bin/basedpyright", "--outputjson", "-p", "/work/out/pyrightconfig.json", "/work/src"]
+38:invocation    = ["/opt/wrought/venv/bin/python", "-m", "pytest", "-p", "no:cacheprovider", "-p", "pytest_jsonreport", "-p", "pytest_cov", "--json-report", "--json-report-file=/work/out/pytest-report.json", "--cov=/work/src", "--cov-report=", "--tb=short", "/work/tests"]
+47:invocation    = ["/opt/wrought/venv/bin/python", "-m", "coverage", "json", "-o", "/work/out/coverage.json"]
+
+THREE FACTS, AND TOGETHER THEY SETTLE IT:
+  1. The pinned pack lints /work/src -- the CANDIDATE MODULE ONLY. It does not lint the
+     oracle's own test file, so the 29 S101 (bare assert) findings in
+     tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py are outside the gate by
+     construction. The already-COMPLETED tasks/TASK-2026-0808-queue-health oracle uses bare
+     asserts throughout for the same reason.
+  2. bin/ IS NOT HELD TO THIS GATE EITHER, and that is measured rather than assumed: four
+     long-standing files carry 32 findings of the SAME classes -- S603 x13, S607 x12, plus
+     S110/S108/S105 and one real F401. A new bin/ tool that raises S603 for calling git is
+     consistent with the tree, not a regression against it.
+  3. NOT ONE F-CLASS FINDING IS IN THE NEW CODE. F is pyflakes -- undefined names, unused
+     imports -- and it is the correctness half of RULING 1's F+S selection. The S findings
+     in bin/wrought-scope are S603/S607 (it runs .gitignore
+BUILD-JOURNAL.md
+CLAUDE.md
+ORGANIZATION-MAP.md
+SESSION-REPORT-18.md
+SESSION-REPORT-19.md
+SESSION-REPORT-20.md
+SESSION-REPORT-21.md
+SESSION-REPORT-SOAK-3.md
+archive/drafts/gate41-fixtures-draft.zip
+archive/spec/wrought-foundry-spec-v3.4.zip
+archive/spec/wrought-foundry-spec-v3.5.1.zip
+bin/assert-power-profile
+bin/baseline-report
+bin/baseline-run
+bin/build-replay-corpus
+bin/build-seccomp-deny.c
+bin/decompose-baseline
+bin/deploy-verifier
+bin/escalate-once
+bin/escalation-config-assert
+bin/gate-review-send-panel
+bin/gate05-postboot-collect
+bin/gate06-reverify
+bin/gate09b-10b-orch-freeze
+bin/gate12-devstral-ctx
+bin/gate13-measure
+bin/gate14-swap
+bin/gate15-bench-matrix
+bin/gate16-fresh
+bin/gate17-ordinal-sweep
+bin/gate18-longctx
+bin/gate19-fresh
+bin/gate20-vram
+bin/gate21-bwrap-smoke
+bin/gate23-classifier
+bin/gate24-pack-loader
+bin/gate25-hardening
+bin/gate25-measure-tasksmax
+bin/gate26-routing
+bin/gate29-security-offline
+bin/gate30-secrets
+bin/gate37-replay
+bin/gate38-canon
+bin/gate39-chaos
+bin/gate40-escalation
+bin/gate41-fixtures
+bin/gate42-fallback-baseline
+bin/gate43-feedback-ab
+bin/gate43-report
+bin/gate44-heldout
+bin/gate44-report
+bin/gate44-split
+bin/gen-canon-vectors
+bin/gen-pack
+bin/gen-profile
+bin/installed-drift-check
+bin/make-review-bundle-19
+bin/make-review-bundle-20
+bin/make-review-bundle-21
+bin/make-session-19-bundle
+bin/make-soak3-bundle
+bin/manufacture
+bin/manufacture-report
+bin/measure-typecheck-modes
+bin/measure-verify-walltime
+bin/oracle-isolation-probe
+bin/orchestrator
+bin/probe-reasoning-budget
+bin/probe-reasoning-control
+bin/probe-satisfiability
+bin/probe-verify-timeout
+bin/propose-con-manifest-diffs
+bin/reclassify-corpus
+bin/redaction-corpus
+bin/replay-blocked-attempts
+bin/repro-cap-fallthrough
+bin/resolve-ruff-ruleset
+bin/secpack-fetch
+bin/secpack-freeze
+bin/secpack-osv-fetch
+bin/secret-leak-scan
+bin/serve-model
+bin/set-power-profile
+bin/soak-curve
+bin/soak-harness
+bin/soak3-analyze
+bin/soak3-build-pool
+bin/soak3-importcheck
+bin/soak3-launch
+bin/soak3-status
+bin/soak3-track-a
+bin/soak3-track-b
+bin/test-f2-repairing-rest
+bin/test-f3-runner-scan
+bin/test-f4-allowed-tools
+bin/test-f8-signal-teardown
+bin/test-fc02-broken-oracle
+bin/test-gate44-heldout
+bin/test-l1-path-derivation
+bin/test-r1-stale-candidate
+bin/test-r5-budget-toctou
+bin/test-r6-journal-window
+bin/test-s13-invariants
+bin/test-s14-invariants
+bin/test-s15-invariants
+bin/test-stop33b-equivalence
+bin/test-stop40-pack-invalid
+bin/trackb-report
+bin/trackb-round2
+bin/trackb-run
+bin/verify-d24-backstop
+bin/verify-job
+bin/wait-healthy
+bin/wrought-alert-receiver
+bin/wrought-course-check
+bin/wrought-course-post
+bin/wrought-node-metrics
+bin/wrought-precommit-secret-scan
+bin/wrought-runner
+bin/wrought-runner-hook
+bin/wrought-secret-watch
+build-evidence/PHASE-A-RECORD.md
+build-evidence/final-state.log
+build-evidence/gate-01/canonical-unit-install.log
+build-evidence/gate-01/probe853.py
+build-evidence/gate-01/r10_rehearse.nft
+build-evidence/gate-01/sandbox-hardening-check.log
+build-evidence/gate-01/step2-fire.log
+build-evidence/gate-01/step2b-cancel.log
+build-evidence/gate-01/wrought-nft-restore.CANONICAL.service
+build-evidence/gate-01/wrought-nft-restore.service
+build-evidence/gate-02/00-hardening.conf
+build-evidence/gate-02/gate-02.log
+build-evidence/gate-03/auto-update-disable.log
+build-evidence/gate-03/gate-03.log
+build-evidence/gate-03/key-expiry-cli-investigation.log
+build-evidence/gate-03/key-expiry-disabled-CLOSED.log
+build-evidence/gate-03/resolvectl-status.log
+build-evidence/gate-03/tailscale-set-flags.log
+build-evidence/gate-05/gate-05-post-reboot.log
+build-evidence/gate-05/gate-05-pre-reboot.log
+build-evidence/gate-06/etc-default-grub.AFTER
+build-evidence/gate-06/etc-default-grub.BEFORE
+build-evidence/gate-06/gate-06-FAIL-dgpu-wedged.log
+build-evidence/gate-06/gate-06-postboot-b9ad6808-ece7-4f84-918a-75355fe9c5b1.log
+build-evidence/gate-06/gate-06-reverify-systemd-b9ad6808-ece7-4f84-918a-75355fe9c5b1.log
+build-evidence/gate-06/oracle-falsification-pre-reboot.log
+build-evidence/gate-06/wrought-gate05-postboot.service
+build-evidence/gate-07/SHA256SUMS
+build-evidence/gate-07/raw/amdgpu-fw.txt
+build-evidence/gate-07/raw/apt-cache-policy.txt
+build-evidence/gate-07/raw/free.txt
+build-evidence/gate-07/raw/lscpu.txt
+build-evidence/gate-07/raw/lspci-dgpu-vv.txt
+build-evidence/gate-07/raw/lspci-oculink-vv.txt
+build-evidence/gate-07/raw/lspci.txt
+build-evidence/gate-07/raw/pcie-link.txt
+build-evidence/gate-07/raw/proc-cmdline.txt
+build-evidence/gate-07/raw/uname.txt
+build-evidence/gate-07/raw/vulkaninfo-summary.txt
+build-evidence/gate-07/raw/vulkaninfo.txt
+build-evidence/gate-08/gate-08-evidence.log
+build-evidence/gate-08/wrought-gate08-cachedir.service
+build-evidence/gate-08/wrought-gate08-f02-control.service
+build-evidence/gate-08/wrought-gate08-hardening.service
+build-evidence/gate-09-10/basedpyright.strace
+build-evidence/gate-09-10/gate-09-10-evidence.log
+build-evidence/gate-09-10/hypothesis.strace
+build-evidence/gate-09-10/pytest.strace
+build-evidence/gate-09-10/requirements-frozen.txt
+build-evidence/gate-09-10/ruff-enabled-rules.txt
+build-evidence/gate-09-10/ruff.strace
+build-evidence/gate-09-10/treesitter.strace
+build-evidence/gate-09b-10b/gate-09b-10b.log
+build-evidence/gate-09b-10b/orch-import-validate.strace
+build-evidence/gate-09b-10b/requirements-orch-frozen.txt
+build-evidence/gate-11/gate-11-evidence.log
+build-evidence/gate-11/qwen36-mtp.args
+build-evidence/gate-11/qwen36.args
+build-evidence/gate-11/serve-model
+build-evidence/gate-11/serving.env
+build-evidence/gate-11/wait-healthy
+build-evidence/gate-11/wrought-gate11-probe.service
+build-evidence/gate-11/wrought-inference.service
+build-evidence/gate-12/devstral.args
+build-evidence/gate-12/gate12-devstral-ctx
+build-evidence/gate-13/gate-13-run.log
+build-evidence/gate-13/gate13-measure
+build-evidence/gate-13/ttft.json
+build-evidence/gate-14/gate14-swap
+build-evidence/gate-14/wait-healthy
+build-evidence/gate-14/wrought-inference.service
+build-evidence/gate-15/gate-15-run.log
+build-evidence/gate-15/gate15-bench-matrix
+build-evidence/gate-15/wrought-inference.service
+build-evidence/gate-16-17/base-code.tokens
+build-evidence/gate-16-17/base-math.tokens
+build-evidence/gate-16-17/base-reason.tokens
+build-evidence/gate-16-17/base-struct.tokens
+build-evidence/gate-16-17/cpu-code.tokens
+build-evidence/gate-16-17/cpu-math.tokens
+build-evidence/gate-16-17/cpu-reason.tokens
+build-evidence/gate-16-17/cpu-struct.tokens
+build-evidence/gate-16-17/det-1.tokens
+build-evidence/gate-16-17/det-10.tokens
+build-evidence/gate-16-17/det-11.tokens
+build-evidence/gate-16-17/det-12.tokens
+build-evidence/gate-16-17/det-13.tokens
+build-evidence/gate-16-17/det-14.tokens
+build-evidence/gate-16-17/det-15.tokens
+build-evidence/gate-16-17/det-16.tokens
+build-evidence/gate-16-17/det-17.tokens
+build-evidence/gate-16-17/det-18.tokens
+build-evidence/gate-16-17/det-19.tokens
+build-evidence/gate-16-17/det-2.tokens
+build-evidence/gate-16-17/det-20.tokens
+build-evidence/gate-16-17/det-3.tokens
+build-evidence/gate-16-17/det-4.tokens
+build-evidence/gate-16-17/det-5.tokens
+build-evidence/gate-16-17/det-6.tokens
+build-evidence/gate-16-17/det-7.tokens
+build-evidence/gate-16-17/det-8.tokens
+build-evidence/gate-16-17/det-9.tokens
+build-evidence/gate-16-17/gate-16-17-run.log
+build-evidence/gate-16-17/gate16-17-19-correctness
+build-evidence/gate-16-17/gate16-17-correctness
+build-evidence/gate-16-17/gpu-code.tokens
+build-evidence/gate-16-17/gpu-math.tokens
+build-evidence/gate-16-17/gpu-reason.tokens
+build-evidence/gate-16-17/gpu-struct.tokens
+build-evidence/gate-16-17/mtp-code.tokens
+build-evidence/gate-16-17/mtp-math.tokens
+build-evidence/gate-16-17/mtp-reason.tokens
+build-evidence/gate-16-17/mtp-struct.tokens
+build-evidence/gate-16-17/preconditions.log
+build-evidence/gate-16-17/ub256.tokens
+build-evidence/gate-16/cpu-code.json
+build-evidence/gate-16/cpu-math.json
+build-evidence/gate-16/cpu-reason.json
+build-evidence/gate-16/cpu-struct.json
+build-evidence/gate-16/gate16-fresh
+build-evidence/gate-16/gpu-code.json
+build-evidence/gate-16/gpu-math.json
+build-evidence/gate-16/gpu-reason.json
+build-evidence/gate-16/gpu-struct.json
+build-evidence/gate-16/req.json
+build-evidence/gate-17-diagnosis/graph-reuse-disabled.log
+build-evidence/gate-17-diagnosis/stateless-erase.log
+build-evidence/gate-17/gate17-ordinal-sweep
+build-evidence/gate-17/ordinal-sweep.jsonl
+build-evidence/gate-18/gate18-longctx
+build-evidence/gate-18/ppl-f16-f16.log
+build-evidence/gate-18/ppl-q4_0-q4_0.log
+build-evidence/gate-18/ppl-q8_0-f16.log
+build-evidence/gate-18/ppl-q8_0-q8_0.log
+build-evidence/gate-19/base-p1.json
+build-evidence/gate-19/base-p2.json
+build-evidence/gate-19/base-p3.json
+build-evidence/gate-19/gate19-fresh
+build-evidence/gate-19/mtp-p1.json
+build-evidence/gate-19/mtp-p2.json
+build-evidence/gate-19/mtp-p3.json
+build-evidence/gate-19/req.json
+build-evidence/gate-20/gate20-vram
+build-evidence/gate-20/mtp-off.log
+build-evidence/gate-20/mtp-on.log
+build-evidence/gate-21/gate-21-run.log
+build-evidence/gate-21/gate21-bwrap-smoke
+build-evidence/gate-22/bp.json
+build-evidence/gate-22/bp.strace
+build-evidence/gate-23/gate-23.log
+build-evidence/gate-24/gate-24.log
+build-evidence/gate-25/build-seccomp-deny.c
+build-evidence/gate-25/gate-25-falsification.log
+build-evidence/gate-25/gate-25-full.log
+build-evidence/gate-25/gate-25-partial-enforcement.log
+build-evidence/gate-25/seccomp-deny.bpf
+build-evidence/gate-25/seccomp-verification.log
+build-evidence/gate-25/tasksmax-measurement.json
+build-evidence/gate-25/tasksmax-measurement.log
+build-evidence/gate-26/gate-26.log
+build-evidence/gate-30/gate-30.log
+build-evidence/gate-31/gate-31-evidence.txt
+build-evidence/gate-31/monitoring-session-range.txt
+build-evidence/gate-31/unit-and-bind-posture.txt
+build-evidence/gate-37/gate-37.log
+build-evidence/gate-38/gate-38.log
+build-evidence/gate-39/gate-39.log
+build-evidence/gate-40/gate-40-live-call.log
+build-evidence/gate-40/gate-40.log
+build-evidence/gate-40/openrouter-catalog-capture.json
+build-evidence/gate-40/sealing.log
+build-evidence/gate-41/GATE-41-committed-tree.txt
+build-evidence/gate-41/GATE-41-provenance.txt
+build-evidence/gate-fix/fixtures/candidates/classify/widget.py
+build-evidence/gate-fix/fixtures/candidates/exit0/widget.py
+build-evidence/gate-fix/fixtures/candidates/exit0b/widget.py
+build-evidence/gate-fix/fixtures/candidates/happy/widget.py
+build-evidence/gate-fix/fixtures/candidates/hijack/widget.py
+build-evidence/gate-fix/fixtures/candidates/hijack/wrought_verifier/__init__.py
+build-evidence/gate-fix/fixtures/candidates/hijack/wrought_verifier/__main__.py
+build-evidence/gate-fix/fixtures/oracle/tests/test_widget.py
+build-evidence/gate-fix/fixtures/run-all-fixtures
+build-evidence/gate-fix/fixtures/run-fixture
+build-evidence/gate-fix/raw/00-byte-freeze-before.txt
+build-evidence/gate-fix/raw/10-fixtures-BEFORE.txt
+build-evidence/gate-fix/raw/11-fixtures-AFTER.txt
+build-evidence/gate-fix/raw/20-f4-allowed-tools.txt
+build-evidence/gate-fix/raw/21-f5-chaos-db-guard.txt
+build-evidence/gate-fix/raw/22-f7-gate13-pid.txt
+build-evidence/gate-fix/raw/23-f3-runner-scan.txt
+build-evidence/gate-fix/raw/24-f8-signal-teardown.txt
+build-evidence/gate-fix/raw/25-f2-repairing-rest.txt
+build-evidence/gate-fix/raw/26-f6-split-assessment.txt
+build-evidence/gate-fix/raw/27-l1-path-derivation.txt
+build-evidence/gate-fix/raw/99-byte-freeze-after.txt
+build-evidence/gate-narrative-dispatch/pf01.py
+build-evidence/gate-narrative-dispatch/pf01b.py
+build-evidence/gate-narrative-dispatch/pf02.py
+build-evidence/gate-narrative-dispatch/pf03.py
+build-evidence/gate-narrative-dispatch/pf30.py
+build-evidence/gate-narrative-dispatch/raw/00-freeze-before.txt
+build-evidence/gate-narrative-dispatch/raw/01-preflight-headers.txt
+build-evidence/gate-narrative-dispatch/raw/01b-preflight-headers-corrected.txt
+build-evidence/gate-narrative-dispatch/raw/02-hook-literal-map.txt
+build-evidence/gate-narrative-dispatch/raw/03-premise-check.txt
+build-evidence/gate-narrative-dispatch/raw/04-launch-preconditions.txt
+build-evidence/gate-narrative-dispatch/raw/10-runner-console.txt
+build-evidence/gate-narrative-dispatch/raw/20-secret-scan.txt
+build-evidence/gate-narrative-dispatch/raw/21-secret-scan-final.txt
+build-evidence/gate-narrative-dispatch/raw/21b-secret-scan-followup.txt
+build-evidence/gate-narrative-dispatch/raw/30-cost-comparison.txt
+build-evidence/gate-narrative-dispatch/raw/99-freeze-after.txt
+build-evidence/gate-oracle-isolation/REPORT-ORACLE-ISOLATION.md
+build-evidence/gate-oracle-isolation/fixtures/candidates/exit0c/widget.py
+build-evidence/gate-oracle-isolation/fixtures/candidates/outwrite/widget.py
+build-evidence/gate-oracle-isolation/fixtures/candidates/plant/widget.py
+build-evidence/gate-oracle-isolation/fixtures/run-all-fixtures
+build-evidence/gate-oracle-isolation/fixtures/run-fixture
+build-evidence/gate-oracle-isolation/raw/00-byte-freeze-before.txt
+build-evidence/gate-oracle-isolation/raw/10-uid-reachability.txt
+build-evidence/gate-oracle-isolation/raw/11-second-uid-refused-three-layers.txt
+build-evidence/gate-oracle-isolation/raw/12-probe-committed-tool.txt
+build-evidence/gate-oracle-isolation/raw/20-fixtures-BEFORE.txt
+build-evidence/gate-oracle-isolation/raw/21-fixtures-AFTER.txt
+build-evidence/gate-oracle-isolation/raw/30-deploy-and-repin.txt
+build-evidence/gate-oracle-isolation/raw/40-regression.txt
+build-evidence/gate-oracle-isolation/raw/99-byte-freeze-after.txt
+build-evidence/gate-review/README.md
+build-evidence/gate-review/make-panel-md.py
+build-evidence/gate-review/packet-MANIFEST.sha256
+build-evidence/gate-review/panel-results.json
+build-evidence/gate-review/send.log
+build-evidence/gate-trim-dispatch/raw/00-freeze-before.txt
+build-evidence/gate-trim-dispatch/raw/01-runner-validators-dryrun.txt
+build-evidence/gate-trim-dispatch/raw/02-hook-deny-simulation.txt
+build-evidence/gate-trim-dispatch/raw/02-hooksim.py
+build-evidence/gate-trim-dispatch/raw/03-post-split-hook-status.txt
+build-evidence/gate-trim-dispatch/raw/03b-command-record-and-phase0-verification.txt
+build-evidence/gate-trim-dispatch/raw/99-freeze-after.txt
+build-evidence/j0-recon/REPORT-J0-RECON.md
+build-evidence/j0-recon/SHA256SUMS
+build-evidence/j0-recon/cap.sh
+build-evidence/j0-recon/pypi-probe.py
+build-evidence/j0-recon/raw/00-baseline-orchestrator-db.txt
+build-evidence/j0-recon/raw/01-virtualization.txt
+build-evidence/j0-recon/raw/01b-storage.txt
+build-evidence/j0-recon/raw/02-inference-stack.txt
+build-evidence/j0-recon/raw/02a-llama-server-help-FULL.txt
+build-evidence/j0-recon/raw/02b-serving.txt
+build-evidence/j0-recon/raw/02c-gpu-vram.txt
+build-evidence/j0-recon/raw/03-network-posture.txt
+build-evidence/j0-recon/raw/04-adopt-surface.txt
+build-evidence/j0-recon/raw/04b-pypi-index-probe.txt
+build-evidence/j0-recon/raw/05-muse-glimmer.txt
+build-evidence/j0-recon/raw/05a-llama-arch-cpp-EXTRACT.txt
+build-evidence/j0-recon/raw/05b-arch-table-FULL.txt
+build-evidence/j0-recon/raw/06-substrate-context.txt
+build-evidence/j0-recon/raw/07-audit-corrections.txt
+build-evidence/j0-recon/raw/99-final-assert.txt
+build-evidence/j0a/ACCEPTANCE-2026-08-11.md
+build-evidence/j0a/PROPOSED-COTS-J0A.md
+build-evidence/j0a/PROPOSED-PINS-DELTA.md
+build-evidence/j0a/REPORT-J0A.md
+build-evidence/j0a/SHA256SUMS
+build-evidence/j0a/cap.sh
+build-evidence/j0a/raw/00-baseline-orchestrator-db.txt
+build-evidence/j0a/raw/00-hashes.txt
+build-evidence/j0a/raw/10-H1-reset-failed.txt
+build-evidence/j0a/raw/11-H2-evidence-move.txt
+build-evidence/j0a/raw/12-H3-gpu-name-grep.txt
+build-evidence/j0a/raw/13-H4-tailscale.txt
+build-evidence/j0a/raw/14-H2-extract-verify-commit.txt
+build-evidence/j0a/raw/15-H2-secret-scan.txt
+build-evidence/j0a/raw/20-P1-pre-install-state.txt
+build-evidence/j0a/raw/20a-nft-PRE-INSTALL.txt
+build-evidence/j0a/raw/20b-apt-mark-showauto-PRE.txt
+build-evidence/j0a/raw/20c-apt-mark-showmanual-PRE.txt
+build-evidence/j0a/raw/20d-dpkg-full-PRE.txt
+build-evidence/j0a/raw/21-P1-apt-update-policy.txt
+build-evidence/j0a/raw/22-P1-install-SIMULATION.txt
+build-evidence/j0a/raw/22a-simulation-FULL.txt
+build-evidence/j0a/raw/23-P1-ABORT-analysis.txt
+build-evidence/j0a/raw/23a-per-package-blame.txt
+build-evidence/j0a/raw/24-P1-remediation-SIMULATED.txt
+build-evidence/j0a/raw/24a-simulation-PINNED.txt
+build-evidence/j0a/raw/25-P1-upgrade-risk-context.txt
+build-evidence/j0a/raw/26-P1-unattended-upgrade-finding.txt
+build-evidence/j0a/raw/27-P1-ABORT-DECISION.txt
+build-evidence/j0a/raw/28-FINDING-U1-unattended-upgrades.txt
+build-evidence/j0a/raw/29-P1-NOT-ESTABLISHED.txt
+build-evidence/j0a/raw/30-P2a-guest-base-and-key.txt
+build-evidence/j0a/raw/30a-upstream-cloudimg-SHA256SUMS.txt
+build-evidence/j0a/raw/31-P1-newpackage-set.txt
+build-evidence/j0a/raw/40-self-audit.txt
+build-evidence/j0a/raw/41-bundle.txt
+build-evidence/j0a/raw/99-final-assert.txt
+build-evidence/j0a/raw/99-hashes.txt
+build-evidence/j0a/round2/PROPOSED-COTS-J0A.md
+build-evidence/j0a/round2/PROPOSED-PINS-DELTA.md
+build-evidence/j0a/round2/REPORT-J0A2.md
+build-evidence/j0a/round2/SHA256SUMS
+build-evidence/j0a/round2/cap.sh
+build-evidence/j0a/round2/raw/00-baseline-orchestrator-db.txt
+build-evidence/j0a/round2/raw/00-hashes.txt
+build-evidence/j0a/round2/raw/01-transport-integrity.txt
+build-evidence/j0a/round2/raw/02-precondition-U1.txt
+build-evidence/j0a/round2/raw/03-post-reboot-health.txt
+build-evidence/j0a/round2/raw/04-housekeeping-delete.txt
+build-evidence/j0a/round2/raw/05-nft-baseline.txt
+build-evidence/j0a/round2/raw/05a-nft-ruleset-PRE-INSTALL.txt
+build-evidence/j0a/round2/raw/06-FINDING-N1-nft-restore-noop.txt
+build-evidence/j0a/round2/raw/06b-N1-ADJUDICATION-RETRACTED.txt
+build-evidence/j0a/round2/raw/20-P1-pre-install-state.txt
+build-evidence/j0a/round2/raw/20b-apt-mark-showauto-PRE-R2.txt
+build-evidence/j0a/round2/raw/20c-apt-mark-showmanual-PRE-R2.txt
+build-evidence/j0a/round2/raw/20d-dpkg-full-PRE-R2.txt
+build-evidence/j0a/round2/raw/20e-operator-remediation-delta.txt
+build-evidence/j0a/round2/raw/20f-OPERATOR-REMEDIATION-SCOPE.txt
+build-evidence/j0a/round2/raw/20g-S1-apparmor-userns-impact.txt
+build-evidence/j0a/round2/raw/21-P1-apt-update-policy.txt
+build-evidence/j0a/round2/raw/22-P1-install-SIMULATION.txt
+build-evidence/j0a/round2/raw/22a-simulation-FULL.txt
+build-evidence/j0a/round2/raw/23-P1-ABORT-TEST.txt
+build-evidence/j0a/round2/raw/24-P1-REAL-INSTALL.txt
+build-evidence/j0a/round2/raw/24a-install-FULL.txt
+build-evidence/j0a/round2/raw/25-P1-installed-reality.txt
+build-evidence/j0a/round2/raw/25b-apt-mark-showauto-POST.txt
+build-evidence/j0a/round2/raw/25c-dpkg-full-POST.txt
+build-evidence/j0a/round2/raw/26-P1-daemon-model.txt
+build-evidence/j0a/round2/raw/27-P1-groups.txt
+build-evidence/j0a/round2/raw/28-P1-V1-kvm-closure.txt
+build-evidence/j0a/round2/raw/30-P2a-base-and-seed.txt
+build-evidence/j0a/round2/raw/31-P2a-seed-and-overlay.txt
+build-evidence/j0a/round2/raw/32-P2a-boot1.txt
+build-evidence/j0a/round2/raw/33-P2a-SEAM-TEST.txt
+build-evidence/j0a/round2/raw/34-P2a-mutation-and-revert.txt
+build-evidence/j0a/round2/raw/60-P2b-libvirt-net.txt
+build-evidence/j0a/round2/raw/60a-nft-ruleset-POST-NETSTART.txt
+build-evidence/j0a/round2/raw/61-P2b-prechecks.txt
+build-evidence/j0a/round2/raw/62-P2b-virt-install.txt
+build-evidence/j0a/round2/raw/63-P2b-lease-and-ssh.txt
+build-evidence/j0a/round2/raw/64-P2b-NAT-NEGATIVE-TEST.txt
+build-evidence/j0a/round2/raw/65-P2b-teardown.txt
+build-evidence/j0a/round2/raw/70-AUDIT-remeasurements.txt
+build-evidence/j0a/round2/raw/71-bundle-preflight.txt
+build-evidence/j0a/round2/raw/99-final-assert.txt
+build-evidence/j0a/round2/raw/99-hashes.txt
+build-evidence/review-2026/BUNDLE-README.md
+build-evidence/review-2026/FINDINGS-CLAUDE.md
+build-evidence/review-2026/INVENTORY.md
+build-evidence/review-2026/REVIEW-PACKAGE.md
+build-evidence/review-2026/review-source.tar.gz
+build-evidence/runner-arm/AUDIT.md
+build-evidence/runner-arm/PROPOSED-PINS-DELTA.md
+build-evidence/runner-arm/REPORT-RUNNER-ARM.md
+build-evidence/runner-arm/raw/00-byte-freeze-baseline.txt
+build-evidence/runner-arm/raw/01-health.txt
+build-evidence/runner-arm/raw/02-pre-action-state-and-sudo-posture.txt
+build-evidence/runner-arm/raw/03-autoupdate-mechanism-before.txt
+build-evidence/runner-arm/raw/04-autoupdate-resolver-derivation.txt
+build-evidence/runner-arm/raw/05-autoupdate-switch-both-arms.txt
+build-evidence/runner-arm/raw/06-wrought-runner.BEFORE.py
+build-evidence/runner-arm/raw/07-user-settings.BEFORE.json
+build-evidence/runner-arm/raw/08-two-surfaces-and-the-asymmetry.txt
+build-evidence/runner-arm/raw/09-pins.lock.BEFORE
+build-evidence/runner-arm/raw/10-no-update-attempt-bracketed.txt
+build-evidence/runner-arm/raw/11-property-b-permission-modes-2.1.250.txt
+build-evidence/runner-arm/raw/12-property-c-hooks-2.1.250.txt
+build-evidence/runner-arm/raw/13-property-d-env-caps-2.1.250.txt
+build-evidence/runner-arm/raw/14-property-a-fresh-context-and-isolation-2.1.250.txt
+build-evidence/runner-arm/raw/15-phase3-closing-bracket.txt
+build-evidence/runner-arm/raw/16-harness-b.sh
+build-evidence/runner-arm/raw/17-property-c-settings-valid.json
+build-evidence/runner-arm/raw/18-property-c-hook.sh
+build-evidence/runner-arm/raw/19-harness-a-isolation.sh
+build-evidence/runner-arm/raw/20-phase4-dbus-drop.txt
+build-evidence/runner-arm/raw/21-wrought-runner.AFTER.py
+build-evidence/runner-arm/raw/22-wrought-runner.diff
+build-evidence/runner-arm/raw/23-installed-config-start.txt
+build-evidence/runner-arm/raw/24-DEFECT-queue-parse-vocabulary.txt
+build-evidence/runner-arm/raw/25-phase5ii-endtoend-scratch.txt
+build-evidence/runner-arm/raw/26-runner.scratch.conf.json
+build-evidence/runner-arm/raw/27-scratch-probe-prompt.md
+build-evidence/runner-arm/raw/28-queue-parse-fix-reproof.txt
+build-evidence/runner-arm/raw/30-PHASE-J-STATE.BEFORE.md
+build-evidence/runner-arm/raw/31-CORRECTION-2026-08-29-conditional-boundary.txt
+build-evidence/runner-arm/raw/31-adddir-workspace-boundary-2.1.250.txt
+build-evidence/runner-arm/raw/32-secret-scan.txt
+build-evidence/runner-arm/raw/99-byte-freeze-reassert.txt
+build-evidence/runner-arm/raw/99b-byte-freeze-verdict.txt
+build-evidence/runner-harden/PROPOSED-PINS-DELTA.md
+build-evidence/runner-harden/REPORT-RUNNER-HARDEN.md
+build-evidence/runner-harden/raw/00-byte-freeze-baseline.txt
+build-evidence/runner-harden/raw/01-health.txt
+build-evidence/runner-harden/raw/02-cli-version-and-surface.txt
+build-evidence/runner-harden/raw/03-socket-derivation-and-autoupdate.txt
+build-evidence/runner-harden/raw/04-probeA-live-capture.txt
+build-evidence/runner-harden/raw/05-probeD-child-push-proof.txt
+build-evidence/runner-harden/raw/06-steering-closure-matrix.txt
+build-evidence/runner-harden/raw/07-wrought-runner.BEFORE.py
+build-evidence/runner-harden/raw/08-runner.conf.BEFORE.json
+build-evidence/runner-harden/raw/09-dryrun-orphan-sweep-halt.txt
+build-evidence/runner-harden/raw/10-dryrun-scope-parenting.txt
+build-evidence/runner-harden/raw/11-dryrun-realclaude-endtoend.txt
+build-evidence/runner-harden/raw/12-dryrun-breaker-regression.txt
+build-evidence/runner-harden/raw/13-wrought-runner.diff
+build-evidence/runner-harden/raw/14-runner.conf.diff
+build-evidence/runner-harden/raw/15-runner.conf-semantic-diff.txt
+build-evidence/runner-harden/raw/16-harness-probeA.sh
+build-evidence/runner-harden/raw/17-harness-ehome.sh
+build-evidence/runner-harden/raw/18-harness-realhome.sh
+build-evidence/runner-harden/raw/19-harness-dryrun-stubs.txt
+build-evidence/runner-harden/raw/20-probe-captures.txt
+build-evidence/runner-harden/raw/21-secret-scan.txt
+build-evidence/runner-harden/raw/22-enumerated-deletes-and-rescan.txt
+build-evidence/runner-harden/raw/23-installed-config-smoke.txt
+build-evidence/runner-harden/raw/99-byte-freeze-reassert.txt
+build-evidence/runner-harden/raw/99b-byte-freeze-verdict.txt
+build-evidence/runner/PROPOSED-PINS-DELTA.md
+build-evidence/runner/REPORT-RUNNER.md
+build-evidence/runner/raw/00-byte-freeze-baseline.txt
+build-evidence/runner/raw/01-transport-check.txt
+build-evidence/runner/raw/02-claude-cli-surface.txt
+build-evidence/runner/raw/03-phase1-testbed.txt
+build-evidence/runner/raw/04-test-a-fresh-context.txt
+build-evidence/runner/raw/05-test-a-corollary-automemory.txt
+build-evidence/runner/raw/06-test-b-permission-modes.txt
+build-evidence/runner/raw/07-test-c-hooks.txt
+build-evidence/runner/raw/08-test-d-env-caps.txt
+build-evidence/runner/raw/09-logind-linger.txt
+build-evidence/runner/raw/10-containment-kernel.txt
+build-evidence/runner/raw/11-containment-memorymax-followup.txt
+build-evidence/runner/raw/12-allowlist-spelling.txt
+build-evidence/runner/raw/13-allowlist-inner-space.txt
+build-evidence/runner/raw/14-denial-root-cause.txt
+build-evidence/runner/raw/15-course-check-failclosed.txt
+build-evidence/runner/raw/16-cross-session-steering.txt
+build-evidence/runner/raw/17-course-check-response-space.txt
+build-evidence/runner/raw/18-steering-delivery-mechanism.txt
+build-evidence/runner/raw/20-dryrun-1-happy-path.txt
+build-evidence/runner/raw/21-dryrun-2-adddir-fix.txt
+build-evidence/runner/raw/22-dryrun-3-byte-freeze-tripwire.txt
+build-evidence/runner/raw/23-dryrun-4-consecutive-failure-breaker.txt
+build-evidence/runner/raw/24-dryrun-5-coursecheck-halt.txt
+build-evidence/runner/raw/25-dryrun-6-kernel-kills-real-claude.txt
+build-evidence/runner/raw/26-runner-verdict-artifacts.txt
+build-evidence/runner/raw/27-memory-fence.txt
+build-evidence/runner/raw/28-dryrun-7-8-deadman.txt
+build-evidence/runner/raw/29-runner-source-manifest.txt
+build-evidence/runner/raw/30-etc-wrought-runner.conf.txt
+build-evidence/runner/raw/31-etc-wrought-runner-hooks.json.txt
+build-evidence/runner/raw/32-teardown.txt
+build-evidence/runner/raw/99-byte-freeze-reassert.txt
+build-evidence/runner/raw/99b-byte-freeze-verdict.txt
+build-evidence/session-10/J-91-negative-control.txt
+build-evidence/session-10/J-91-repro-red-then-green.txt
+build-evidence/session-10/R2-constraint-and-race.txt
+build-evidence/session-10/R2-outcome-index-measurement.txt
+build-evidence/session-10/R2-recover-flat-in-history.txt
+build-evidence/session-10/R3-reasoning-control-probe-AFTER.txt
+build-evidence/session-10/R3-reasoning-control-probe-BEFORE.txt
+build-evidence/session-10/R5-inference-enabled.txt
+build-evidence/session-10/R6-D24-backstop-verification.txt
+build-evidence/session-10/R7-secpack-fetch-and-attestation.txt
+build-evidence/session-10/gate23-after-R4-rule0.txt
+build-evidence/session-10/gate23-after-secpack-freeze.txt
+build-evidence/session-10/gate26-after-J91-fix.txt
+build-evidence/session-10/gate29-security-offline.txt
+build-evidence/session-10/gate30-after-scanner-rewrite.txt
+build-evidence/session-10/gate39-after-J91-fix.txt
+build-evidence/session-10/gate39-after-R2-index.txt
+build-evidence/session-10/qwen36.args.after-R3
+build-evidence/session-10/trackb-agreement-negative-control.txt
+build-evidence/session-10/trackb-round2-dashboard.md
+build-evidence/session-10/winddown-assertions.txt
+build-evidence/session-10/winddown-secret-scan.txt
+build-evidence/session-11/R1-gate23-after-rule4.txt
+build-evidence/session-11/R1-reclassify-corpus.txt
+build-evidence/session-11/R2-gate29-with-osv-scanner.txt
+build-evidence/session-11/R2-osv-scanner-fetch-and-pin.txt
+build-evidence/session-11/R3-production-migration.txt
+build-evidence/session-11/R6-gate30-with-drift-arm.txt
+build-evidence/session-11/R6-installed-drift-check.txt
+build-evidence/session-11/R7-gate23-after-env-field.txt
+build-evidence/session-11/R7-gate24-after-env-field.txt
+build-evidence/session-11/R7-generators.txt
+build-evidence/session-11/R8-escalation-live.txt
+build-evidence/session-11/R8-gate26-converged.txt
+build-evidence/session-11/R8-gate37-replay.txt
+build-evidence/session-11/R8-gate39-after-escalation-live.txt
+build-evidence/session-11/README-bundle.md
+build-evidence/session-11/README-gate41-staging.md
+build-evidence/session-12/README-bundle.md
+build-evidence/session-12/S12-BASELINE-DASHBOARD-b1b2.md
+build-evidence/session-12/S12-TRY004-satisfiability-probe.txt
+build-evidence/session-12/S12-basedpyright-warnings-fail-correct-code.txt
+build-evidence/session-12/S12-baseline-records-b1.json
+build-evidence/session-12/S12-baseline-records-b2.json
+build-evidence/session-12/S12-baseline-run.log
+build-evidence/session-12/S12-gate26-after-driver-param.txt
+build-evidence/session-12/S12-gate40-offline-after-driver-param.txt
+build-evidence/session-12/S12-idle-gap-sweep.txt
+build-evidence/session-12/S12-queue-pin-derivation.txt
+build-evidence/session-13/01-recalibration/S13-gate24-regression.txt
+build-evidence/session-13/01-recalibration/S13-typecheck-mode-matrix.json
+build-evidence/session-13/01-recalibration/S13-typecheck-mode-matrix.txt
+build-evidence/session-13/01-recalibration/ruff-enabled-rules-F-S.txt
+build-evidence/session-13/01-recalibration/ruff-resolved-settings-F-S.txt
+build-evidence/session-13/03-truncation/S13-llama-server-reasoning-flags.txt
+build-evidence/session-13/03-truncation/S13-reasoning-budget-binds.txt
+build-evidence/session-13/03-truncation/S13-reasoning-budget-derivation.txt
+build-evidence/session-13/03-truncation/S13-reasoning-budget-probe.json
+build-evidence/session-13/03-truncation/S13-reasoning-budget-probe.txt
+build-evidence/session-13/05-manifest/S13-gate23-after-manifest-gate.txt
+build-evidence/session-13/06-carried/REMOVED-qwen36-mtp.args
+build-evidence/session-13/07-baseline/README-b3b4-log.txt
+build-evidence/session-13/07-baseline/S13-b3-smoke-first-envelope.txt
+build-evidence/session-13/07-baseline/S13-b3b4-comparand.txt
+build-evidence/session-13/07-baseline/S13-b3b4-run.log
+build-evidence/session-13/07-baseline/S13-baseline-dashboard-b3b4.txt
+build-evidence/session-13/07-baseline/S13-decomposition-newpack-b3.txt
+build-evidence/session-13/07-baseline/S13-decomposition-newpack-b3b4.txt
+build-evidence/session-13/07-baseline/S13-decomposition-newpack-b4.txt
+build-evidence/session-13/07-baseline/S13-decomposition-oldpack-b1b2.txt
+build-evidence/session-13/07-baseline/S13-demand-interval.txt
+build-evidence/session-13/07-baseline/S13-oldpack-decomposition.txt
+build-evidence/session-13/07-baseline/records-b3.json
+build-evidence/session-13/07-baseline/records-b4.json
+build-evidence/session-13/08-regression/S13-replay-blocked-attempts.json
+build-evidence/session-13/08-regression/S13-replay-blocked-attempts.txt
+build-evidence/session-13/README-bundle.md
+build-evidence/session-14/01-stop27/README-ledger-line.txt
+build-evidence/session-14/01-stop27/S14-baseline-dashboard-b3b4-CORRECTED.txt
+build-evidence/session-14/01-stop27/S14-dashboard-diff-s13-to-s14.txt
+build-evidence/session-14/01-stop27/S14-wilson-verification.txt
+build-evidence/session-14/02-stop28/S14-STOP28-SUMMARY.txt
+build-evidence/session-14/02-stop28/S14-probe-07-dhcpleases.txt
+build-evidence/session-14/02-stop28/S14-probe-08-akaudit.txt
+build-evidence/session-14/02-stop28/reference-07-dhcpleases.py
+build-evidence/session-14/02-stop28/reference-08-akaudit.py
+build-evidence/session-14/03-ruling-a/S14-PHANTOM-LEDGER-ROW.txt
+build-evidence/session-14/03-ruling-a/S14-escalation-config-assert.txt
+build-evidence/session-14/03-ruling-a/S14-gate40-offline-after-ruling-a.txt
+build-evidence/session-14/03-ruling-a/S14-invariants.txt
+build-evidence/session-14/04-ruling-b/S14-PROPOSED-CON-MANIFEST-DIFFS.txt
+build-evidence/session-14/04-ruling-b/S14-gate41-after-ruling-b.txt
+build-evidence/session-14/05-gate42/README-BEFORE-RERUNNING-GATE-42.txt
+build-evidence/session-14/05-gate42/S14-GATE42-BLOCKED-no-verification-timeout.txt
+build-evidence/session-14/05-gate42/S14-GATE42-PARTIAL-RESULT.txt
+build-evidence/session-14/05-gate42/S14-gate42-run.log
+build-evidence/session-14/05-gate42/S14-gate42-served-model.json
+build-evidence/session-14/05-gate42/records-g42-PARTIAL.json
+build-evidence/session-14/06-regressions/S14-REGRESSION-SUMMARY.txt
+build-evidence/session-14/06-regressions/S14-decompose-b3b4-reproduced.txt
+build-evidence/session-14/06-regressions/S14-gate26-routing.txt
+build-evidence/session-14/06-regressions/S14-gen-pack-check.txt
+build-evidence/session-14/06-regressions/S14-gen-profile-check-all.txt
+build-evidence/session-14/06-regressions/S14-installed-drift-check.txt
+build-evidence/session-14/06-regressions/S14-secret-leak-scan.txt
+build-evidence/session-15/01-stop32/S15-gate23-all-arms.txt
+build-evidence/session-15/01-stop32/S15-runtimemaxsec-mechanism-probe.txt
+build-evidence/session-15/01-stop32/S15-verify-walltime-measured.txt
+build-evidence/session-15/02-ledger/S15-gate40-offline-after-rulings-3-4.txt
+build-evidence/session-15/02-ledger/S15-ledger-invariants.txt
+build-evidence/session-15/03-gate42/S15-GATE42-dashboard-g42c.md
+build-evidence/session-15/03-gate42/S15-GATE42-fallback-vs-primary.txt
+build-evidence/session-15/03-gate42/gate42-g42b-harness.log
+build-evidence/session-15/03-gate42/gate42-g42b-run.log
+build-evidence/session-15/03-gate42/gate42-g42b-served-model.json
+build-evidence/session-15/03-gate42/gate42-g42c-harness.log
+build-evidence/session-15/03-gate42/gate42-g42c-run.log
+build-evidence/session-15/03-gate42/gate42-g42c-served-model.json
+build-evidence/session-15/03-gate42/records-g42c.json
+build-evidence/session-15/04-regressions/S15-gate23-FINAL.txt
+build-evidence/session-15/04-regressions/S15-gate26.txt
+build-evidence/session-15/04-regressions/S15-gate39.txt
+build-evidence/session-15/04-regressions/S15-s14-invariants.txt
+build-evidence/session-15/05-stop33/S15-STOP33-fabricated-pass-capture.txt
+build-evidence/session-15/05-stop33/S15-production-queue-disclosure.txt
+build-evidence/session-15/05-stop33/S15-queue-drained-before-rerun.txt
+build-evidence/session-15/05-stop33/records-g42b-CONTAMINATED.json
+build-evidence/session-16/01-stop33b/S16-stop33b-equivalence.txt
+build-evidence/session-16/02-regressions/S16-escalation-config-assert.txt
+build-evidence/session-16/02-regressions/S16-gate23.txt
+build-evidence/session-16/02-regressions/S16-gate26-routing.txt
+build-evidence/session-16/02-regressions/S16-gate39.txt
+build-evidence/session-16/02-regressions/S16-gate40-escalation.txt
+build-evidence/session-16/02-regressions/S16-gate41-fixtures.txt
+build-evidence/session-16/02-regressions/S16-installed-drift-check.txt
+build-evidence/session-16/02-regressions/S16-repro-cap-fallthrough.txt
+build-evidence/session-16/02-regressions/S16-test-s14-invariants.txt
+build-evidence/session-16/02-regressions/S16-test-s15-invariants.txt
+build-evidence/session-16/02-regressions/S16-test-stop33b-equivalence.txt
+build-evidence/session-16/03-queue-drain/S16-production-queue-BEFORE.txt
+build-evidence/session-16/03-queue-drain/S16-production-queue-DRAIN.txt
+build-evidence/session-16/04-gate43-readiness/S16-reasoning-preserve-flag.txt
+build-evidence/session-16/05-gate43/S16-GATE43-baseline-report.md
+build-evidence/session-16/05-gate43/S16-GATE43-close-conditions.txt
+build-evidence/session-16/05-gate43/S16-GATE43-report.md
+build-evidence/session-16/05-gate43/gate43-g43a-run.log
+build-evidence/session-16/05-gate43/gate43-g43b-run.log
+build-evidence/session-16/05-gate43/gate43-g43c-run.log
+build-evidence/session-16/05-gate43/gate43-g43smokea-run.log
+build-evidence/session-16/05-gate43/gate43-g43smokec-run.log
+build-evidence/session-16/05-gate43/gate43-harness.log
+build-evidence/session-16/05-gate43/gate43-served-model.json
+build-evidence/session-16/05-gate43/gate43-status.json
+build-evidence/session-16/05-gate43/records-g43a.json
+build-evidence/session-16/05-gate43/records-g43b.json
+build-evidence/session-16/05-gate43/records-g43c.json
+build-evidence/session-16/05-gate43/records-g43smokea.json
+build-evidence/session-16/05-gate43/records-g43smokec.json
+build-evidence/session-18/01-r1-stale/GREEN-postfix.txt
+build-evidence/session-18/01-r1-stale/RED-prefix.txt
+build-evidence/session-18/01-r1-stale/probe-r1-stale.py
+build-evidence/session-18/01-r1-stale/regression-gate39.txt
+build-evidence/session-18/01-r1-stale/regression-stop33b.txt
+build-evidence/session-18/02-r5-budget/GREEN-postfix.txt
+build-evidence/session-18/02-r5-budget/RED-prefix.txt
+build-evidence/session-18/02-r5-budget/probe-r5-toctou.py
+build-evidence/session-18/02-r5-budget/regression-d24-backstop.txt
+build-evidence/session-18/02-r5-budget/regression-gate40.txt
+build-evidence/session-18/02-r5-budget/regression-s13.txt
+build-evidence/session-18/03-r6-journal-window/GREEN-postfix.txt
+build-evidence/session-18/03-r6-journal-window/MEASURED-gap.txt
+build-evidence/session-18/03-r6-journal-window/PROBE-output.txt
+build-evidence/session-18/03-r6-journal-window/RED-prefix.txt
+build-evidence/session-18/03-r6-journal-window/probe-r6-journal-window.py
+build-evidence/session-18/03-r6-journal-window/regression-gate23.txt
+build-evidence/session-18/03-r6-journal-window/regression-gate25-tasksmax-smoke.txt
+build-evidence/session-18/04-fc02-routing/GREEN-postfix.txt
+build-evidence/session-18/04-fc02-routing/RED-prefix.txt
+build-evidence/session-18/04-fc02-routing/regression-gate23.txt
+build-evidence/session-18/04-fc02-routing/regression-gate26.txt
+build-evidence/session-18/04-fc02-routing/regression-gate39.txt
+build-evidence/session-18/04-fc02-routing/regression-repro-cap-fallthrough.txt
+build-evidence/session-18/04-fc02-routing/regression-stop33b.txt
+build-evidence/session-18/04-fc02-routing/regression-test-s14-invariants.txt
+build-evidence/session-18/04-fc02-routing/regression-test-s15-invariants.txt
+build-evidence/session-19/01-decisions/BEFORE-fc02.txt
+build-evidence/session-19/01-decisions/GATE-26-postDF.txt
+build-evidence/session-19/01-decisions/GREEN-DF.txt
+build-evidence/session-19/01-decisions/GREEN-fc02-arm5.txt
+build-evidence/session-19/01-decisions/RED-DF-edge-removed.txt
+build-evidence/session-19/01-decisions/RED-fc02-arm5.txt
+build-evidence/session-19/01-decisions/regressions-postDF.txt
+build-evidence/session-19/02-gate44-split/GREEN-heldout-filter.txt
+build-evidence/session-19/02-gate44-split/SMOKE2-dashboard.md
+build-evidence/session-19/02-gate44-split/gate44-smoke2.log
+build-evidence/session-19/02-gate44-split/resolved-split.json
+build-evidence/session-19/02-gate44-split/split-check.txt
+build-evidence/session-19/03-gate44/GATE-44-baseline-report.md
+build-evidence/session-19/03-gate44/GATE-44-dashboard.md
+build-evidence/session-19/03-gate44/README-spend-figures.txt
+build-evidence/session-19/03-gate44/WIND-DOWN-regressions.txt
+build-evidence/session-19/03-gate44/gate44-g44-run.log
+build-evidence/session-19/03-gate44/gate44-g44smoke-run.log
+build-evidence/session-19/03-gate44/gate44-g44smoke2-run.log
+build-evidence/session-19/03-gate44/gate44-harness.log
+build-evidence/session-19/03-gate44/gate44-preflight-filter.txt
+build-evidence/session-19/03-gate44/gate44-served-model.json
+build-evidence/session-19/03-gate44/gate44-smoke.log
+build-evidence/session-19/03-gate44/gate44-smoke2.log
+build-evidence/session-19/03-gate44/gate44-spend-after.json
+build-evidence/session-19/03-gate44/gate44-spend-before.json
+build-evidence/session-19/03-gate44/gate44-split-check.txt
+build-evidence/session-19/03-gate44/gate44-status.json
+build-evidence/session-19/03-gate44/spend-fix-verified.txt
+build-evidence/session-19/03-gate44/stale-message-drain.txt
+build-evidence/session-19/BUNDLE-README.md
+build-evidence/session-20/01-decisions/DI-ratification-checks.txt
+build-evidence/session-20/01-decisions/spend-check.txt
+build-evidence/session-20/02-stop40/GREEN-gate23.txt
+build-evidence/session-20/02-stop40/GREEN-gate39.txt
+build-evidence/session-20/02-stop40/GREEN-postfix.txt
+build-evidence/session-20/02-stop40/RED-prefix.txt
+build-evidence/session-20/03-stop41/AFTER-applied-measured.txt
+build-evidence/session-20/03-stop41/cascade-measured.txt
+build-evidence/session-20/03-stop41/proposed-diffs.txt
+build-evidence/session-20/03-stop41/ratified-declarations.patch
+build-evidence/session-20/04-part2/zip-absence-proof.txt
+build-evidence/session-20/BUNDLE-README.md
+build-evidence/session-21/01-cleanup/tier0AB-before.txt
+build-evidence/session-21/01-cleanup/tier0AB-executed.txt
+build-evidence/session-21/01-cleanup/tierC-executed-and-final-status.txt
+build-evidence/session-21/01-cleanup/tierC-extraction.txt
+build-evidence/session-21/01-cleanup/tierC-orphan-reverification.txt
+build-evidence/session-21/02-stop41/deferred-fix-premise-checked.txt
+build-evidence/session-21/02-stop41/fixtures-green-remeasured.txt
+build-evidence/session-21/03-queue-health/MANUFACTURE-REPORT-p1.md
+build-evidence/session-21/03-queue-health/deliverable.txt
+build-evidence/session-21/03-queue-health/graded-envelope-attempt0.json
+build-evidence/session-21/03-queue-health/ingestion.txt
+build-evidence/session-21/03-queue-health/inputvalidation.txt
+build-evidence/session-21/03-queue-health/launch-command.txt
+build-evidence/session-21/03-queue-health/manufacture-p1.log
+build-evidence/session-21/03-queue-health/preflight.txt
+build-evidence/session-21/03-queue-health/production-untouched.txt
+build-evidence/session-21/03-queue-health/records-p1.json
+build-evidence/session-21/03-queue-health/regressions.txt
+build-evidence/session-21/03-queue-health/spend-after.json
+build-evidence/session-21/03-queue-health/spend-before.json
+build-evidence/session-21/03-queue-health/staged-attempt0.json
+build-evidence/session-21/03-queue-health/unit-result.txt
+build-evidence/session-21/04-st7-sweep.txt
+build-evidence/session-21/BUNDLE-README.md
+build-evidence/session-22/00-st7-sweep.txt
+build-evidence/session-22/01-stop42/narrowing-discharges-nothing.txt
+build-evidence/session-22/02-products/receipt-verify.txt
+build-evidence/session-22/03-declare-test/inputvalidation-after.txt
+build-evidence/session-22/03-declare-test/inputvalidation-rerun.py
+build-evidence/session-22/04-organize/home-reorg.txt
+build-evidence/session-22/04-organize/prove-then-move.txt
+build-evidence/session-22/05-prove/prove.txt
+build-evidence/session-22/BUNDLE-README.md
+build-evidence/soak-1/checkpoints.jsonl
+build-evidence/soak-1/ledger-winddown.txt
+build-evidence/soak-1/round-cadence.txt
+build-evidence/soak-1/soak-curve.txt
+build-evidence/soak-1/soak.log
+build-evidence/soak-1/status.json
+build-evidence/soak-1/store-amplification.txt
+build-evidence/soak-2/J-91-repro.txt
+build-evidence/soak-2/J-92-secret-leak-incident.txt
+build-evidence/soak-2/checkpoints.jsonl
+build-evidence/soak-2/escalation-config-assert.txt
+build-evidence/soak-2/gate-30-PASS-under-D24-amendment.txt
+build-evidence/soak-2/gate-30-RED-after-J92.txt
+build-evidence/soak-2/gate39-regression-after-D22.txt
+build-evidence/soak-2/nothink.out
+build-evidence/soak-2/records-nothink-r2.json
+build-evidence/soak-2/records-nothink-r3.json
+build-evidence/soak-2/records-nothink-r4.json
+build-evidence/soak-2/records-nothink.json
+build-evidence/soak-2/records-think-r2.json
+build-evidence/soak-2/records-think-r3.json
+build-evidence/soak-2/records-think.json
+build-evidence/soak-2/redaction-corpus.txt
+build-evidence/soak-2/soak.log
+build-evidence/soak-2/soak1-nits-resolved.txt
+build-evidence/soak-2/status.json
+build-evidence/soak-2/think.out
+build-evidence/soak-2/timeline.txt
+build-evidence/soak-2/trackb-dashboard-full.md
+build-evidence/soak-2/trackb-nothink-dashboard.md
+build-evidence/soak-2/trackb.log
+build-evidence/soak-2/winddown-zero-dollar.txt
+build-evidence/soak-3/01-launch-preconditions.txt
+build-evidence/soak-3/02-importcheck-modules.txt
+build-evidence/soak-3/03-FINDING-B-1-restage-EACCES.log
+build-evidence/soak-3/04-trackb-pool.json
+build-evidence/soak-3/05-trackb-references-cycle0.json
+build-evidence/soak-3/06-FINDING-B-2-probe-never-launched.txt
+build-evidence/soak-3/07-analysis.txt
+build-evidence/soak-3/09-trackb-references-final.json
+build-evidence/soak-3/10-track-a-soak.log
+build-evidence/soak-3/11-track-a-checkpoints.jsonl
+build-evidence/soak-3/12-track-a-status-final.json
+build-evidence/soak-3/13-wallclock-probe-measured.json
+build-evidence/soak-3/14-secret-scan.txt
+build-evidence/soak-3/15-trackb-runs-continuation.jsonl
+build-evidence/soak-3/16-trackb-checkpoints-continuation.jsonl
+build-evidence/soak-3/17-trackb-continuation.log
+build-evidence/soak-3/18-trackb-status-final.json
+build-evidence/soak-3/19-winddown-assertions.txt
+build-evidence/soak-3/trackb-halted/HALTED
+build-evidence/soak-3/trackb-halted/checkpoints.jsonl
+build-evidence/soak-3/trackb-halted/references.json
+build-evidence/soak-3/trackb-halted/runs-primary-window.jsonl
+build-evidence/soak-3/trackb-halted/soak.log
+build-evidence/soak-3/trackb-halted/status.json
+build-evidence/st-1/PROPOSED-PINS-DELTA.md
+build-evidence/st-1/REPORT-ST-1.md
+build-evidence/st-1/outputs/cpu-code.tokens
+build-evidence/st-1/outputs/cpu-code.txt
+build-evidence/st-1/outputs/cpu-math.tokens
+build-evidence/st-1/outputs/cpu-math.txt
+build-evidence/st-1/outputs/cpu-reason.tokens
+build-evidence/st-1/outputs/cpu-reason.txt
+build-evidence/st-1/outputs/cpu-struct.tokens
+build-evidence/st-1/outputs/cpu-struct.txt
+build-evidence/st-1/outputs/gpu-code.tokens
+build-evidence/st-1/outputs/gpu-code.txt
+build-evidence/st-1/outputs/gpu-math.tokens
+build-evidence/st-1/outputs/gpu-math.txt
+build-evidence/st-1/outputs/gpu-reason.tokens
+build-evidence/st-1/outputs/gpu-reason.txt
+build-evidence/st-1/outputs/gpu-struct.tokens
+build-evidence/st-1/outputs/gpu-struct.txt
+build-evidence/st-1/outputs/server-cpu.log
+build-evidence/st-1/outputs/server-gpu.log
+build-evidence/st-1/raw/00-byte-freeze-before.txt
+build-evidence/st-1/raw/01-transport-check.txt
+build-evidence/st-1/raw/02-phase1-device-assert.txt
+build-evidence/st-1/raw/03-provenance.txt
+build-evidence/st-1/raw/04-harness-diff.txt
+build-evidence/st-1/raw/05-cpu-arm.txt
+build-evidence/st-1/raw/06-cpu-vs-aug2-control.txt
+build-evidence/st-1/raw/07-service-stop-start.txt
+build-evidence/st-1/raw/08-gpu-arm.txt
+build-evidence/st-1/raw/09-gpu-vs-aug2-kerneldrift.txt
+build-evidence/st-1/raw/10-gate16-cpu-vs-gpu.txt
+build-evidence/st-1/raw/11-divergence-adjudication.txt
+build-evidence/st-1/raw/12-apparmor-bwrap-smoke.txt
+build-evidence/st-1/raw/13-canaries.txt
+build-evidence/st-1/raw/14-adversarial-audit.txt
+build-evidence/st-1/raw/99-byte-freeze-after.txt
+build-evidence/st-1/st1-canaries
+build-evidence/st-1/st1-correctness
+config/accepted-secret-exposures.tsv
+config/alertmanager.yml
+config/prometheus-rules.yml
+config/prometheus.yml
+config/systemd/wrought-alert-receiver.service
+config/systemd/wrought-alert@.service
+config/systemd/wrought-alertmanager.service
+config/systemd/wrought-node-metrics.service
+config/systemd/wrought-prometheus.service
+config/systemd/wrought-secret-watch.service
+config/systemd/wrought-secret-watch.timer
+config/wrought-inference.service
+config/wrought-verify.slice
+docs/00-ground-truth.md
+docs/01-serving.md
+docs/02-pipeline.md
+docs/03-verification.md
+docs/04-persistence.md
+docs/05-escalation.md
+docs/06-security.md
+docs/07-build-rail.md
+docs/08-decisions.md
+docs/09-assumptions.md
+docs/10-cots-bom.md
+docs/11-video-annex.md
+docs/12-reconciliation.md
+docs/EXECUTOR-RAILS.md
+docs/GATE-JOURNAL.md
+docs/PHASE-J-HISTORY.md
+docs/PHASE-J-STATE.md
+docs/ROADMAP-1.0.md
+docs/history/BOOTSTRAP.md
+docs/history/CONTEST-RECORD.md
+docs/history/FIX-ACTIONS-SESSION-12.md
+docs/history/GATE-43-READINESS-2026-08-06.md
+docs/history/PHASE-A-ANSWER-SHEET.md
+docs/history/R12-ADJUDICATION.md
+docs/history/RESEARCH-PACKAGE-R12.md
+docs/history/REVIEW-TRIAGE.md
+fixtures/TASK-2026-0804-01-subnet/TASK.md
+fixtures/TASK-2026-0804-01-subnet/tests/test_subnet.py
+fixtures/TASK-2026-0804-02-cronnext/TASK.md
+fixtures/TASK-2026-0804-02-cronnext/tests/test_cronnext.py
+fixtures/TASK-2026-0804-03-ratelimit/TASK.md
+fixtures/TASK-2026-0804-03-ratelimit/tests/test_ratelimit.py
+fixtures/TASK-2026-0804-04-syslog/TASK.md
+fixtures/TASK-2026-0804-04-syslog/tests/test_syslog.py
+fixtures/TASK-2026-0804-05-logrotate/TASK.md
+fixtures/TASK-2026-0804-05-logrotate/tests/test_logrotate.py
+fixtures/TASK-2026-0804-06-nftdiff/TASK.md
+fixtures/TASK-2026-0804-06-nftdiff/tests/test_nftdiff.py
+fixtures/TASK-2026-0804-07-dhcpleases/TASK.md
+fixtures/TASK-2026-0804-07-dhcpleases/tests/test_dhcpleases.py
+fixtures/TASK-2026-0804-08-akaudit/TASK.md
+fixtures/TASK-2026-0804-08-akaudit/tests/test_akaudit.py
+fixtures/TASK-2026-0804-09-zonefile/TASK.md
+fixtures/TASK-2026-0804-09-zonefile/tests/test_zonefile.py
+fixtures/TASK-2026-0804-10-ipalloc/TASK.md
+fixtures/TASK-2026-0804-10-ipalloc/tests/test_ipalloc.py
+fixtures/canon-v2-vectors.json
+fixtures/envelopes/J-101-substrate-misclassification.json
+fixtures/synthetic-trackb.json
+fixtures/task-valid.md
+packs/py.toml
+packs/security.toml
+pins.lock
+pins.lock.template
+products/README.md
+products/queue-health/MANIFEST.json
+products/queue-health/queue_health.py
+reports/SESSION-REPORT-10.md
+reports/SESSION-REPORT-11.md
+reports/SESSION-REPORT-12.md
+reports/SESSION-REPORT-13.md
+reports/SESSION-REPORT-14.md
+reports/SESSION-REPORT-15.md
+reports/SESSION-REPORT-16.md
+reports/SESSION-REPORT-17.md
+reports/SESSION-REPORT-GATE-06-08.md
+reports/SESSION-REPORT-GATE-23-26-30.md
+reports/SESSION-REPORT-GATE-37.md
+reports/SESSION-REPORT-GATE-38-39.md
+reports/SESSION-REPORT-GATE-40.md
+reports/SESSION-REPORT-SOAK-1.md
+reports/SESSION-REPORT-SOAK-2.md
+review/horizon/CONSOLIDATED-ROADMAP.md
+review/horizon/LOCAL-BASELINE.md
+review/horizon/PANEL.md
+review/horizon/README.md
+review/horizon/REPO-MAP.md
+review/horizon/REPORT-HORIZON.md
+review/horizon/RESEARCH-QUESTIONS.md
+review/horizon/assemble-repo-map.py
+review/horizon/baseline-run.log
+review/horizon/check-groundedness.py
+review/horizon/deepseek-deepseek-v4-pro-0813.md
+review/horizon/deepseek-deepseek-v4-pro-0813.raw.json
+review/horizon/file-list.txt
+review/horizon/google-gemini-3.1-pro-preview.md
+review/horizon/google-gemini-3.1-pro-preview.raw.json
+review/horizon/google-google-gemma-3-4b-it.md
+review/horizon/google-google-gemma-3-4b-it.raw.json
+review/horizon/groundedness.json
+review/horizon/openai-openai-gpt-5.md
+review/horizon/openai-openai-gpt-5.raw.json
+review/horizon/packet/ARCHITECTURE.md
+review/horizon/packet/ASK.txt
+review/horizon/packet/PACKET-LOCAL.txt
+review/horizon/packet/PACKET-PROVENANCE.md
+review/horizon/packet/PACKET.txt
+review/horizon/packet/SECURITY-HISTORY.md
+review/horizon/packet/STATE.md
+review/horizon/packet/VISION.md
+review/horizon/panel-run.log
+review/horizon/panel-topup-results.json
+review/horizon/repo-map-run.log
+review/horizon/repo-map-started.txt
+review/horizon/repo-map/bin__assert-power-profile.md
+review/horizon/repo-map/bin__baseline-report.md
+review/horizon/repo-map/bin__baseline-run.md
+review/horizon/repo-map/bin__build-replay-corpus.md
+review/horizon/repo-map/bin__decompose-baseline.md
+review/horizon/repo-map/bin__deploy-verifier.md
+review/horizon/repo-map/bin__escalate-once.md
+review/horizon/repo-map/bin__escalation-config-assert.md
+review/horizon/repo-map/bin__gate-review-send-panel.md
+review/horizon/repo-map/bin__gate05-postboot-collect.md
+review/horizon/repo-map/bin__gate06-reverify.md
+review/horizon/repo-map/bin__gate09b-10b-orch-freeze.md
+review/horizon/repo-map/bin__gate12-devstral-ctx.md
+review/horizon/repo-map/bin__gate13-measure.md
+review/horizon/repo-map/bin__gate14-swap.md
+review/horizon/repo-map/bin__gate15-bench-matrix.md
+review/horizon/repo-map/bin__gate16-fresh.md
+review/horizon/repo-map/bin__gate17-ordinal-sweep.md
+review/horizon/repo-map/bin__gate18-longctx.md
+review/horizon/repo-map/bin__gate19-fresh.md
+review/horizon/repo-map/bin__gate20-vram.md
+review/horizon/repo-map/bin__gate21-bwrap-smoke.md
+review/horizon/repo-map/bin__gate23-classifier.md
+review/horizon/repo-map/bin__gate24-pack-loader.md
+review/horizon/repo-map/bin__gate25-hardening.md
+review/horizon/repo-map/bin__gate25-measure-tasksmax.md
+review/horizon/repo-map/bin__gate26-routing.md
+review/horizon/repo-map/bin__gate29-security-offline.md
+review/horizon/repo-map/bin__gate30-secrets.md
+review/horizon/repo-map/bin__gate37-replay.md
+review/horizon/repo-map/bin__gate38-canon.md
+review/horizon/repo-map/bin__gate39-chaos.md
+review/horizon/repo-map/bin__gate40-escalation.md
+review/horizon/repo-map/bin__gate41-fixtures.md
+review/horizon/repo-map/bin__gate42-fallback-baseline.md
+review/horizon/repo-map/bin__gate43-feedback-ab.md
+review/horizon/repo-map/bin__gate43-report.md
+review/horizon/repo-map/bin__gate44-heldout.md
+review/horizon/repo-map/bin__gate44-report.md
+review/horizon/repo-map/bin__gate44-split.md
+review/horizon/repo-map/bin__gen-canon-vectors.md
+review/horizon/repo-map/bin__gen-pack.md
+review/horizon/repo-map/bin__gen-profile.md
+review/horizon/repo-map/bin__installed-drift-check.md
+review/horizon/repo-map/bin__make-review-bundle-19.md
+review/horizon/repo-map/bin__make-review-bundle-20.md
+review/horizon/repo-map/bin__make-review-bundle-21.md
+review/horizon/repo-map/bin__make-session-19-bundle.md
+review/horizon/repo-map/bin__make-soak3-bundle.md
+review/horizon/repo-map/bin__manufacture-report.md
+review/horizon/repo-map/bin__manufacture.md
+review/horizon/repo-map/bin__measure-typecheck-modes.md
+review/horizon/repo-map/bin__measure-verify-walltime.md
+review/horizon/repo-map/bin__oracle-isolation-probe.md
+review/horizon/repo-map/bin__orchestrator.md
+review/horizon/repo-map/bin__probe-reasoning-budget.md
+review/horizon/repo-map/bin__probe-reasoning-control.md
+review/horizon/repo-map/bin__probe-satisfiability.md
+review/horizon/repo-map/bin__probe-verify-timeout.md
+review/horizon/repo-map/bin__propose-con-manifest-diffs.md
+review/horizon/repo-map/bin__reclassify-corpus.md
+review/horizon/repo-map/bin__redaction-corpus.md
+review/horizon/repo-map/bin__replay-blocked-attempts.md
+review/horizon/repo-map/bin__repro-cap-fallthrough.md
+review/horizon/repo-map/bin__resolve-ruff-ruleset.md
+review/horizon/repo-map/bin__secpack-fetch.md
+review/horizon/repo-map/bin__secpack-freeze.md
+review/horizon/repo-map/bin__secpack-osv-fetch.md
+review/horizon/repo-map/bin__secret-leak-scan.md
+review/horizon/repo-map/bin__serve-model.md
+review/horizon/repo-map/bin__set-power-profile.md
+review/horizon/repo-map/bin__soak-curve.md
+review/horizon/repo-map/bin__soak-harness.md
+review/horizon/repo-map/bin__soak3-analyze.md
+review/horizon/repo-map/bin__soak3-build-pool.md
+review/horizon/repo-map/bin__soak3-importcheck.md
+review/horizon/repo-map/bin__soak3-launch.md
+review/horizon/repo-map/bin__soak3-status.md
+review/horizon/repo-map/bin__soak3-track-a.md
+review/horizon/repo-map/bin__soak3-track-b.md
+review/horizon/repo-map/bin__test-f2-repairing-rest.md
+review/horizon/repo-map/bin__test-f3-runner-scan.md
+review/horizon/repo-map/bin__test-f4-allowed-tools.md
+review/horizon/repo-map/bin__test-f8-signal-teardown.md
+review/horizon/repo-map/bin__test-fc02-broken-oracle.md
+review/horizon/repo-map/bin__test-gate44-heldout.md
+review/horizon/repo-map/bin__test-l1-path-derivation.md
+review/horizon/repo-map/bin__test-r1-stale-candidate.md
+review/horizon/repo-map/bin__test-r5-budget-toctou.md
+review/horizon/repo-map/bin__test-r6-journal-window.md
+review/horizon/repo-map/bin__test-s13-invariants.md
+review/horizon/repo-map/bin__test-s14-invariants.md
+review/horizon/repo-map/bin__test-s15-invariants.md
+review/horizon/repo-map/bin__test-stop33b-equivalence.md
+review/horizon/repo-map/bin__test-stop40-pack-invalid.md
+review/horizon/repo-map/bin__trackb-report.md
+review/horizon/repo-map/bin__trackb-round2.md
+review/horizon/repo-map/bin__trackb-run.md
+review/horizon/repo-map/bin__verify-d24-backstop.md
+review/horizon/repo-map/bin__verify-job.md
+review/horizon/repo-map/bin__wait-healthy.md
+review/horizon/repo-map/bin__wrought-alert-receiver.md
+review/horizon/repo-map/bin__wrought-course-check.md
+review/horizon/repo-map/bin__wrought-course-post.md
+review/horizon/repo-map/bin__wrought-node-metrics.md
+review/horizon/repo-map/bin__wrought-precommit-secret-scan.md
+review/horizon/repo-map/bin__wrought-runner-hook.md
+review/horizon/repo-map/bin__wrought-runner.md
+review/horizon/repo-map/bin__wrought-secret-watch.md
+review/horizon/repo-map/src__wrought_escalation____init__.py.md
+review/horizon/repo-map/src__wrought_escalation__client.py.md
+review/horizon/repo-map/src__wrought_escalation__config.py.md
+review/horizon/repo-map/src__wrought_escalation__driver.py.md
+review/horizon/repo-map/src__wrought_escalation__escalate.py.md
+review/horizon/repo-map/src__wrought_escalation__ledger.py.md
+review/horizon/repo-map/src__wrought_orchestrator__fsm.py.md
+review/horizon/repo-map/src__wrought_orchestrator__redact.py.md
+review/horizon/repo-map/src__wrought_orchestrator__store.py.md
+review/horizon/repo-map/src__wrought_orchestrator__validate.py.md
+review/horizon/repo-map/src__wrought_orchestrator__worker.py.md
+review/horizon/repo-map/src__wrought_supervisor__classify.py.md
+review/horizon/repo-map/src__wrought_supervisor__heldout.py.md
+review/horizon/repo-map/src__wrought_supervisor__oracle.py.md
+review/horizon/repo-map/src__wrought_supervisor__router.py.md
+review/horizon/repo-map/src__wrought_verifier____init__.py.md
+review/horizon/repo-map/src__wrought_verifier____main__.py.md
+review/horizon/repo-map/src__wrought_verifier__pack.py.md
+review/horizon/run-local.py
+review/horizon/run-local.py.appendix-verbatim
+review/horizon/run-panel-topup.py
+review/horizon/run-panel.py
+review/horizon/x-ai-x-ai-grok-4.6.md
+review/horizon/x-ai-x-ai-grok-4.6.raw.json
+review/horizon/z-ai-z-ai-glm-5.md
+review/horizon/z-ai-z-ai-glm-5.raw.json
+src/wrought_escalation/__init__.py
+src/wrought_escalation/client.py
+src/wrought_escalation/config.py
+src/wrought_escalation/driver.py
+src/wrought_escalation/escalate.py
+src/wrought_escalation/ledger.py
+src/wrought_orchestrator/fsm.py
+src/wrought_orchestrator/redact.py
+src/wrought_orchestrator/store.py
+src/wrought_orchestrator/validate.py
+src/wrought_orchestrator/worker.py
+src/wrought_supervisor/classify.py
+src/wrought_supervisor/heldout.py
+src/wrought_supervisor/oracle.py
+src/wrought_supervisor/router.py
+src/wrought_verifier/__init__.py
+src/wrought_verifier/__main__.py
+src/wrought_verifier/pack.py
+tasks/TASK-2026-0808-queue-health/TASK.md
+tasks/TASK-2026-0808-queue-health/tests/test_queue_health.py
+wrought-foundry-spec-v3.5.2.zip) and S310 (it POSTs to
+     127.0.0.1:8080, the resident model). Both are the tool doing exactly what it is for.
+
+/bin/bash: line 30: import: command not found
+ONE THING WAS FIXED RATHER THAN EXPLAINED:  was unused and is removed.
+### command: ruff check --select F,S --statistics bin/wrought-scope   (after the removal)
+4	S310	suspicious-url-open-usage
+1	S603	subprocess-without-shell-equals-true
+1	S607	start-process-with-partial-path
+Found 6 errors.
+
+## CORRECTION BY ADDITION (rails §4) — one line above is GARBLED, and it is not edited out
+The line reading
+
+    ONE THING WAS FIXED RATHER THAN EXPLAINED:  was unused and is removed.
+
+lost its subject. The capture used an unquoted heredoc and the shell expanded the backticks around
+the identifier as a command substitution; the stray "/bin/bash: line 30: import: command not found"
+above it is the same accident. The line should read:
+
+    ONE THING WAS FIXED RATHER THAN EXPLAINED: the "import urllib.error" line in
+    bin/wrought-scope was unused and is removed.
+
+The measurement below it -- 6 findings, all S-class, zero F-class -- is unaffected and was taken
+after the removal. Recorded here rather than overwritten, because evidence is corrected by
+addition and never by edit.
