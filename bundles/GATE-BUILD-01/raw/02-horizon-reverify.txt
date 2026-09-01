@@ -1,0 +1,46 @@
+# GATE-BUILD-01 raw/02 — PHASE 0 RE-VERIFICATION of bundles/GATE-HORIZON/
+# captured: 2026-09-01T01:25:20Z
+# cwd: /home/kalib/courier/Wrought/bundles/GATE-HORIZON
+
+## (1) command: sha256sum -c SHA256SUMS   [manifest round-trip]
+   exit=0  entries=168  OK-lines=168  FAILED-lines=0
+
+## (2) command: diff <(sed 1,10d raw/00-byte-freeze-before.txt) <(sed 1,10d raw/99-byte-freeze-after.txt)  [freeze HOLD]
+   --- hashes in raw/00 ---
+   6600fe63abd0116c63f51723b2cee83e6477e06e76604d6f36e3d843396d8fde  /var/lib/wrought/state/orchestrator.db
+   e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /var/lib/wrought/state/orchestrator.db-wal
+   fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb  /var/lib/wrought/state/orchestrator.db-shm
+   --- hashes in raw/99 ---
+   6600fe63abd0116c63f51723b2cee83e6477e06e76604d6f36e3d843396d8fde  /var/lib/wrought/state/orchestrator.db
+   e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /var/lib/wrought/state/orchestrator.db-wal
+   fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb  /var/lib/wrought/state/orchestrator.db-shm
+   diff exit=0  bytes of diff output=0   [0 = HOLD]
+
+## (3) command: ls repo-map | wc -l   [the 127 claim]
+   repo-map entries = 127
+   tools/file-list.txt lines = 127
+
+## (4) command: python3 -c 'json.load(open("groundedness.json"))["counts"]'   [the 113 RELIABLE / 14 UNCHECKABLE claim]
+   counts = {'UNCHECKABLE': 14, 'RELIABLE': 113}
+   n results = 127  threshold = 0.6  min_cited = 2
+
+## (5) command: python3 -c 'sum the panel cost fields'   [the $0.7749 of $15 claim]
+   deepseek-deepseek-v4-pro-0813.raw.json               cost=0.11738628
+   google-gemini-3.1-pro-preview.raw.json               cost=0.196102
+   google-google-gemma-3-4b-it.raw.json                 cost=0.00384955
+   openai-openai-gpt-5.raw.json                         cost=0.1542625
+   x-ai-x-ai-grok-4.6.raw.json                          cost=0.193474
+   z-ai-z-ai-glm-5.raw.json                             cost=0.1098058
+   sum over shipped .raw.json = 0.7749  (n=6)
+   panel-run.log:
+     panel done: 4/5 OK, $0.4614
+     key limit_remaining: 20.720533109999998
+     payload: 234420 chars
+     [google] -> google/gemini-3.1-pro-preview (bound $0.36)
+     [google] OK 8615 chars, $0.1961, cum $0.1961
+     [deepseek] -> deepseek/deepseek-v4-pro-0813 (bound $0.08)
+     [deepseek] OK 30241 chars, $0.1174, cum $0.3135
+     
+     TOP-UP TOTAL $0.3135 of $5.00 ceiling
+   panel-topup-results.json cost fields:
+      {"ceiling_usd": 5.0, "max_tokens": 20000, "total_spend_usd": 0.3135, "results": [{"lineage": "google", "slug": "google/gemini-3.1-pro-preview", "zdr_prechecked": true, "precall_cost_bound_usd": 0.3572, "cost_source": "usage.cost returned by OpenRouter", "status": "OK", "elapsed_s": 91.7, "provider": "Google", "generation_id": "gen-1788215912-BOcMJTkW2G7w9MCQtYPu", "finish_reason": "stop", "usage": {"prompt_tokens": 73481, "completion_tokens": 4095, "total_tokens": 77576, "cost": 0.196102, "is_byok": false, "prompt_tokens_details": {"cached_tokens": 0, "cache_write_tokens": 0, "audio_tokens": 0
