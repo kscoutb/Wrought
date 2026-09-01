@@ -1,0 +1,143 @@
+# GATE-BUILD-01 raw/20 — PHASE 3 PRE-FLIGHT and the BYTE FREEZE BRACKETING THE PROBE
+# captured: 2026-09-01T02:03:24Z
+
+## (a) command: sha256sum /var/lib/wrought/state/orchestrator.db{,-wal,-shm}
+##     A SECOND freeze, taken immediately before the probe, so any drift is attributable to
+##     THE PROBE and not to the whole session. raw/00 is the session bracket; this is the
+##     probe's own.
+6600fe63abd0116c63f51723b2cee83e6477e06e76604d6f36e3d843396d8fde  /var/lib/wrought/state/orchestrator.db
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /var/lib/wrought/state/orchestrator.db-wal
+fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb  /var/lib/wrought/state/orchestrator.db-shm
+
+## (b) WHY THE PROBE RUNS WITH ESCALATION STRUCTURALLY OFF — read from the code, not tripped
+##     command: grep -n 'db_path' pins.lock ; sed -n '175,182p' src/wrought_escalation/ledger.py
+1313:db_path: /var/lib/wrought/state/orchestrator.db
+        return
+    prod = production_db_path()
+    import pathlib as _pathlib
+    if db_file(conn) and _pathlib.Path(db_file(conn)).resolve() == _pathlib.Path(prod).resolve():
+        yield conn
+
+     ledger.authority() resolves the SPEND AUTHORITY to pins.lock's db_path, which IS the
+     byte-frozen production store. bin/manufacture's own docstring says the ledger row is
+     'the one production write this run is allowed to make'. For a normal manufacturing run
+     that is correct and intended. For THIS gate it collides with rails 2: a live escalation
+     would move raw/99 and turn this gate's own freeze into a STOP EVERYTHING. So the probe
+     runs --no-escalation, no openrouter credential is loaded, escalate.read_credential is
+     never called, and ESCALATION PRESSURE is measured instead of escalation SPEND.
+
+## (c) command: sed -n '320,326p' bin/manufacture   -- the flag combination is REFUSED, so
+##     --escalation-max-tokens is omitted rather than passed alongside --no-escalation
+    if not a.no_escalation and a.escalation_max_tokens is None:
+        sys.exit("manufacture: --escalation-max-tokens is REQUIRED unless --no-escalation is set "
+                 "(§13.5 cannot bound a call without it)")
+    if a.no_escalation and a.escalation_max_tokens is not None:
+        sys.exit("manufacture: --escalation-max-tokens is meaningless with --no-escalation; "
+                 "refusing rather than silently ignoring it")
+
+
+## (d) STOP-33 preflight: the PRODUCT store queue must be empty
+##     command: python3 -c (below) over /var/lib/wrought/product/product.db
+   product store exists: True
+   queue: 0 rows
+   tasks: 1 rows
+   events: 8 rows
+   PENDING queue rows: 0
+
+## (e) INPUT VALIDATION of the new spec — command:
+##     /opt/wrought/venv-orch/bin/python -c 'from wrought_orchestrator import validate; ...'
+   (no validate_task; available: ['ARTICLED_SUBJECT', 'CON_RE', 'EARS_NEGATIVE_CONTROLS', 'EARS_PATTERNS', 'EARS_POSITIVE_CONTROLS', 'FRONTMATTER_SCHEMA', 'MAX_BYTES', 'MAX_DEPTH', 'REQ_LINE', 'REQ_RE', 'SHALL', 'TASK_ID_RE', 'ValidationResult', 'YAML', 'YAMLError', 'annotations', 'canon_v2', 'dataclass', 'ears_pattern', 'field'] )
+
+## (e-corrected) INPUT VALIDATION — the entry point is validate.validate(), not validate_task.
+##   The check below reproduces build-evidence/session-21/03-queue-health/inputvalidation.txt
+##   clause for clause, rather than deriving a new one.
+##   command: git status --porcelain tasks/   (empty = committed bytes ARE the bytes on disk)
+   [above empty => validating the COMMITTED bytes, GATE-41's rule]
+
+--- clause 1-5: wrought_orchestrator.validate.validate() ---
+    ok=False  defects=1  notes=0
+    canon_v2 spec_sha256 = d7df87b858a0d708ff8e493912999e77ce5343d830fff81b6c109214f1af6827
+    REQs stated in body: []
+    CONs stated in body: []
+    DEFECT: {'code': 'threshold_without_number', 'detail': '`worst_severity` (`"high"`, `"medium"`, or `"none"`). Every finding SHALL carry at least the keys', 'where': 'body'}
+
+--- §7.8 clause 'every declared id resolves to a REAL test' (GATE-41 arm 3) ---
+    declared nodes = 15   in-file nodes = 15
+    resolution failures: NONE
+    §7.8 arm 3b (RUNS but declared nowhere): []
+    declared but ABSENT from the file      : []
+
+--- GATE-41 arm 8: the Overview's module name == what the oracle imports ---
+    Overview says implement : scope_lint.py
+    oracle imports          : ['copy', 'pytest', 'scope_lint', 'time']
+    AGREE: True
+
+## (f) CORRECTION BY ADDITION — TWO DEFECTS IN THE CAPTURE ABOVE, and one of them is in the SPEC
+
+### (f1) THE SPEC FAILED THE PROJECT'S OWN VALIDATOR ON FIRST PASS. This is the finding.
+`validate.validate()` returned `ok=False, defects=1`:
+
+    {'code': 'threshold_without_number',
+     'detail': '`worst_severity` (`"high"`, `"medium"`, or `"none"`). Every finding SHALL carry
+                at least the keys', 'where': 'body'}
+
+`validate.py:374-377` flags any body line matching `MUST NOT exceed|at least|no more than|under`
+that contains no digit -- §7.6's non-machine-checkable-threshold lint. REQ-007 said *"SHALL carry
+at least the keys"*, which is an ENUMERATION and not a threshold, and the lint cannot tell the two
+apart from one line. The lint is still right to fire: an unquantified "at least" in a requirement
+is exactly the shape that reaches a candidate as a blank to fill, and CLAUDE.md's priority 4 calls
+an underspecified requirement a defect to report rather than a blank to fill.
+
+FIXED IN THE SPEC, not worked around in the capture. REQ-007 now reads *"SHALL include the 3 keys
+`kind`, `severity` and `path`; additional keys on a finding are permitted"* -- which is both
+digit-bearing and strictly clearer about what was always meant.
+
+    command: (validate.validate over the corrected TASK.md)
+    ok=True  defects=0  notes=0
+    spec_sha256 = dcd388263b153f6d015a629c78d4bf472b41d0f0c638ca321b05014f59a5c81e
+    REQs: ['REQ-001'..'REQ-008']   CONs: ['CON-001', 'CON-002']
+
+THE SPEC HASH MOVED, and that is fine and is stated: nothing has been manufactured against the old
+one. The superseded value was d7df87b858a0d708ff8e493912999e77ce5343d830fff81b6c109214f1af6827.
+
+### (f2) THE CAPTURE'S OWN REGEX WAS BROKEN, which is why "REQs stated in body: []" is wrong
+The `re.findall(r'REQ-\\d+', body)` inside the heredoc reached Python as a literal backslash-d, so
+it matched nothing and the capture printed an empty list for a body containing eight REQs. The
+corrected run above lists all eight. The line above is left standing per rails §4; it is a capture
+defect, not a spec defect, and both are recorded rather than one being quietly repaired.
+
+## (g) --dump-prompt: prove the prompt ASSEMBLES from this TASK.md before spending GPU. FREE.
+##     command: ./bin/manufacture --task-dir tasks/TASK-2026-0901-scope-lint --run p1 \
+##                 --max-tokens 32000 --no-escalation --dump-prompt
+{
+ "task_id": "TASK-2026-0901-scope-lint",
+ "module_filename": "scope_lint.py",
+ "spec_sha256": "dcd388263b153f6d015a629c78d4bf472b41d0f0c638ca321b05014f59a5c81e",
+ "system": "You are a Python implementation engine. Return ONE fenced ```python block containing a complete module. No prose, no explanation, no tests, no __main__ block. The module is judged by: ruff --select=F,S (101 rules: pyflakes correctness and flake8-bandit security; style rules are NOT enforced), basedpyright in 'standard' typeCheckingMode (its reported ERRORS must be zero; warnings do not fail), and pytest. Write a module docstring and a docstring on every public function.",
+ "attempt_0": [
+  {
+   "role": "system",
+   "content": "You are a Python implementation engine. Return ONE fenced ```python block containing a complete module. No prose, no explanation, no tests, no __main__ block. The module is judged by: ruff --select=F,S (101 rules: pyflakes correctness and flake8-bandit security; style rules are NOT enforced), basedpyright in 'standard' typeCheckingMode (its reported ERRORS must be zero; warnings do not fail), and pytest. Write a module docstring and a docstring on every public function."
+  },
+  {
+   "role": "user",
+   "content": "Implement a module `scope_lint.py`.\n\nREQUIREMENT:\n# TASK SPECIFICATION\n\n## Overview\nImplement `scope_lint.py` exposing a PURE function\n\n    lint_index(index: dict, tree: dict[str, str]) -> dict\n\nthat checks a context-scoping index against the file tree it claims to describe, and reports every\nway the two have drifted apart. It performs no I/O: a thin operational wrapper (outside this task)\nreads `index/scope-index.json` and hashes the tracked files, and passes both in.\n\n`index` is the parsed scoping index. Only one key is in scope here: `index[\"files\"]`, a dict\nmapping a repository-relative path (str) to a record (dict). A record has `sha256` (a 64-character\nlowercase hexadecimal string \u2014 the digest of the file's bytes as of the last index build) and\n`tokens` (a non-negative int \u2014 the measured cost of loading that file). Records carry other keys;\nthey are ignored.\n\n`tree` is a dict mapping repository-relative path (str) to the file's CURRENT sha256, for exactly\nthe files that ought to be indexed.\n\nAn index that has drifted from its tree is worse than no index: it reports a token cost for bytes\nthat are not there any more, and it silently omits files a session needed. This function is what\nmakes that drift loud.\n\n## Requirements\n- **REQ-001**: WHEN every path in `tree` is present in `index[\"files\"]`, every indexed path is\n  present in `tree`, every pair of digests agrees, and every record's `tokens` is valid, THE SYSTEM\n  SHALL return a result whose `findings` list is empty and whose `worst_severity` is `\"none\"`.\n- **REQ-002**: WHEN a path is present in `tree` and absent from `index[\"files\"]`, THE SYSTEM SHALL\n  emit a finding with `kind = \"MISSING_FROM_INDEX\"` and `severity = \"high\"` \u2014 a file a session\n  could be asked to load that the index cannot offer.\n- **REQ-003**: WHEN a path is present in `index[\"files\"]` and absent from `tree`, THE SYSTEM SHALL\n  emit `kind = \"ABSENT_FROM_TREE\"`, `severity = \"high\"` \u2014 the index is quoting a token cost for a\n  file that no longer exists.\n- **REQ-004**: WHEN a path is present in both and `index[\"files\"][path][\"sha256\"]` differs from\n  `tree[path]`, THE SYSTEM SHALL emit `kind = \"STALE_HASH\"`, `severity = \"high\"` \u2014 the file was\n  edited after the index was built, so its recorded cost and summary describe bytes that are gone.\n- **REQ-005**: WHEN a record for a path present in `tree` has no `tokens` key, or a `tokens` value\n  that is not an `int`, or an `int` below zero, THE SYSTEM SHALL emit `kind = \"BAD_TOKEN_COUNT\"`,\n  `severity = \"medium\"`. A `bool` is NOT an acceptable `tokens` value even though Python makes it\n  an `int`.\n- **REQ-006**: WHEN a single path satisfies more than one of REQ-004 and REQ-005, THE SYSTEM SHALL\n  emit one finding PER matched condition and SHALL NOT collapse them \u2014 nothing hides behind a\n  higher-severity sibling.\n- **REQ-007**: THE SYSTEM SHALL return `findings` sorted by descending severity (`high` before\n  `medium`), ties broken by `path` then `kind`, so identical inputs yield a byte-identical result;\n  and SHALL include `counts` (a dict of kind -> int, containing only kinds that occurred) and\n  `worst_severity` (`\"high\"`, `\"medium\"`, or `\"none\"`). Every finding SHALL include the 3 keys\n  `kind`, `severity` and `path`; additional keys on a finding are permitted.\n- **REQ-008**: IF `index` is not a dict, OR has no `\"files\"` key, OR `index[\"files\"]` is not a\n  dict, OR `tree` is not a dict, THEN THE SYSTEM SHALL raise `ValueError` and SHALL NOT return a\n  partial result. IF any record in `index[\"files\"]` is not a dict, OR its `sha256` is missing, is\n  not a `str`, or is not exactly 64 lowercase hexadecimal characters, OR the corresponding `tree`\n  value is not such a string, THEN THE SYSTEM SHALL raise `ValueError` whose message contains the\n  offending path.\n\n## Constraints & Invariants\n- **CON-001**: The implementation MUST be pure \u2014 no filesystem access, no network, no subprocess,\n  and no reading of the clock. Everything it needs is in its two arguments. Determinism is what\n  lets a wrapper run this on every commit and lets this oracle judge it.\n- **CON-002**: `index` and `tree`, and the dicts inside them, MUST NOT be mutated.\n\n## Acceptance\nAll fail_to_pass tests newly pass; all pass_to_pass tests still pass; lint (ruff F,S) and type\n(basedpyright standard) and coverage per the pinned pack.\n\n\nThe module must define exactly this public API:\nImplement `scope_lint.py` exposing a PURE function\n\n    lint_index(index: dict, tree: dict[str, str]) -> dict\n\nthat checks a context-scoping index against the file tree it claims to describe, and reports every\nway the two have drifted apart. It performs no I/O: a thin operational wrapper (outside this task)\nreads `index/scope-index.json` and hashes the tracked files, and passes both in.\n\n`index` is the parsed scoping index. Only one key is in scope here: `index[\"files\"]`, a dict\nmapping a repository-relative path (str) to a record (dict). A record has `sha256` (a 64-character\nlowercase hexadecimal string \u2014 the digest of the file's bytes as of the last index build) and\n`tokens` (a non-negative int \u2014 the measured cost of loading that file). Records carry other keys;\nthey are ignored.\n\n`tree` is a dict mapping repository-relative path (str) to the file's CURRENT sha256, for exactly\nthe files that ought to be indexed.\n\nAn index that has drifted from its tree is worse than no index: it reports a token cost for bytes\nthat are not there any more, and it silently omits files a session needed. This function is what\nmakes that drift loud.\n"
+  }
+ ],
+ "repair_turn": [
+  {
+   "role": "system",
+   "content": "You are a Python implementation engine. Return ONE fenced ```python block containing a complete module. No prose, no explanation, no tests, no __main__ block. The module is judged by: ruff --select=F,S (101 rules: pyflakes correctness and flake8-bandit security; style rules are NOT enforced), basedpyright in 'standard' typeCheckingMode (its reported ERRORS must be zero; warnings do not fail), and pytest. Write a module docstring and a docstring on every public function."
+  },
+  {
+   "role": "user",
+   "content": "Implement a module `scope_lint.py`.\n\nREQUIREMENT:\n# TASK SPECIFICATION\n\n## Overview\nImplement `scope_lint.py` exposing a PURE function\n\n    lint_index(index: dict, tree: dict[str, str]) -> dict\n\nthat checks a context-scoping index against the file tree it claims to describe, and reports every\nway the two have drifted apart. It performs no I/O: a thin operational wrapper (outside this task)\nreads `index/scope-index.json` and hashes the tracked files, and passes both in.\n\n`index` is the parsed scoping index. Only one key is in scope here: `index[\"files\"]`, a dict\nmapping a repository-relative path (str) to a record (dict). A record has `sha256` (a 64-character\nlowercase hexadecimal string \u2014 the digest of the file's bytes as of the last index build) and\n`tokens` (a non-negative int \u2014 the measured cost of loading that file). Records carry other keys;\nthey are ignored.\n\n`tree` is a dict mapping repository-relative path (str) to the file's CURRENT sha256, for exactly\nthe files that ought to be indexed.\n\nAn index that has drifted from its tree is worse than no index: it reports a token cost for bytes\nthat are not there any more, and it silently omits files a session needed. This function is what\nmakes that drift loud.\n\n## Requirements\n- **REQ-001**: WHEN every path in `tree` is present in `index[\"files\"]`, every indexed path is\n  present in `tree`, every pair of digests agrees, and every record's `tokens` is valid, THE SYSTEM\n  SHALL return a result whose `findings` list is empty and whose `worst_severity` is `\"none\"`.\n- **REQ-002**: WHEN a path is present in `tree` and absent from `index[\"files\"]`, THE SYSTEM SHALL\n  emit a finding with `kind = \"MISSING_FROM_INDEX\"` and `severity = \"high\"` \u2014 a file a session\n  could be asked to load that the index cannot offer.\n- **REQ-003**: WHEN a path is present in `index[\"files\"]` and absent from `tree`, THE SYSTEM SHALL\n  emit `kind = \"ABSENT_FROM_TREE\"`, `severity = \"high\"` \u2014 the index is quoting a token cost for a\n  file that no longer exists.\n- **REQ-004**: WHEN a path is present in both and `index[\"files\"][path][\"sha256\"]` differs from\n  `tree[path]`, THE SYSTEM SHALL emit `kind = \"STALE_HASH\"`, `severity = \"high\"` \u2014 the file was\n  edited after the index was built, so its recorded cost and summary describe bytes that are gone.\n- **REQ-005**: WHEN a record for a path present in `tree` has no `tokens` key, or a `tokens` value\n  that is not an `int`, or an `int` below zero, THE SYSTEM SHALL emit `kind = \"BAD_TOKEN_COUNT\"`,\n  `severity = \"medium\"`. A `bool` is NOT an acceptable `tokens` value even though Python makes it\n  an `int`.\n- **REQ-006**: WHEN a single path satisfies more than one of REQ-004 and REQ-005, THE SYSTEM SHALL\n  emit one finding PER matched condition and SHALL NOT collapse them \u2014 nothing hides behind a\n  higher-severity sibling.\n- **REQ-007**: THE SYSTEM SHALL return `findings` sorted by descending severity (`high` before\n  `medium`), ties broken by `path` then `kind`, so identical inputs yield a byte-identical result;\n  and SHALL include `counts` (a dict of kind -> int, containing only kinds that occurred) and\n  `worst_severity` (`\"high\"`, `\"medium\"`, or `\"none\"`). Every finding SHALL include the 3 keys\n  `kind`, `severity` and `path`; additional keys on a finding are permitted.\n- **REQ-008**: IF `index` is not a dict, OR has no `\"files\"` key, OR `index[\"files\"]` is not a\n  dict, OR `tree` is not a dict, THEN THE SYSTEM SHALL raise `ValueError` and SHALL NOT return a\n  partial result. IF any record in `index[\"files\"]` is not a dict, OR its `sha256` is missing, is\n  not a `str`, or is not exactly 64 lowercase hexadecimal characters, OR the corresponding `tree`\n  value is not such a string, THEN THE SYSTEM SHALL raise `ValueError` whose message contains the\n  offending path.\n\n## Constraints & Invariants\n- **CON-001**: The implementation MUST be pure \u2014 no filesystem access, no network, no subprocess,\n  and no reading of the clock. Everything it needs is in its two arguments. Determinism is what\n  lets a wrapper run this on every commit and lets this oracle judge it.\n- **CON-002**: `index` and `tree`, and the dicts inside them, MUST NOT be mutated.\n\n## Acceptance\nAll fail_to_pass tests newly pass; all pass_to_pass tests still pass; lint (ruff F,S) and type\n(basedpyright standard) and coverage per the pinned pack.\n\n\nThe module must define exactly this public API:\nImplement `scope_lint.py` exposing a PURE function\n\n    lint_index(index: dict, tree: dict[str, str]) -> dict\n\nthat checks a context-scoping index against the file tree it claims to describe, and reports every\nway the two have drifted apart. It performs no I/O: a thin operational wrapper (outside this task)\nreads `index/scope-index.json` and hashes the tracked files, and passes both in.\n\n`index` is the parsed scoping index. Only one key is in scope here: `index[\"files\"]`, a dict\nmapping a repository-relative path (str) to a record (dict). A record has `sha256` (a 64-character\nlowercase hexadecimal string \u2014 the digest of the file's bytes as of the last index build) and\n`tokens` (a non-negative int \u2014 the measured cost of loading that file). Records carry other keys;\nthey are ignored.\n\n`tree` is a dict mapping repository-relative path (str) to the file's CURRENT sha256, for exactly\nthe files that ought to be indexed.\n\nAn index that has drifted from its tree is worse than no index: it reports a token cost for bytes\nthat are not there any more, and it silently omits files a session needed. This function is what\nmakes that drift loud.\n"
+  },
+  {
+   "role": "assistant",
+   "content": "(previous attempt)"
+  },
+  {
+   "role": "user",
+   ...
+   exit=0

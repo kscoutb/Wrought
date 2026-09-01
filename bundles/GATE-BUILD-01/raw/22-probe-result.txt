@@ -1,0 +1,107 @@
+# GATE-BUILD-01 raw/22 — THE PROBE RESULT, harvested from the unit and the event log
+# captured: 2026-09-01T02:09:21Z
+
+## (a) the full run log
+##     command: cat build-evidence/gate-build-01/manufacture-scopelint-p1.log
+2026-09-01T02:05:34Z  MANUFACTURE start pid=174358 db=/var/lib/wrought/product/product.db run=p1 task=TASK-2026-0901-scope-lint spec_sha256=dcd388263b153f6d module=scope_lint.py reasoning=ON max_tokens=32000 feedback_mode=VERIFIER escalation=DISABLED (local-only, $0)
+2026-09-01T02:05:34Z  VERDICT SOURCE: the WORKER's own oracle (oracle.oracle_verdict via worker.run(verifier=…)). No verdict_script is supplied and none can be — STOP-33b's production path.
+2026-09-01T02:05:34Z  served n_ctx=65536 chars_per_token=3.0
+2026-09-01T02:08:45Z    TASK-2026-0901-scope-lint-p1       a=0 PASS                 all_pass             6917tok  36.4t/s fin=stop   verify= 0.9s fsm=COMPLETED
+2026-09-01T02:08:45Z    TASK-2026-0901-scope-lint-p1       FINAL COMPLETED     attempts=1 escalated=False wall=191.0s
+2026-09-01T02:08:45Z  MANUFACTURE run=p1 done -> /var/lib/wrought/product/records-p1.json
+
+## (b) THE UNIT'S OWN VERDICT — read from systemd, not inferred from a log tail.
+##     RemainAfterExit=yes exists exactly so these survive to be read (rails 18).
+##     command: systemctl show wrought-manufacture-scopelint-p1 -p Result -p ExecMainStatus ...
+ActiveState=active
+SubState=exited
+Result=success
+ExecMainStartTimestamp=Mon 2026-08-31 22:05:34 EDT
+ExecMainExitTimestamp=Mon 2026-08-31 22:08:45 EDT
+ExecMainCode=1
+ExecMainStatus=0
+
+## (c) THE RECORD, from the product store's records file
+##     command: python3 -m json.tool /var/lib/wrought/product/records-p1.json
+{
+    "task_id": "TASK-2026-0901-scope-lint-p1",
+    "task": "TASK-2026-0901-scope-lint",
+    "module": "scope_lint",
+    "run": "p1",
+    "spec_sha256": "dcd388263b153f6d015a629c78d4bf472b41d0f0c638ca321b05014f59a5c81e",
+    "n_reqs": 8,
+    "max_tokens": 32000,
+    "feedback_mode": "verifier",
+    "attempts": [
+        {
+            "attempt": 0,
+            "classification": "PASS",
+            "verdict": "all_pass",
+            "verdict_source": "bin/verify-job oracle run, attempt 0",
+            "reason": "all checks passed",
+            "staged_sha256": {
+                "scope_lint.py": "9e2200f8e03d65177aadcca2795f49193027a2e2f8b90532aad71fdbfe94d7db"
+            },
+            "staged_at_utc": "2026-09-01T02:08:44Z",
+            "gen_latency_s": 190.09,
+            "tokens_per_s": 36.39,
+            "output_tokens": 6917,
+            "input_tokens": 1593,
+            "reasoning_chars": 21468,
+            "finish_reason": "stop",
+            "verify_s": 0.86,
+            "feedback_mode": "verifier",
+            "feedback_chars": 0,
+            "checks": {
+                "py.cov.threshold": "pass",
+                "py.lint.ruff": "pass",
+                "py.test.pytest": "pass",
+                "py.type.basedpyright": "pass"
+            },
+            "fsm_state_after": "COMPLETED",
+            "fsm_repair_index_after": 0
+        }
+    ],
+    "escalation": null,
+    "substrate_incidents": 0,
+    "final_state": "COMPLETED",
+    "repair_index": 0,
+    "escalated": false,
+    "n_attempts": 1,
+    "wall_s": 191.0,
+    "oracle_pass": true,
+    "events": [
+        {
+            "seq": 9,
+            "event_type": "TASK_CREATED"
+        },
+        {
+            "seq": 10,
+            "event_type": "TRANSITION:claim"
+        },
+        {
+            "seq": 11,
+            "event_type": "TRANSITION:valid"
+        },
+        {
+            "seq": 12,
+            "event_type": "TRANSITION:plan_committed"
+        },
+        {
+            "seq": 13,
+            "event_type": "STEP_INTENT"
+        },
+        {
+            "seq": 14,
+            "event_type": "STEP_OUTCOME"
+        },
+        {
+            "seq": 15,
+            "event_type": "TRANSITION:patch_produced"
+        },
+        {
+            "seq": 16,
+            "event_type": "TRANSITION:all_pass"
+        }
+    ]
+}

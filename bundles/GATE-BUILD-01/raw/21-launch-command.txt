@@ -1,0 +1,55 @@
+=== THE LAUNCH COMMAND, VERBATIM (J-95: a measured value carries the command that produced it) ===
+
+sudo -n systemd-run --unit=wrought-manufacture-scopelint-p1 \
+  -p Description="Wrought: manufacture TASK-2026-0901-scope-lint (GATE-BUILD-01 M2 probe, escalation OFF)" \
+  -p User=kalib -p Group=kalib \
+  -p WorkingDirectory=/home/kalib/review-rc1 \
+  -p Restart=no \
+  -p RemainAfterExit=yes \
+  -p RuntimeMaxSec=10800 \
+  -p Environment=USER=kalib \
+  -p LoadCredentialEncrypted=inference-api-key:/etc/credstore.encrypted/inference-api-key \
+  -p StandardOutput=append:/home/kalib/review-rc1/build-evidence/gate-build-01/manufacture-scopelint-p1.log \
+  -p StandardError=append:/home/kalib/review-rc1/build-evidence/gate-build-01/manufacture-scopelint-p1.log \
+  /home/kalib/review-rc1/bin/manufacture \
+      --task-dir tasks/TASK-2026-0901-scope-lint --run p1 \
+      --max-tokens 32000 --no-escalation
+
+FIVE DELIBERATE DIFFERENCES FROM SESSION 21'S PROVEN INVOCATION, EACH WITH ITS REASON.
+The base is build-evidence/session-21/03-queue-health/launch-command.txt, copied rather than
+re-derived; only these five move.
+
+ 1. EVERY PATH POINTS AT /home/kalib/review-rc1, NOT /home/kalib/foundry. Session 21's command
+    hardcodes the foundry root three times. /home/kalib/foundry is checked out on `main`, which
+    does NOT contain tasks/TASK-2026-0901-scope-lint -- that task exists only on `review-fixes`,
+    in this worktree. Copied verbatim the probe would have died on a missing task dir, or worse,
+    run against the wrong tree. bin/manufacture derives its ROOT from __file__, so invoking the
+    worktree's copy also gives it the worktree's src/ and pins.lock.
+
+ 2. --no-escalation, AND NO openrouter CREDENTIAL IS LOADED. ledger.authority() resolves spend to
+    pins.lock's db_path = /var/lib/wrought/state/orchestrator.db -- the byte-frozen production
+    store. A live escalation writes a ledger row there, which would move raw/99 and make this
+    gate's own freeze a rails 2 STOP EVERYTHING. Read from the code before launching, not
+    discovered by tripping it. With the flag set, esc_key is None and
+    escalate.read_credential("openrouter-api-key") is never called, so the credential would be
+    dead weight and a surface for nothing. The measurement becomes escalation PRESSURE, not
+    escalation SPEND, and the report says so plainly rather than quietly reporting "0 escalations".
+
+ 3. --escalation-max-tokens is OMITTED. bin/manufacture:323 REFUSES the combination outright
+    ("meaningless with --no-escalation; refusing rather than silently ignoring it"), which is the
+    control working; passing both would have halted before the model was reached.
+
+ 4. -p RuntimeMaxSec=10800 IS ADDED. The prompt time-boxes this probe at ~3 hours. A time-box the
+    operator has to enforce by watching is not a time-box; systemd enforces this one, and an
+    honest "it reached here and stopped at the deadline" is the instructed outcome.
+
+ 5. FRESH UNIT NAME wrought-manufacture-scopelint-p1. RemainAfterExit=yes means the unit outlives
+    the run BY DESIGN, so Result= and ExecMainStatus= survive to be read as evidence rather than
+    inferred from a log tail. Rails 13 says nothing a gate starts may outlive it, so this gate
+    STOPS AND RESETS THE UNIT ITSELF after harvesting, and records that it did.
+
+UNCHANGED, AND DELIBERATELY SO: --max-tokens 32000 is the value every committed run from b1
+through GATE-44 and the queue-health product used. Inventing a different cap is the hard-rule
+violation, and with reasoning ON a too-small cap lands in the result as difficulty that was really
+truncation (SPEC-R6.2a). systemd-run is not a stylistic choice either: 14.4 gives the inference key
+exactly one route, $CREDENTIALS_DIRECTORY, and a plain shell aborts in under a second.

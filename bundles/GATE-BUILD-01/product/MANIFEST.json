@@ -1,0 +1,134 @@
+{
+  "_what_this_is": [
+    "The registry entry for ONE verified manufactured tool. It records what was built, from which",
+    "spec, graded by which oracle, to which verdict, at which commit. Every hash in it is",
+    "reproducible with `sha256sum` against tracked bytes, and every claim traces to committed",
+    "evidence rather than to this file's own assertion.",
+    "IT IS NOT A SECOND SOURCE OF TRUTH. The run's authority is the event log and the evidence",
+    "under build-evidence/gate-build-01/; this is an index over it."
+  ],
+
+  "task_id": "TASK-2026-0901-scope-lint",
+  "run_id": "TASK-2026-0901-scope-lint-p1",
+  "module": "scope_lint",
+  "product_path": "products/scope-lint/scope_lint.py",
+
+  "spec": {
+    "path": "tasks/TASK-2026-0901-scope-lint/TASK.md",
+    "spec_sha256_at_manufacture": "dcd388263b153f6d015a629c78d4bf472b41d0f0c638ca321b05014f59a5c81e",
+    "spec_sha256_current": "dcd388263b153f6d015a629c78d4bf472b41d0f0c638ca321b05014f59a5c81e",
+    "task_md_file_sha256": "2fdfe317ad5aa128bd25c18ae6b5d27e73eedebe0d6bb163bf75f2d6ce1f7478",
+    "_canon": "spec_sha256 is canon_v2 (SPEC-R7.5) over frontmatter+body with spec_sha256 REMOVED from its own input. It is NOT the file digest; both are recorded because they answer different questions.",
+    "_the_two_agree_here_and_that_is_worth_stating": "queue-health's two spec fields DIVERGED, which is why the field is split at all. They agree here because nothing has edited TASK.md since the run. If a later session edits it, at_manufacture must NOT be rebound — it is evidence about dcd38826… and about nothing else.",
+    "_one_earlier_hash_exists_and_is_NOT_this_one": "The spec first canonicalised to d7df87b858a0d708ff8e493912999e77ce5343d830fff81b6c109214f1af6827 and FAILED validate.validate() with `threshold_without_number` on REQ-007 (an unquantified \"at least\"). It was corrected before anything was manufactured, so no verdict was ever earned against d7df87b8. build-evidence/gate-build-01/20-phase3-preflight.txt §(f1)."
+  },
+
+  "oracle": {
+    "path": "tasks/TASK-2026-0901-scope-lint/tests/test_scope_lint.py",
+    "sha256": "2fdcbe062d9bb0c6f884b5d26c68e59f277476587a32efd9f63e20bcdf820cd6",
+    "pinned_by": "bin/verify-job assert_test_manifest (RULING 5) — the oracle's bytes are pinned from the ingesting commit forward, so a later edit is detectable rather than silent",
+    "provenance": "MACHINE-AUTHORED by the GATE-BUILD-01 session. NOT operator-ratified.",
+    "_provenance_is_the_weakest_field_here_and_it_is_weaker_than_queue_health_s": [
+      "This oracle AND the spec it grades were both written by the same session. queue-health's",
+      "oracle was at least advisor-drafted, and its manifest still records provenance at the weaker",
+      "reading because nobody confirmed a review. This one has no such ambiguity: it was written",
+      "here, and D11 makes ratification the operator's.",
+      "WHAT IT DOES HAVE is the separation that matters for the measurement: the candidate was",
+      "written by the resident Qwen3.6-27B, in another process, from TASK.md alone, with no sight",
+      "of this file. The grader did not write the code and the coder did not see the grader.",
+      "AND THE ORACLE WAS PROVEN TO WORK BEFORE IT WAS USED, both ways round —",
+      "build-evidence/gate-build-01/12-oracle-satisfiable-and-falsifiable.txt: SATISFIABLE (29 test",
+      "runs green against a reference implementation, which lived only in a scratchpad and was",
+      "deleted, enumerated, before the pipeline was asked for anything) and FALSIFIABLE (four",
+      "independent mutations of that reference → 1, 2, 3 and 2 failures). GATE-HORIZON shipped a",
+      "negative control that could not fail; this is the check that exists because of it."
+    ]
+  },
+
+  "module_sha256": "9e2200f8e03d65177aadcca2795f49193027a2e2f8b90532aad71fdbfe94d7db",
+  "_module_sha256_is_the_staging_receipt": "Not a digest computed for this file. It is the R1-1 staging receipt, and products/README.md's ONE admission rule is that it agree on all three surfaces. Verified on all three in build-evidence/gate-build-01/23-out-of-band-reverify.txt §(a): the TRANSITION:all_pass event payload (records-p1.json attempts[0].staged_sha256), the job's staged.json on disk, and `sha256sum` of the delivered file.",
+
+  "verdict": {
+    "final_state": "COMPLETED",
+    "oracle_verdict": "all_pass",
+    "verdict_source": "bin/verify-job oracle run, attempt 0",
+    "_verdict_source_is_the_point": "Sourced BY THE WORKER (STOP-33b), not injected by the harness. The run log's own second line records it: worker.run(verifier=oracle.oracle_verdict), no verdict_script supplied and none possible.",
+    "attempt": 0,
+    "repair_cap": 3,
+    "attempts_used": 1,
+    "escalated": false,
+    "wall_s": 191.0,
+    "gen_latency_s": 190.09,
+    "checks": {
+      "py.lint.ruff": "pass",
+      "py.type.basedpyright": "pass",
+      "py.test.pytest": "pass",
+      "py.cov.threshold": "pass"
+    },
+    "pytest": "29 collected, 29 passed",
+    "_pytest_29_run_15_declared": "29 ran; 15 nodes are declared. The gap is parametrization, not an undeclared test: test_bad_token_count ×6, test_structural_malformed_raises ×4 and test_bad_sha_raises_names_path ×7 are one declared node each. Every in-file test function IS declared — checked mechanically, 15 declared / 15 in-file / 0 either way. queue-health shipped with one node running undeclared; that gap was closed here before the run rather than after it.",
+    "coverage": "0.9825 line fraction against a pinned minimum of 0.85",
+    "spend_usd": 0.0,
+    "ledger_rows": 0,
+    "output_tokens": 6917,
+    "input_tokens": 1593,
+    "reasoning_chars": 21468,
+    "tokens_per_s": 36.39,
+    "finish_reason": "stop"
+  },
+
+  "out_of_band_reverification": {
+    "_why": "F-1 Face B is OPEN. `COMPLETED ⟹ the oracle passed` does not hold against a candidate forging its own in-process verdict, and the standing compensating control is that a COMPLETED artifact is PROVISIONALLY verified until re-verified out of band. The graded envelope even says so about itself: py.test.pytest carries evidence_provenance `self_reported -- candidate code executes in the reporting process (F-1 Face B, OPEN)`.",
+    "evidence": "build-evidence/gate-build-01/23-out-of-band-reverify.txt",
+    "all_four_checks_rerun_independently": true,
+    "pytest": "29 passed, in a different process, a different directory, driven by the session and not the pipeline",
+    "ruff_F_S": "All checks passed (exit 0)",
+    "basedpyright": "errors=0, warnings=0 UNDER THE PACK'S OWN typeCheckingMode=standard config. A first out-of-band run WITHOUT that config reported 3 errors and 35 warnings; that is basedpyright's stricter default, a config mismatch and NOT a verdict discrepancy, and both readings are on the record rather than only the flattering one.",
+    "coverage": "98% recomputed",
+    "_and_it_was_pointed_at_real_data": "The module was run against the ACTUAL index and the ACTUAL tree — data no part of its spec or its synthetic test suite ever mentioned. It immediately reported 2 × MISSING_FROM_INDEX, correctly: bin/wrought-scope and bin/test-wrought-scope were committed AFTER the index was last built, and the index is derived from `git ls-files`. Its first contact with reality found real drift, in the index of the very tool whose spec it was written against."
+  },
+
+  "substrate": {
+    "pack": "py",
+    "pack_sha256": "37d1c39c146a01782c43cd994a666afd8ead01c163db13f861873bdedad3edd9",
+    "served_model": "primary-qwen27b",
+    "n_ctx": 65536,
+    "max_tokens": 32000,
+    "reasoning": "ON",
+    "feedback_mode": "verifier",
+    "escalation": "DISABLED",
+    "_escalation_disabled_on_purpose_and_it_is_not_a_detail": "ledger.authority() resolves the spend authority to pins.lock's db_path = /var/lib/wrought/state/orchestrator.db, the store this gate holds a rails §2 BYTE FREEZE over. A live escalation writes a ledger row THERE. So the run was launched --no-escalation: no OpenRouter credential was loaded and escalate.read_credential was never called. THIS RUN THEREFORE MEASURES NO ESCALATION RATE AND CLAIMS NONE.",
+    "_stamp_matches_queue_health": "Same pack sha256, same served model, same n_ctx and same --max-tokens 32000 as products/queue-health, so this run is readable against that one rather than against an unknown."
+  },
+
+  "manufacture": {
+    "harness": "bin/manufacture --task-dir tasks/TASK-2026-0901-scope-lint --run p1 --max-tokens 32000 --no-escalation",
+    "unit": "wrought-manufacture-scopelint-p1.service (systemd-run, inference-api-key only, Result=success ExecMainStatus=0), stopped and unloaded by this gate — build-evidence/gate-build-01/25-unit-teardown.txt",
+    "store": "/var/lib/wrought/product/product.db (product-scoped; the production event log was NOT written — proved in build-evidence/gate-build-01/24-production-untouched.txt, and the byte freeze over it HELD)",
+    "worktree": "/home/kalib/review-rc1 (branch review-fixes). NOT /home/kalib/foundry, which is on `main` and does not contain this task — session 21's launch command hardcodes the foundry path three times and was re-pointed deliberately.",
+    "started_utc": "2026-09-01T02:05:34Z",
+    "staged_at_utc": "2026-09-01T02:08:44Z",
+    "manufacture_date": "2026-09-01"
+  },
+
+  "evidence": {
+    "run": "build-evidence/gate-build-01/03-scope-lint/",
+    "launch_command": "build-evidence/gate-build-01/21-launch-command.txt",
+    "preflight": "build-evidence/gate-build-01/20-phase3-preflight.txt",
+    "result": "build-evidence/gate-build-01/22-probe-result.txt",
+    "gate_report": "courier bundles/GATE-BUILD-01/REPORT.md"
+  },
+
+  "what_this_run_does_not_licence": [
+    "A RATE. N=1, and this task is deliberately at the easy end: 8 REQs, no concurrency, no",
+    "cross-file scope, a pure function over two dicts. Reading a first-pass rate off it is STOP-27's",
+    "error, which products/queue-health/MANIFEST.json already names — and this is the SECOND such",
+    "product, which makes the temptation worse rather than better. Two is not a rate either.",
+    "AN ESCALATION RATE. None was measured; the tier was structurally off. M2 remains UNRUN.",
+    "UNATTENDED OPERATION. The run itself had no human watching its turns, which is the shape",
+    "ruling 4 asks for, but the gate around it was attended throughout and the batch runner was",
+    "never involved."
+  ],
+
+  "not_wired": "scope_lint.lint_index is a PURE function. Nothing in the running system imports it, and bin/wrought-scope does NOT call it — the operational wrapper that would read index/scope-index.json, hash the tracked files and call this on every commit is explicitly out of scope and does not exist. bin/test-wrought-scope arm D performs the equivalent check with its own inline code, written before this module existed; collapsing the two onto this module is a later gate's call, not this one's."
+}

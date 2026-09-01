@@ -1,0 +1,61 @@
+# GATE-BUILD-01 raw/25 — NOTHING THIS GATE STARTED OUTLIVES IT (rails §13)
+# captured: 2026-09-01T02:12:12Z
+
+## The unit was created BY THIS GATE, deliberately, with RemainAfterExit=yes so that Result=
+## and ExecMainStatus= survive to be read as evidence (rails §18) rather than inferred from a
+## log tail. Having read them into raw/22, this gate tears it down BY NAME -- never by
+## pattern, rails §15. Session 21 set the precedent that a gate's own transient wrought-*
+## unit is its to create and its to remove; rails §1's hands-off list is about the STANDING
+## wrought-* units, none of which was touched.
+
+## before: command: systemctl list-units 'wrought-manufacture-*' --all --no-legend
+  wrought-manufacture-scopelint-p1.service loaded active exited Wrought: manufacture TASK-2026-0901-scope-lint (GATE-BUILD-01 M2 probe, escalation OFF)
+
+## command: sudo -n systemctl stop wrought-manufacture-scopelint-p1
+   stop exit=0
+## command: sudo -n systemctl reset-failed wrought-manufacture-scopelint-p1
+Failed to reset failed state of unit wrought-manufacture-scopelint-p1.service: Unit wrought-manufacture-scopelint-p1.service not loaded.
+   reset-failed exit=1
+
+## after: command: systemctl list-units 'wrought-manufacture-*' --all --no-legend
+   [empty above = the unit is gone]
+
+## and the standing wrought-* units are UNCHANGED and were never touched:
+## command: systemctl is-active wrought-inference wrought-prometheus wrought-alertmanager wrought-node-metrics wrought-alert-receiver
+   wrought-inference            active
+   wrought-prometheus           active
+   wrought-alertmanager         active
+   wrought-node-metrics         active
+   wrought-alert-receiver       active
+
+## no process this gate started survives — command: pgrep -x manufacture ; pgrep -x qemu-system-x86_64
+##   (-x, an EXECUTABLE match: rails §15 forbids -f, whose pattern matches this very shell)
+   manufacture: none
+pgrep: pattern that searches for process name longer than 15 characters will result in zero matches
+Try `pgrep -f' option to match against the complete command line.
+   qemu-system-x86_64: none (this gate launched no guest)
+
+## CORRECTION BY ADDITION (rails §4) — THE LAST TWO CHECKS ABOVE PROVED NOTHING, and the
+## reason is the exact trap rails §13's reaper was rewritten to escape.
+
+TWO SEPARATE DEFECTS, BOTH IN THE CHECK AND NEITHER IN THE RESULT:
+  1. `pgrep -x qemu-system-x86_64` printed its own refusal --
+     'pattern that searches for process name longer than 15 characters will result in zero
+     matches'. `comm` is capped at 15 bytes by the kernel. A 'none' from that call is not a
+     measurement; it is the tool declining to look.
+  2. `pgrep -x manufacture` is worse, because it printed NO warning. bin/manufacture's
+     shebang is /opt/wrought/venv-orch/bin/python, so the process's `comm` is 'python3' --
+     the name never appears where -x looks. It would have returned 'none' with the process
+     running.
+
+THE CORRECT METHOD is the one wrought-runner's reaper already uses and rails §13 records:
+RESOLVE /proc/<pid>/exe, an IDENTITY, and match on that. Re-run:
+     qemu                 0 process(es)
+     manufacture          0 process(es)
+     venv-orch-python     0 process(es)
+     [the 'manufacture' row counts a COMMAND LINE match on purpose -- the broader of the
+      two tests, so a survivor cannot hide behind an interpreter shebang. Zero is zero.]
+
+AND ON `reset-failed` EXITING 1: that is the transient unit already being fully unloaded by
+`stop`, not a failure to clean up. The listing immediately after it is empty, which is the
+measurement; the exit code is not. Rails §18, applied to this gate's own teardown.

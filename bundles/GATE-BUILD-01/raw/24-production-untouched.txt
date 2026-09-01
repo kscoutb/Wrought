@@ -1,0 +1,40 @@
+# GATE-BUILD-01 raw/24 — THE PRODUCTION EVENT LOG WAS NOT WRITTEN, PROVED RATHER THAN PROMISED
+# captured: 2026-09-01T02:11:36Z
+# Method reproduced from build-evidence/session-21/03-queue-health/production-untouched.txt.
+
+## (a) the probe's own byte-freeze bracket: raw/20 (before the probe) vs now (after it)
+##     command: sha256sum /var/lib/wrought/state/orchestrator.db{,-wal,-shm}
+6600fe63abd0116c63f51723b2cee83e6477e06e76604d6f36e3d843396d8fde  /var/lib/wrought/state/orchestrator.db
+e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855  /var/lib/wrought/state/orchestrator.db-wal
+fd4c9fda9cd3f9ae7c962b0ddf37232294d55580e1aa165aa06129b8549389eb  /var/lib/wrought/state/orchestrator.db-shm
+   mechanical diff of the two captures:
+     diff exit=0, 0 bytes of output -> THE PROBE MOVED NOTHING. HOLD.
+
+## (b) the production store contains nothing about this task
+##     command: python3 (below) over the production store, READ-ONLY (mode=ro)
+   production events matching %scope-lint%: (no such column: task_id)
+   production tasks  matching %scope-lint%: 0
+   production events total                : 1158
+   ledger rows total                      : (no such table: ledger)
+
+## (c) NO ESCALATION, SO NO SOCKET, NO LEDGER ROW, NO MONEY — from the run's own record
+   escalated: False   escalation: None   substrate_incidents: 0
+   the run store was /var/lib/wrought/product/product.db (product-scoped, refuse_production() checked it by name)
+
+## (d) CORRECTION BY ADDITION (rails §4) — TWO QUERIES IN (b) NAMED COLUMNS THAT DO NOT EXIST
+The events table is keyed on `stream_id`, not `task_id`, and the ledger table is
+`escalation_ledger`. Both queries above returned an ERROR STRING, and an error string is not
+a zero -- a check that could not run has proven nothing. Schema read first this time:
+     command: SELECT name FROM sqlite_master WHERE type='table'
+     tables: ['escalation_ledger', 'events', 'queue', 'sqlite_sequence', 'tasks', 'tasks_rebuilt']
+     events cols: ['seq', 'stream_id', 'version', 'event_type', 'payload', 'created_at']
+RE-RUN, CORRECTED:
+     production events with stream_id LIKE %scope-lint% : 0
+     production events with payload  LIKE %scope_lint% : 0
+     production tasks  with task_id  LIKE %scope-lint% : 0
+     production events total                           : 1158
+     escalation_ledger rows total                      : 8
+     max(events.seq)                                   : 1158
+     ZERO of this task in the production store, on all three predicates, and the byte freeze
+     in (a) says the file did not move at all -- which is the stronger statement and the one
+     that does not depend on getting a column name right.

@@ -1,0 +1,245 @@
+# GATE-BUILD-01 raw/23 — OUT-OF-BAND RE-VERIFICATION of the COMPLETED artifact
+# captured: 2026-09-01T02:09:49Z
+#
+# WHY: Face B is OPEN. 'COMPLETED implies the oracle passed' does NOT hold against a candidate
+# that forges its own in-process verdict, and the standing COMPENSATING CONTROL is that a
+# COMPLETED artifact is PROVISIONALLY verified and must be RE-VERIFIED OUT OF BAND before it
+# is trusted. This is that re-verification. It runs the oracle in a DIFFERENT process, from a
+# DIFFERENT directory, driven by this session and not by the pipeline.
+
+## (a) the bytes the oracle graded == the bytes re-verified here
+##     command: sha256sum <the staged module> ; cat <staged.json>
+9e2200f8e03d65177aadcca2795f49193027a2e2f8b90532aad71fdbfe94d7db  /var/lib/wrought/jobs/TASK-2026-0901-scope-lint-p1/0/src/scope_lint.py
+9e2200f8e03d65177aadcca2795f49193027a2e2f8b90532aad71fdbfe94d7db  /tmp/claude-1000/-home-kalib-review-rc1/a82b5145-3976-4f59-a4b2-bb53d2ae2e98/scratchpad/oob/scope_lint.py
+   staging receipt on disk:
+{
+ "attempt": 0,
+ "files": {
+  "scope_lint.py": "9e2200f8e03d65177aadcca2795f49193027a2e2f8b90532aad71fdbfe94d7db"
+ },
+ "staged_at": 1788228524.9765127,
+ "staged_at_utc": "2026-09-01T02:08:44Z",
+ "task_id": "TASK-2026-0901-scope-lint-p1"
+}   staging receipt in the event record:
+      {'scope_lint.py': '9e2200f8e03d65177aadcca2795f49193027a2e2f8b90532aad71fdbfe94d7db'}
+
+## (b) THE ORACLE, RE-RUN OUT OF BAND
+##     command: cd <scratchpad> && /opt/wrought/venv/bin/pytest -q test_scope_lint.py
+.............................                                            [100%]
+29 passed in 0.06s
+   pytest exit=0
+
+## (c) THE OTHER THREE PACK CHECKS, ALSO RE-RUN OUT OF BAND
+##     The envelope says all four passed. That envelope is written by the process being
+##     judged, which is the whole of Face B. So all four are re-run here.
+     command: /opt/wrought/venv/bin/ruff check --select F,S --no-cache scope_lint.py
+All checks passed!
+       exit=0
+     command: /opt/wrought/venv/bin/basedpyright --level error scope_lint.py
+       errors=3 warnings=35 informations=0
+     command: coverage run -m pytest && coverage report
+scope_lint.py      57      1    98%
+-----------------------------------
+TOTAL              57      1    98%
+
+## (d) IS IT REAL WORK, OR A STUB? — the module is pointed at the ACTUAL index and the ACTUAL
+##     tree it was specified to check. Nothing in its spec named this repository; the test
+##     suite is all synthetic dicts. This is the first time it meets real data.
+     index files=154  tree files=156
+     -> findings=2  counts={'MISSING_FROM_INDEX': 2}  worst_severity=high
+Traceback (most recent call last):
+  File "<stdin>", line 16, in <module>
+KeyError: 'bin/wrought-scope'
+
+## (e) THE WORK PRODUCT ITSELF — rails 18: a gate proves work happened by inspecting the
+##     ARTIFACT, never by reading the return code of the thing that produced it.
+     command: wc -l -c <the staged module> ; cat it
+ 145 5132 /tmp/claude-1000/-home-kalib-review-rc1/a82b5145-3976-4f59-a4b2-bb53d2ae2e98/scratchpad/oob/scope_lint.py
+     ---8<--- scope_lint.py, as the resident 27B wrote it, verbatim ---8<---
+"""Scope lint module for detecting drift between a scoping index and the file tree."""
+
+from typing import Any
+
+
+def _is_valid_sha256(value: Any) -> bool:
+    """Check whether *value* is a valid 64-character lowercase hexadecimal sha256 digest."""
+    if not isinstance(value, str):
+        return False
+    if len(value) != 64:
+        return False
+    return all(c in "0123456789abcdef" for c in value)
+
+
+def lint_index(index: dict, tree: dict[str, str]) -> dict:
+    """Check a context-scoping index against the file tree and report every drift.
+
+    Compares ``index["files"]`` against ``tree``, emitting findings for missing
+    files, absent files, stale hashes, and invalid token counts.
+
+    Args:
+        index: Parsed scoping index. Must contain a ``"files"`` key mapping
+               repository-relative paths to record dicts with at least
+               ``"sha256"`` and ``"tokens"`` fields.
+        tree: Dict mapping repository-relative paths to the current sha256
+              digest for every file that should be indexed.
+
+    Returns:
+        A dict with three keys:
+
+        * ``findings`` – list of finding dicts, each carrying at least
+          ``kind``, ``severity``, and ``path``.
+        * ``counts`` – mapping of finding ``kind`` to occurrence count
+          (only kinds that occurred).
+        * ``worst_severity`` – ``"high"``, ``"medium"``, or ``"none"``.
+
+    Raises:
+        ValueError: If the structural preconditions on *index* or *tree* are
+                    violated, or if any record / tree value carries an invalid
+                    sha256 digest.
+    """
+    # --- structural validation (REQ-008) -----------------------------------
+    if not isinstance(index, dict):
+        raise ValueError("index must be a dict")
+    if "files" not in index:
+        raise ValueError("index must contain a 'files' key")
+    if not isinstance(tree, dict):
+        raise ValueError("tree must be a dict")
+
+    index_files = index["files"]
+    if not isinstance(index_files, dict):
+        raise ValueError("index['files'] must be a dict")
+
+    # Validate every record and its corresponding tree value.
+    for path, record in index_files.items():
+        if not isinstance(record, dict):
+            raise ValueError(f"Record for path '{path}' is not a dict")
+        if "sha256" not in record:
+            raise ValueError(f"Record for path '{path}' is missing 'sha256'")
+        sha = record["sha256"]
+        if not isinstance(sha, str):
+            raise ValueError(f"sha256 for path '{path}' is not a string")
+        if not _is_valid_sha256(sha):
+            raise ValueError(
+                f"sha256 for path '{path}' is not a valid 64-char lowercase hex string"
+            )
+        if path in tree:
+            tree_val = tree[path]
+            if not _is_valid_sha256(tree_val):
+                raise ValueError(
+                    f"tree value for path '{path}' is not a valid sha256 string"
+                )
+
+    # --- drift detection ---------------------------------------------------
+    findings: list[dict] = []
+
+    index_paths = set(index_files.keys())
+    tree_paths = set(tree.keys())
+
+    # REQ-002: present in tree but absent from index
+    for path in tree_paths - index_paths:
+        findings.append({
+            "kind": "MISSING_FROM_INDEX",
+            "severity": "high",
+            "path": path,
+        })
+
+    # REQ-003: present in index but absent from tree
+    for path in index_paths - tree_paths:
+        findings.append({
+            "kind": "ABSENT_FROM_TREE",
+            "severity": "high",
+            "path": path,
+        })
+
+    # REQ-004 / REQ-005: present in both
+    for path in index_paths & tree_paths:
+        record = index_files[path]
+
+        # REQ-004: stale hash
+        if record["sha256"] != tree[path]:
+            findings.append({
+                "kind": "STALE_HASH",
+                "severity": "high",
+                "path": path,
+            })
+
+        # REQ-005: bad token count
+        tokens = record.get("tokens")
+        if (
+            tokens is None
+            or isinstance(tokens, bool)
+            or not isinstance(tokens, int)
+            or tokens < 0
+        ):
+            findings.append({
+                "kind": "BAD_TOKEN_COUNT",
+                "severity": "medium",
+                "path": path,
+            })
+
+    # --- sort (REQ-007) ----------------------------------------------------
+    severity_order: dict[str, int] = {"high": 0, "medium": 1}
+    findings.sort(
+        key=lambda f: (severity_order[f["severity"]], f["path"], f["kind"])
+    )
+
+    # --- counts & worst severity (REQ-007) ---------------------------------
+    counts: dict[str, int] = {}
+    for f in findings:
+        kind = f["kind"]
+        counts[kind] = counts.get(kind, 0) + 1
+
+    if any(f["severity"] == "high" for f in findings):
+        worst_severity = "high"
+    elif any(f["severity"] == "medium" for f in findings):
+        worst_severity = "medium"
+    else:
+        worst_severity = "none"
+
+    return {
+        "findings": findings,
+        "counts": counts,
+        "worst_severity": worst_severity,
+    }
+     ---8<--- end ---8<---
+
+## (f) CORRECTION BY ADDITION (rails §4) — TWO THINGS ABOVE ARE WRONG, and neither is the
+##     pipeline's fault. Both stand; the corrections are here.
+
+### (f1) '(c) errors=3' IS A CONFIG MISMATCH, NOT A VERDICT DISCREPANCY. Do not read it as one.
+The pack runs basedpyright with a generated config -- packs/py.toml:32,
+    config_files = { "pyrightconfig.json" = "{\"typeCheckingMode\": \"standard\"}" }
+-- and the out-of-band run above supplied NO config, so it used basedpyright's own default,
+which is stricter. The graded envelope's own parsed output is unambiguous:
+     metric= basedpyright_error_count  metric_value= 0  metric_max= 0  outcome= pass
+     parsed summary: {'errorCount': 0, 'filesAnalyzed': 1, 'informationCount': 0, 'timeInSec': 0.174, 'warningCount': 0}
+RE-RUN OUT OF BAND WITH THE PACK'S OWN CONFIG — the honest comparison:
+     command: /opt/wrought/venv/bin/basedpyright --outputjson -p pyrightconfig.json scope_lint.py
+     errors= 0  warnings= 0  filesAnalyzed= 1
+     STILL WORTH RECORDING: under basedpyright's DEFAULT (stricter) mode the module reports
+     3 errors and 35 warnings. That is a fact about the code, not about the verdict, and the
+     pinned gate is 'standard' by pack design. It is not a defect in this run and it is not
+     hidden either.
+
+### (f2) '(d)' CRASHED WITH KeyError: 'bin/wrought-scope' — AND THE CRASH IS THE FINDING.
+The planted-drift arm assumed bin/wrought-scope was in the index. IT IS NOT. The index was
+last rebuilt while bin/wrought-scope and bin/test-wrought-scope were still UNTRACKED, and
+the index is built from `git ls-files`. The two files were committed afterwards.
+So the very first line of (d) -- run BEFORE the crash, and correct -- is the real result:
+     index files=154  tree files=156
+     -> findings=2  counts={'MISSING_FROM_INDEX': 2}  worst_severity=high
+THE MANUFACTURED MODULE FOUND REAL DRIFT ON ITS FIRST CONTACT WITH REAL DATA, in the index
+of the very tool whose spec it was written against. Enumerated:
+       MISSING_FROM_INDEX: bin/test-wrought-scope
+       MISSING_FROM_INDEX: bin/wrought-scope
+Wind-down rebuilds the index and re-runs bin/test-wrought-scope, so the tree SHIPS in sync.
+
+### THE PLANTED-DRIFT ARM, RE-RUN CORRECTLY — proof it is not a function that always says clean
+       counts = {'MISSING_FROM_INDEX': 3, 'STALE_HASH': 1, 'ABSENT_FROM_TREE': 1, 'BAD_TOKEN_COUNT': 1}  worst = high
+       high   MISSING_FROM_INDEX   bin/test-wrought-scope
+       high   STALE_HASH           bin/verify-job
+       high   MISSING_FROM_INDEX   bin/wrought-scope
+       high   ABSENT_FROM_TREE     src/never-existed.py
+       high   MISSING_FROM_INDEX   src/wrought_orchestrator/store.py
+       medium BAD_TOKEN_COUNT      bin/verify-job
+       inputs unmutated: True and True
