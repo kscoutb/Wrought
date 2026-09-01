@@ -319,8 +319,16 @@ defensible from the same packet. **The advisor should rule; this gate deliberate
   `BUILD-JOURNAL.md` **+5,577 B**. The state-doc delta is large for a review gate; it is two live
   blocks (`KNOWN-OPEN` 22 and the `NON-CLAIMS` panel qualifier) plus the invariant restatement the
   prompt mandated. **The narrative went to the journal, not the state doc**, per §11.1.
-- **Uncommitted and left alone:** a `.gitignore` line adding `.review/`, pre-existing at session
-  start. Not this gate's, not discarded, noted.
+- **A `.gitignore` line adding `.review/`, pre-existing at session start — and this gate COMMITTED
+  IT, having said it would not.** An earlier draft of this report stated it was *"uncommitted and
+  left alone"*. That was **true when written and false by wind-down**: a `git add -A` in the
+  wind-down commit swept it into `0c626f3`. Caught by a final `git diff 54f7786..HEAD --
+  .gitignore` rather than by memory, and corrected here rather than left standing. **It is a
+  one-line ignore pattern that was already in the working tree and is harmless** — the defect is
+  not the line, it is that **a report claimed a state the repository contradicted**, which is the
+  precise failure mode this project's evidence discipline exists to catch. `git add -A` is how it
+  happened, and enumerating paths instead is the lesson — the same one `GATE-FIX` F-3 applied to
+  the runner's push path.
 
 ## 11. NOT ESTABLISHED — these travel with every result above
 
