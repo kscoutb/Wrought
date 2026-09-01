@@ -5,8 +5,17 @@ Worktree `/home/kalib/review-rc1`, branch `review-fixes`, base `54f7786`. A **re
 
 **Headline.** Both review streams came back and are published. The oracle-invariant wording is
 stabilized. **But the most transferable thing this gate produced is not the roadmap — it is that
-three of its own instruments were defective, and every one was caught by RUNNING it rather than
-reading it.** That is rails §18 three times in one session, in a gate that had read §18 first.
+SIX of its own instruments were defective, and every one was caught by RUNNING it rather than
+reading it.** Three came in with the prompt (§3); **three more were in tooling this gate wrote
+itself** (§4) — including a groundedness checker that **penalized the correct answer** and a
+negative control that **could not fail**. That is rails §18 six times in one session, in a gate that
+had read §18 before it started.
+
+**The uncomfortable part, stated plainly because it is the finding:** every one of the six printed
+success. Not one announced itself. The appendix reported `summarized 3/3 files` over three empty
+files; the checker reported a clean green from a control that tested an absent token; the packet
+sizing looked fine until a real tokenizer was asked. **A gate that had trusted any exit code, any
+"N/N", or any green would have shipped all six.**
 
 ---
 
@@ -54,9 +63,10 @@ repaired prompt does not erase the record of having been broken):
 Negative control discriminates: prior archived prompts still return their own declared counts
 (25 / 48 / 42).
 
-## 3. The three defective instruments
+## 3. The three defective instruments THAT CAME WITH THE PROMPT
 
-**Every one printed success.** This is the section worth carrying forward.
+**Every one printed success.** This is the section worth carrying forward. The other three — all in
+tooling this gate wrote itself — are in §4.
 
 **(1) Appendix B returns EMPTY summaries and exits 0.** The served profile is `--reasoning on
 --reasoning-budget 24000`; the appendix passes `max_tokens=512`. The model spends the entire budget
@@ -100,7 +110,60 @@ one was a bad pick, one a bad fit, and the script caused both.**
 
 ## 4. The local stream — REPO-MAP timing and reliability
 
-<!--REPOMAP-->
+**PHASE 2 ran the resident 27B over every script under `bin/` and every module under `src/` —
+127 files, air-gapped, sequential (`--parallel 1`), reasoning ON, at zero marginal cost.**
+
+| | |
+|---|---|
+| Files summarized | **127 / 127** |
+| Wall clock | **132 minutes** |
+| Rate | **~64 s/file** overall; ~67 s/file steady-state |
+| Marginal cost | **$0.00** |
+
+The rate was depressed mid-run because PHASE 4b's baseline call contended for the single serving
+slot — the server is `--parallel 1`, so the two jobs interleaved rather than ran in parallel. **The
+thinking-ON choice is what makes this 132 minutes rather than ~21**: measured on one file, thinking
+OFF took 3.4 s and thinking ON took 61.5 s. That was the operator's explicit trade and it is
+recorded as one.
+
+**Groundedness — and the number moved three times, because the INSTRUMENT was wrong twice more.**
+All three readings are kept (rails §4: corrected by addition, never overwritten):
+
+| reading | RELIABLE | UNRELIABLE | NO-SOURCE | % of checkable | identifiers grounded |
+|---|---|---|---|---|---|
+| **v1** as first run | 110 | 5 | 3 | 95.7 % | 1115/1202 = 92.8 % |
+| **v2** two fixes | 112 | 1 | 0 | 99.1 % | 1110/1151 = 96.4 % |
+| **v3** final | **113** | **0** | **0** | **100.0 %** | **1102/1135 = 97.1 %** |
+
+**The two further defects, both in this gate's own tool, both found by reading what it accused:**
+
+1. **The path decoder was lossy and silently mislabelled three real modules `NO-SOURCE`.** The
+   encoding `"/" → "__"` collides with every dunder filename:
+   `src/wrought_verifier/__init__.py` encodes to `src__wrought_verifier____init__.py`, which decodes
+   back to `src/wrought_verifier//init/.py` — not a file. Fixed by **not inverting a non-invertible
+   encoding**: encode each path forward from the original file list and match. Exact by
+   construction.
+2. **THE CHECKER PENALIZED THE CORRECT ANSWER.** For a shell script with no functions, the honest
+   summary is *"Key functions: None; operates as a linear bash script without named functions"* —
+   and the extractor read `operates`, `linear`, `without`, `named` as **claimed identifiers**, found
+   them absent, and marked the summary UNRELIABLE for fabrication. It did this to 5 summaries and
+   **every one of them was right.** The clinching case was `bin/make-review-bundle-20`, scored 0.56:
+   every identifier it actually claimed is in the file (`ZIP` 7 hits, `STAGE` 18, `BASE` 6, `trap`
+   1), while all four "invented" tokens are English prose with **0 hits each**. **A groundedness
+   check that punishes "there are none here" measures fluency, not honesty.**
+
+**THE CAVEAT THAT TRAVELS WITH THE 100 %, and it is not a small one.** That figure is
+**post-correction**, and the instrument was corrected **three times, every time in the direction
+that raised the score.** That is the exact shape of an instrument fitted to its data, and it should
+be read with suspicion even though each fix was forced by a demonstrated false positive with
+evidence rather than by the number being unsatisfying. **The defensible claim is the narrow one:
+after correction, no summary falls below the 60 % threshold — but 33 individual identifiers out of
+1,135 are still ungrounded, so the check is not reporting a clean sweep at the identifier level.**
+14 summaries remain `UNCHECKABLE` (too few citable names for a ratio to mean anything); they are
+carried with that label, since excluding honest summaries over an instrument limit would bias the
+map toward whatever the checker parses well.
+
+`REPO-MAP.md` is **89,099 B**, carrying 113 RELIABLE and 14 UNCHECKABLE summaries, 0 excluded.
 
 The groundedness check is **fabrication-only** and says so in its own output: identifiers a summary
 cites are grepped against the file summarized. **`RELIABLE` means *not obviously fabricated*, never
@@ -177,7 +240,23 @@ It summarized 127 files and wrote a coherent architecture review, for $0.00, wit
 
 ## 8. My own cost — the context-scaling datapoint
 
-<!--COST-->
+**Approximate, and the approximation is stated rather than hidden.** This session's context
+window rolled over once, so the figure is the sum of two windows and the per-phase split is derived
+from observed checkpoints and turn counts, not from an authoritative meter. **The box cannot read
+its own `verdict.json` here — there isn't one; this is an attended session, not a runner child.**
+
+| Phase | ~turns | ~tokens | note |
+|---|---|---|---|
+| Orientation (rails, state doc, QUEUE, courier) | 8 | ~120 k | reading 43 KB of rails + 80 KB of state doc dominates |
+| 0 — adjudication, QUEUE surgery | 8 | ~90 k | |
+| 1 — invariant restatement | 4 | ~35 k | |
+| 2 — tooling, smoke tests, groundedness, assembly | 16 | ~110 k | includes 3 rounds of instrument correction |
+| 3 — packet assembly and measurement | 7 | ~70 k | |
+| 4 / 4b — panel, top-up, baseline | 12 | ~140 k | reading 5 external reviews is most of this |
+| 5 — consolidation | 6 | ~85 k | |
+| 6 — research questions | 2 | ~25 k | |
+| 7 — wind-down, bundle, report | 12 | ~75 k | |
+| **TOTAL** | **~75** | **~750 k** | across two context windows |
 
 **What this number is not.** It is the *whole session*, including reading the rails
 (43 KB), the state doc (80 KB), the queue, five external reviews and the local baseline. **It is not

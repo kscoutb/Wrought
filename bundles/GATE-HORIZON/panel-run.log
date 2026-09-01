@@ -1,0 +1,9 @@
+panel done: 4/5 OK, $0.4614
+key limit_remaining: 20.720533109999998
+payload: 234420 chars
+[google] -> google/gemini-3.1-pro-preview (bound $0.36)
+[google] OK 8615 chars, $0.1961, cum $0.1961
+[deepseek] -> deepseek/deepseek-v4-pro-0813 (bound $0.08)
+[deepseek] OK 30241 chars, $0.1174, cum $0.3135
+
+TOP-UP TOTAL $0.3135 of $5.00 ceiling

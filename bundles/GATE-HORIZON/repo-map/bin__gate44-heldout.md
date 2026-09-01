@@ -1,0 +1,5 @@
+# bin/gate44-heldout
+Purpose: Evaluates a 27B-parameter LLM for reward-hacking by comparing visible versus held-out test pass rates under adversarial trace feedback, while tracking real-money spend against production ledger caps.
+Key functions/classes: Bash functions status, run_complete, spend, say; Python imports json, pathlib, sys, time, sqlite3; ledger utilities wrought_escalation.config, wrought_escalation.ledger, ledger.production_db_path, ledger.spend_microusd.
+Direct imports/dependencies: /opt/wrought/venv-orch/bin/python, sibling scripts bin/gate44-split, bin/test-gate44-heldout, bin/baseline-run, bin/gate44-report, and environment variables GATE44_OUT, GATE44_RUN, WROUGHT_BASELINE_DIR.
+Obvious risk: Hardcoded absolute paths and strict comparand assertions (WANT_PACK, WANT_MODEL) may break in non-standard environments; financial exposure exists since escalation is live and spend tracking relies on ledger.spend_microusd, with inline comments documenting a prior under-reporting defect.

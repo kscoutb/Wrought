@@ -46,11 +46,29 @@ MIN_CITED = 2
 THRESHOLD = 0.60
 
 
+_LIST = [l.strip() for l in (REPO / "review/horizon/file-list.txt").read_text().splitlines() if l.strip()]
+_BY_ENCODED = {p.replace("/", "__") + ".md": p for p in _LIST}
+
+
 def source_for(md: pathlib.Path) -> pathlib.Path | None:
-    """repo-map/bin__foo.md -> bin/foo. The name is the encoding, so this is exact."""
-    rel = md.name[:-3].replace("__", "/")
-    p = REPO / rel
-    return p if p.is_file() else None
+    """repo-map/bin__foo.md -> bin/foo.
+
+    DEFECT FOUND AND FIXED 2026-08-31, in this gate's own tool. The naive inverse --
+    `md.name[:-3].replace("__", "/")` -- is LOSSY, because the encoding "/" -> "__" collides with
+    every dunder filename: `src/wrought_verifier/__init__.py` encodes to
+    `src__wrought_verifier____init__.py`, and decoding that gives `src/wrought_verifier//init/.py`,
+    which is not a file. It silently marked 3 real modules NO-SOURCE -- an unreadable verdict that
+    looked like a missing file rather than a broken decoder.
+
+    The encoding is not invertible, so do not invert it: encode each path from the ORIGINAL file
+    list and match forward. That is exact by construction and cannot collide.
+    """
+    p = _BY_ENCODED.get(md.name)
+    if p:
+        f = REPO / p
+        return f if f.is_file() else None
+    f = REPO / md.name[:-3].replace("__", "/")      # legacy fallback, still correct for non-dunders
+    return f if f.is_file() else None
 
 
 def check(md: pathlib.Path) -> dict:
@@ -69,11 +87,35 @@ def check(md: pathlib.Path) -> dict:
     text = src_path.read_text(encoding="utf-8", errors="replace")
     raw: list[str] = list(IDENT.findall(body))
     for line in KEYLINE.findall(body):
+        # A SECOND DEFECT IN THIS TOOL, FOUND 2026-08-31 AND FIXED: the checker PENALIZED THE
+        # CORRECT ANSWER. For a shell script with no functions the honest summary is
+        #   "Key functions/classes: None; operates as a linear bash script without named functions"
+        # and the extractor below read "operates", "linear", "without", "named" as CLAIMED
+        # IDENTIFIERS, found them absent from the file, and marked the summary UNRELIABLE for
+        # fabrication. It flagged 5 summaries this way, and every one of them was right.
+        # A groundedness check that punishes "there are none here" measures fluency, not honesty.
+        if re.match(r"\s*(?:\*\*)?\s*(none|no\b|n/?a\b)", line, re.IGNORECASE):
+            continue
         # strip any backticked forms already captured, then take bare identifiers
         raw.extend(NAME.findall(line.replace("`", " ")))
-    # words that are prose, not symbols, on a "Key functions:" line
+    # Words that are PROSE, not symbols. An identifier check must never score a common English
+    # word as a claimed symbol -- doing so scores FLUENCY, not groundedness.
+    #
+    # THIRD DEFECT IN THIS TOOL, and the same one twice: `bin/make-review-bundle-20` was scored
+    # 0.56 UNRELIABLE for the sentence "Standalone bash script with no defined functions or
+    # classes; operates via variables ZIP, STAGE, BASE and trap." Every identifier it actually
+    # claimed is in the file (ZIP 7 hits, STAGE 18, BASE 6, trap 1); the four "invented" tokens --
+    # Standalone, defined, operates, variables -- are English, 0 hits each. The summary was
+    # perfectly grounded and the instrument was wrong. The None-prefix guard above did not catch
+    # it because this sentence begins with "Standalone", not "None".
     STOP = {"and", "the", "none", "not", "applicable", "main", "logic", "script", "identifier",
-            "functions", "classes", "class", "function", "helpers", "helper", "plus", "via", "for"}
+            "functions", "classes", "class", "function", "helpers", "helper", "plus", "via", "for",
+            # added after the make-review-bundle-20 false positive
+            "standalone", "defined", "define", "operates", "operate", "variables", "variable",
+            "executes", "execute", "top", "level", "inline", "control", "flow", "named", "without",
+            "linear", "procedural", "driven", "uses", "using", "with", "structured", "sequential",
+            "shell", "bash", "python", "code", "file", "files", "block", "blocks", "step", "steps",
+            "only", "single", "simple", "direct", "purely", "entirely", "global", "globals"}
     cited = []
     for m in raw:
         last = m.split(".")[-1]
