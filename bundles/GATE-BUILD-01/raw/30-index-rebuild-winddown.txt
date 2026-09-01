@@ -1,0 +1,5 @@
+  2 file(s) have no committed purpose; asking the resident model (max_tokens=28000, floor 28000)
+    local-model            bin/test-wrought-scope
+    local-model            bin/wrought-scope
+index -> /home/kalib/review-rc1/index/scope-index.json  (1,811,068 B)
+  156 files, 2,258,357 tree bytes, 623,884 MEASURED tokens

@@ -6,9 +6,17 @@
 **The deliverable is `bin/wrought-scope`**, and the number it exists to produce is this:
 
 > Over 23 committed fixture queries, at the tool's own default cap, a session loads **12.0 files of
-> 154** and **64,779 tokens of 604,102** — **12.8× fewer files and 9.3× fewer tokens** than reading
+> 156** and **66,329 tokens of 623,884** — **13.0× fewer files and 9.4× fewer tokens** than reading
 > the indexed tree. Every token count is **measured** by the served `/tokenize` endpoint, never
 > estimated.
+
+**TWO READINGS OF THAT NUMBER EXIST AND BOTH ARE KEPT, because the tree moved underneath it.** The
+figure above is the tree **as shipped** (`raw/31`), after wind-down committed `bin/wrought-scope`,
+`bin/test-wrought-scope` and the edited state docs — 156 indexed files, 623,884 measured tokens.
+Phase 2 measured **12.8× / 9.3×** on the tree as it stood then (`raw/13`), 154 files and 604,102
+tokens. **Neither supersedes the other and neither was edited to match**; each has its own raw
+capture with the command that produced it, which is J-95's whole point. The difference is that the
+tool now indexes itself.
 
 **Every headline below is followed by what it does not establish.** §7 collects the rest.
 
@@ -21,8 +29,15 @@
 | **0** | `GATE-HORIZON` recorded `ADJUDICATED` — **and re-verified against its own bundle rather than believed.** Its terminal `QUEUE.md` row collapsed to one line, full text moved byte-for-byte to `QUEUE-ARCHIVE.md`. | `raw/01`, `raw/02`, `bundles/GATE-HORIZON/ADJUDICATION.md` |
 | **1** | `docs/ROADMAP-1.0.md` LOCKED (20,018 B). The operator's eight rulings reproduced as M0; the advisor's M2-before-M3 fork ruling recorded. | foundry `ef0aa8a`, `ROADMAP-1.0.md` in this bundle |
 | **2** | **`bin/wrought-scope` built, tested, committed.** Five test arms, all pass. Two defects found in its own ranker by running it. | `raw/10`–`raw/15`, foundry `ae11902` |
-| **3** | The M2 manufacturing probe — see §4. | `raw/20`–`raw/2x` |
-| **4** | Wind-down: freeze re-assert, scan, manifest, this report. | `raw/99` |
+| **3** | The M2 probe: `COMPLETED`/`all_pass` **attempt 0, 191 s, `$0.00`** — and **no escalation rate measured**, see §4. | `raw/20`–`raw/25`, foundry `c0a2b6a` |
+| **4** | Wind-down: doc edits → index rebuild → test re-run → freeze re-assert → manifest. | `raw/30`, `raw/31`, `raw/99` |
+
+**Sequencing note for Phase 4, because it is a trap this gate walked into deliberately rather than
+accidentally:** the wind-down edits `docs/PHASE-J-STATE.md`, `docs/GATE-JOURNAL.md` and
+`BUILD-JOURNAL.md`, and the first two are **indexed**. Editing them stales the committed index, so
+this gate's own `bin/test-wrought-scope` arm D would fail on the tree as shipped. The order is
+therefore **doc edits → `wrought-scope rebuild` → re-run the test → one commit → `raw/99`**. A gate
+that ships a tool which validates the repository has to leave the repository valid.
 
 ---
 
@@ -55,13 +70,16 @@ kept a one-line pointer. **QUEUE.md 33,728 → 29,255 B, −4,473.**
 
 Measured by the committed `bin/test-wrought-scope` over the 23 fixture queries (`raw/13`):
 
-| | files | tokens | vs. the tree |
-|---|---|---|---|
-| **whole indexed tree** | 154 | **604,102** | — |
-| at the test's uniform cap (25) | 22.7 avg | 115,594 avg | 19.1 % |
-| **at `query`'s own default (12)** | **12.0 avg** | **64,779 avg** | **10.7 %** |
+| tree | | files | tokens | vs. the tree |
+|---|---|---|---|---|
+| **at Phase 2** (`raw/13`) | whole indexed tree | 154 | **604,102** | — |
+| | at the test's uniform cap (25) | 22.7 avg | 115,594 avg | 19.1 % |
+| | **at `query`'s own default (12)** | **12.0 avg** | **64,779 avg** | **10.7 %** → **12.8× / 9.3×** |
+| **as shipped** (`raw/31`) | whole indexed tree | 156 | **623,884** | — |
+| | at the test's uniform cap (25) | 22.8 avg | 118,840 avg | 19.0 % |
+| | **at `query`'s own default (12)** | **12.0 avg** | **66,329 avg** | **10.6 %** → **13.0× / 9.4×** |
 
-> **12.8× fewer files. 9.3× fewer tokens.**
+> **13.0× fewer files. 9.4× fewer tokens**, on the tree this gate ships.
 
 The comparand is the summed `/tokenize` cost of every indexed file, and it is **stored in the index
 itself** so no ratio here is against an unnamed denominator.
@@ -144,8 +162,6 @@ different hat.
 
 ## 4. PHASE 3 — the M2 manufacturing probe
 
-*(filled in below at §4.2 once the run terminated)*
-
 ### 4.1 The probe ran with escalation STRUCTURALLY OFF, and the reason is a rails §2 collision
 
 **Found by reading the code before launching, not by tripping it** (`raw/20`):
@@ -162,19 +178,108 @@ rather than reported as a comfortable "0 escalations".
 
 ### 4.2 What the probe measured
 
-*(see §4.3)*
+**`COMPLETED`, `all_pass`, ON THE FIRST ATTEMPT, IN 191 SECONDS, FOR `$0.00`.** The verdict was
+**sourced by the worker from its own oracle** — `worker.run(verifier=oracle.oracle_verdict)`, no
+`verdict_script` supplied and none possible. That is STOP-33b's production path.
+
+| | |
+|---|---|
+| final state | **`COMPLETED`** |
+| oracle verdict | **`all_pass`** |
+| attempts used | **1** of a repair cap of **3** |
+| escalated | **False** — and the tier was off, see §4.1 |
+| wall clock | **191.0 s** (generation 190.09 s, verification 0.86 s) |
+| checks | ruff **PASS**, basedpyright **PASS**, pytest **29/29**, coverage **0.9825** vs a pinned 0.85 |
+| tokens | 1,593 in / 6,917 out at **36.4 t/s**, `finish_reason=stop`, 21,468 reasoning chars |
+| spend | **`$0.00`**, 0 ledger rows, 0 substrate incidents |
+| unit | `Result=success`, `ExecMainStatus=0` — read from systemd, not inferred from a log tail |
+
+**DID IT PRODUCE REAL MULTI-LINE CODE, OR A STUB?** Real code: **145 lines, 5,132 bytes**, a module
+docstring and a full Args/Returns/Raises docstring on the public function, structural validation
+cleanly separated from drift detection, and the `bool`-is-not-an-`int` boundary handled correctly.
+**The module ships verbatim in `raw/23` and in this bundle** so a reader can judge it rather than
+take this paragraph for it.
+
+**AND ON ITS FIRST CONTACT WITH REAL DATA IT FOUND REAL DRIFT.** Pointed at the actual index and the
+actual tree — data neither its spec nor its all-synthetic test suite ever mentioned — it reported
+**2 × `MISSING_FROM_INDEX`**, correctly: `bin/wrought-scope` and `bin/test-wrought-scope` had been
+committed *after* the index was last built, and the index is derived from `git ls-files`. **The tool
+manufactured to check the index found the index stale, in the same session that built both.** A
+planted-drift arm then confirmed it is not a function that always says "clean": four planted drifts,
+four kinds detected, correctly ordered, inputs unmutated.
+
+**OUT-OF-BAND RE-VERIFIED (the Face B compensating control).** The graded envelope says all four
+checks passed — and that envelope is written by the process being judged, which the envelope itself
+admits, carrying `evidence_provenance: "self_reported -- candidate code executes in the reporting
+process (F-1 Face B, OPEN)"`. So all four were re-run in a **different process, from a different
+directory, driven by this session**: pytest **29/29**, ruff **clean**, basedpyright **0 errors under
+the pack's own `typeCheckingMode=standard`**, coverage **98 %**. The staging receipt `9e2200f8…`
+agrees on **all three surfaces** — the `TRANSITION:all_pass` event payload, the job's `staged.json`,
+and `sha256sum` of the file.
+
+**One discrepancy appeared and it is a config mismatch, not a forged verdict — recorded because the
+flattering reading would have been to omit it.** The first out-of-band `basedpyright` run supplied
+**no config** and reported **3 errors and 35 warnings**; the pack generates
+`{"typeCheckingMode": "standard"}` (`packs/py.toml:32`) and basedpyright's own default is stricter.
+Re-run with the pack's config: **0 errors, 0 warnings**, matching the envelope's `metric_value: 0`.
+**Both readings are on the record.** The stricter one is a fact about the module's typing, not about
+the verdict, and the pinned gate is `standard` by pack design.
+
+**PRODUCTION UNTOUCHED, PROVED RATHER THAN PROMISED** (`raw/24`). The probe's own freeze bracket —
+`raw/20` before, `raw/24` after — **diffs to zero bytes**, and the production store holds **0 rows
+matching this task on three separate predicates**. **Nothing the gate started outlived it**
+(`raw/25`): the transient unit was stopped and unloaded by name, and a `/proc/<pid>/exe` scan finds
+no survivor.
+
+The artifact is registered at **`products/scope-lint/`**, which it earns under
+`products/README.md`'s single admission rule.
+
+### 4.3 THREE OF THIS GATE'S OWN VERIFICATION CHECKS WERE DEFECTIVE
+
+Corrected **by addition**, never edited out (rails §4):
+
+1. **A planted-drift arm crashed** with `KeyError: 'bin/wrought-scope'` — and **the crash was the
+   finding**, because the key it could not find was one of the two files the index was missing.
+2. **Two SQL queries named a column and a table that do not exist** (`events.task_id`, `ledger`;
+   the real names are `events.stream_id` and `escalation_ledger`). They returned **error strings
+   where a reader scanning the column would see zeros.** An error string is not a zero, and a check
+   that could not run has proven nothing — rails §5.1's exit-2 rule wearing a different hat.
+3. **A survivor scan used `pgrep -x`** on `qemu-system-x86_64`, which is longer than the kernel's
+   15-byte `comm` (pgrep printed its own refusal), and on `manufacture`, whose process `comm` is
+   `python3` because of its shebang — **that one would have said "none" with the process running.**
+   Redone by resolving `/proc/<pid>/exe`, the identity match rails §13's reaper was rewritten to use.
 
 ---
 
+## 4.4 The byte freeze, and the live-file deltas
+
+**BYTE FREEZE HOLDS.** `raw/00` (session start) vs `raw/99` (wind-down), mechanical `diff` of the
+64-hex lines: **exit 0, zero bytes of output.** The probe's own inner bracket — `raw/20` before it,
+`raw/24` after it — likewise **zero bytes**, so the "nothing moved" claim is attributable to the
+probe specifically and not only to the session as a whole.
+
+**The deltas this gate added to the two live files** (rails §17.1 rule 1 — a size is unattributable
+after the fact; a delta names its author):
+
+| file | at session start | at wind-down | delta |
+|---|---|---|---|
+| `QUEUE.md` | 32,980 B | 29,255 B → plus this gate's `BUNDLED` row | **−3,725 B net**, after collapsing the terminal `GATE-HORIZON` row (−4,473) and adding this gate's own |
+| `docs/PHASE-J-STATE.md` | 83,563 B | **89,301 B** | **+5,738 B** |
+
+**Both files remain over the §17 budget** (~11,013 B and ~76,072 B), and §6 item 4 names the two
+terminal rows that §17 says should already be one line each. **This gate did not fix them** —
+§17 does not require it to — but it does not pass over them silently either.
+
 ## 5. Cost
 
-| Phase | turns (approx.) | notes |
-|---|---|---|
-| ORIENT + 0 | ~30 | reading rails, state doc, QUEUE, bundle re-verification |
-| 1 | ~8 | the roadmap |
-| 2 | ~45 | the build, the sweeps, two defect fixes |
-| 3 | ~15 | pre-flight, launch, harvest, out-of-band re-verify |
-| 4 | ~15 | wind-down |
+| Phase | turns (approx.) | wall | notes |
+|---|---|---|---|
+| ORIENT + 0 | ~30 | ~25 min | rails, state doc, QUEUE, and re-verifying the HORIZON bundle |
+| 1 | ~8 | ~12 min | the roadmap |
+| 2 | ~50 | ~65 min | the build, four parameter sweeps, two defect fixes, five test arms |
+| 3 | ~25 | ~35 min | pre-flight, the 191 s run, harvest, out-of-band re-verify, teardown |
+| 4 | ~20 | ~30 min | wind-down |
+| **total** | **~130** | **~2 h 45 min** | against a 16-hour budget; Phases 0–3 done inside the first ~2 h 15 min against a 6-hour target |
 
 **External spend: `$0.00`.** No cloud tier was reached at any point, by design in Phase 3 and by
 absence of need elsewhere. **Local model: 5 calls in Phase 2** (fresh purpose lines, `max_tokens`
@@ -225,6 +330,19 @@ That is the same limitation `GATE-HORIZON` recorded and it has not improved.
 6. **A HEREDOC ATE A BACKTICK AND GARBLED AN EVIDENCE LINE** (`raw/15`). Corrected **by addition**
    per rails §4 — the garbled line stands, with the correction beneath it and the cause named.
 
+7. **THE PROBE'S ARTIFACT FOUND THIS GATE'S OWN INDEX STALE, WITHIN AN HOUR OF THE INDEX BEING
+   BUILT.** `bin/wrought-scope` and `bin/test-wrought-scope` were committed *after* the last
+   rebuild, and the index is derived from `git ls-files`, so it did not know about them. **This is
+   the deliverable's own half-life, demonstrated by the tool manufactured to detect it**, and it is
+   now a `KNOWN-OPEN` line rather than a discovery waiting for a later gate: nothing rebuilds the
+   index automatically and this gate added no hook.
+
+8. **AN `ExecMainStatus=0` AND A `Result=success` WERE READ FROM SYSTEMD RATHER THAN FROM THE LOG,
+   AND ONE OF THEM STILL NEEDED IGNORING.** `systemctl reset-failed` exited **1** during teardown —
+   because `stop` had already fully unloaded the transient unit. The measurement that matters is the
+   empty `list-units` immediately after it, not the exit code of the command before it. Rails §18
+   applied to this gate's own cleanup.
+
 ---
 
 ## 7. WHAT THIS DID NOT ESTABLISH
@@ -261,10 +379,13 @@ That is the same limitation `GATE-HORIZON` recorded and it has not improved.
   needs and the one it has; **it is not operator ratification, and D11 makes ratification the
   operator's.** The same question is already open against `products/queue-health/MANIFEST.json`.
 
-- **N=1 LICENSES NO RATE.** Whatever Phase 3 measured is one reading against one small,
-  operator-scoped, pure-function task with no concurrency and no cross-file scope. Reading a
-  first-pass rate off it would be STOP-27's error, which
-  `products/queue-health/MANIFEST.json` already names.
+- **N=1 LICENSES NO RATE — AND NOW n=2 DOES NOT EITHER, WHICH IS THE MORE TEMPTING CLAIM.**
+  `products/queue-health` and `products/scope-lint` both reached `COMPLETED` at attempt 0. **Both
+  are pure functions over plain dicts, with no concurrency and no cross-file scope** — the easy end
+  of the GATE-41 distribution, twice. What two data points license is exactly what one licensed:
+  that the production path runs end to end and that the worker sources its own verdict. **Nothing
+  about how often it will.** `products/README.md` now says so in the table itself, so the next
+  reader meets the warning beside the number rather than in a report they may not open.
 
 - **NO ESCALATION RATE WAS MEASURED AT ALL.** The cloud tier was structurally off (§4.1). M2 —
   *prove manufacturing and measure escalation rate* — **remains unrun**, and this probe is not it.
